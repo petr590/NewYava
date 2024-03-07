@@ -21,8 +21,8 @@ public record FieldInsn(int opcode, String className, String name, String typeNa
 		var descriptor = FieldDescriptor.of(className, name, typeName);
 
 		return switch (opcode) {
-			case GETSTATIC -> new FieldOperation(descriptor, null, null);
-			case PUTSTATIC -> new FieldOperation(descriptor, null, context.popAs(descriptor.type()));
+			case GETSTATIC -> FieldOperation.getStatic(descriptor);
+			case PUTSTATIC -> FieldOperation.putStatic(context, descriptor, context.popAs(descriptor.type()));
 			case GETFIELD  -> new FieldOperation(descriptor, context.popAs(descriptor.hostClass()), null);
 			case PUTFIELD  -> new FieldOperation(descriptor, context.popAs(descriptor.hostClass()), context.popAs(descriptor.type()));
 			default -> throw new UnknownOpcodeException(opcode);

@@ -9,6 +9,10 @@ import x590.newyava.type.Type;
 @RequiredArgsConstructor
 public final class DoubleConstant extends Constant {
 
+	public static final DoubleConstant
+			ZERO = new DoubleConstant(0),
+			ONE = new DoubleConstant(1);
+
 	private final double value;
 
 	@Override

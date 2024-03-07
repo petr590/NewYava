@@ -14,7 +14,9 @@ public class DisassemblingException extends RuntimeException {
 		super(cause);
 	}
 
-	protected DisassemblingException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+	protected DisassemblingException(String message, Throwable cause,
+	                                 boolean enableSuppression, boolean writableStackTrace) {
+
 		super(message, cause, enableSuppression, writableStackTrace);
 	}
 }

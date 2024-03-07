@@ -1,7 +1,6 @@
 package x590.newyava.constant;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.text.StringEscapeUtils;
 import x590.newyava.context.ClassContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
@@ -22,6 +21,6 @@ public final class StringConstant extends Constant {
 
 	@Override
 	public void write(DecompilationWriter out, ClassContext context, Type type) {
-		out.record('"').record(StringEscapeUtils.escapeJava(value)).record('"');
+		out.record('"').record(JavaEscapeUtils.escapeString(value)).record('"');
 	}
 }

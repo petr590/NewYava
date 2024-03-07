@@ -24,9 +24,7 @@ public class MethodScope extends Scope {
 			operations.remove(last);
 		}
 
-		if (context.getDescriptor().isConstructor() &&
-				!operations.isEmpty() && operations.get(0).isDefaultConstructor()) {
-
+		if (context.isConstructor() && !operations.isEmpty() && operations.get(0).isDefaultConstructor(context)) {
 			operations.remove(0);
 		}
 	}

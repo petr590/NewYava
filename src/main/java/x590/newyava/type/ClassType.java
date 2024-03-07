@@ -25,7 +25,17 @@ public class ClassType implements ReferenceType {
 			RECORD = valueOf(Record.class),
 			COMPARABLE   = valueOf(Comparable.class),
 			SERIALIZABLE = valueOf(Serializable.class),
-			THROWABLE    = valueOf(Throwable.class);
+			THROWABLE    = valueOf(Throwable.class),
+
+			BYTE      = valueOf(Byte.class),
+			SHORT     = valueOf(Short.class),
+			CHARACTER = valueOf(Character.class),
+			INTEGER   = valueOf(Integer.class),
+			LONG      = valueOf(Long.class),
+			FLOAT     = valueOf(Float.class),
+			DOUBLE    = valueOf(Double.class),
+			BOOLEAN   = valueOf(Boolean.class),
+			VOID      = valueOf(Void.class);
 
 
 	private final String binName, binSimpleName;

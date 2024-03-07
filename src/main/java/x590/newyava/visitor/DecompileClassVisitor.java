@@ -45,7 +45,9 @@ public class DecompileClassVisitor extends ClassVisitor {
 	}
 
 	@Override
-	public void visit(int version, int modifiers, String name, @Nullable String signature, String superName, String[] interfaces) {
+	public void visit(int version, int modifiers, String name,
+	                  @Nullable String signature, String superName, String[] interfaces) {
+
 		this.version = version;
 		this.modifiers = modifiers;
 		this.name = name;
@@ -106,7 +108,9 @@ public class DecompileClassVisitor extends ClassVisitor {
 	}
 
 	@Override
-	public FieldVisitor visitField(int modifiers, String name, String descriptor, @Nullable String signature, @Nullable Object value) {
+	public FieldVisitor visitField(int modifiers, String name, String descriptor,
+	                               @Nullable String signature, @Nullable Object value) {
+
 		super.visitField(modifiers, name, descriptor, signature, value);
 
 		var fieldVisitor = new DecompileFieldVisitor(modifiers, name, descriptor, signature, value);
@@ -115,7 +119,9 @@ public class DecompileClassVisitor extends ClassVisitor {
 	}
 
 	@Override
-	public MethodVisitor visitMethod(int modifiers, String name, String descriptor, @Nullable String signature, String[] exceptions) {
+	public MethodVisitor visitMethod(int modifiers, String name, String descriptor,
+	                                 @Nullable String signature, String[] exceptions) {
+
 		super.visitMethod(modifiers, name, descriptor, signature, exceptions);
 
 		var methodVisitor = new DecompileMethodVisitor(this.name, modifiers, name, descriptor, signature, exceptions);

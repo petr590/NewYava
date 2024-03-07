@@ -1,5 +1,7 @@
 package x590.newyava;
 
+import lombok.AccessLevel;
+import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
@@ -9,6 +11,8 @@ import x590.newyava.exception.DecompilationException;
 import x590.newyava.exception.DisassemblingException;
 import x590.newyava.exception.IllegalModifiersException;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.type.ArrayType;
+import x590.newyava.type.ClassType;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.visitor.DecompileMethodVisitor;
 
@@ -17,13 +21,15 @@ import java.util.List;
 import static x590.newyava.Literals.*;
 import static x590.newyava.Modifiers.*;
 
+@Getter
 public class DecompilingMethod implements ContextualWritable, Importable {
-
 	private final int modifiers;
+
 	private final MethodDescriptor descriptor;
 
 	private final @Unmodifiable List<ReferenceType> exceptions;
 
+	@Getter(AccessLevel.NONE)
 	private final @Nullable CodeGraph codeGraph;
 
 	public DecompilingMethod(DecompileMethodVisitor visitor, ClassContext context) {
@@ -31,6 +37,35 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		this.descriptor = visitor.getDescriptor(context);
 		this.exceptions = visitor.getExceptions();
 		this.codeGraph  = visitor.getCodeGraph();
+	}
+
+	public boolean keep(ClassContext context) {
+		if ((modifiers & ACC_SYNTHETIC) != 0) {
+			return false;
+		}
+
+		if (descriptor.isStaticInitializer() && codeGraph != null && codeGraph.isEmpty()) {
+			return false;
+		}
+
+		if (context.isEnumClass()) {
+			var enumType = context.getThisType();
+
+			return  !descriptor.equals(enumType, "valueOf", enumType, List.of(ClassType.STRING)) &&
+					!descriptor.equals(enumType, "values", ArrayType.forType(enumType), List.of());
+		}
+
+		return true;
+	}
+
+	public void decompile(ClassContext context) {
+		if (codeGraph != null) {
+			try {
+				codeGraph.decompile(descriptor, context);
+			} catch (DecompilationException | DisassemblingException ex) {
+				throw new DecompilationException("In method " + descriptor, ex);
+			}
+		}
 	}
 
 	@Override
@@ -44,30 +79,38 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		writeModifiers(out, context);
 
 		boolean isStatic = (modifiers & ACC_STATIC) != 0;
+		var variables = codeGraph == null ? null : codeGraph.getMethodScope().getVariables();
+
+		descriptor.write(out, context, isStatic, variables);
 
 		if (codeGraph == null) {
-			descriptor.write(out, context, isStatic, null);
 			out.record(';');
-
 		} else {
-			descriptor.write(out, context, isStatic, codeGraph.getMethodScope().getVariables());
 			out.recordsp().record(codeGraph, context);
 		}
 	}
 
 	private void writeModifiers(DecompilationWriter out, ClassContext context) {
+		if (descriptor.isStaticInitializer()) {
+			if (modifiers != ACC_STATIC) {
+				throw new IllegalModifiersException("In the static initializer: ", modifiers, EntryType.METHOD);
+			}
+
+			return;
+		}
+
 		if ((modifiers & ACC_ABSTRACT) != 0 &&
 			(modifiers & (ACC_PRIVATE | ACC_STATIC | ACC_FINAL | ACC_SYNCHRONIZED | ACC_NATIVE | ACC_STRICT)) != 0) {
 
 			throw new IllegalModifiersException(modifiers, EntryType.METHOD);
 		}
 
-		int classModifiers = context.getDecompilingClass().getModifiers();
+		int classModifiers = context.getClassModifiers();
 
 		if ((classModifiers & ACC_INTERFACE) != 0) {
 			out.record(switch (modifiers & ACC_ACCESS) {
-				case ACC_PUBLIC    -> "";
-				case ACC_PRIVATE   -> LIT_PRIVATE + " ";
+				case ACC_PUBLIC  -> "";
+				case ACC_PRIVATE -> LIT_PRIVATE + " ";
 				default -> throw new IllegalModifiersException("In the interface: ", modifiers, EntryType.METHOD);
 			});
 
@@ -82,13 +125,20 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 			return;
 		}
 
-		out.record(switch (modifiers & ACC_ACCESS) {
-			case ACC_VISIBLE   -> "";
-			case ACC_PUBLIC    -> LIT_PUBLIC + " ";
-			case ACC_PRIVATE   -> LIT_PRIVATE + " ";
-			case ACC_PROTECTED -> LIT_PROTECTED + " ";
-			default -> throw new IllegalModifiersException(modifiers, EntryType.METHOD);
-		});
+		if (context.isEnumClass() && descriptor.isConstructor()) {
+			if ((modifiers & ACC_ACCESS) != ACC_PRIVATE) {
+				throw new IllegalModifiersException("In the enum constructor: ", modifiers, EntryType.METHOD);
+			}
+
+		} else {
+			out.record(switch (modifiers & ACC_ACCESS) {
+				case ACC_VISIBLE -> "";
+				case ACC_PUBLIC -> LIT_PUBLIC + " ";
+				case ACC_PRIVATE -> LIT_PRIVATE + " ";
+				case ACC_PROTECTED -> LIT_PROTECTED + " ";
+				default -> throw new IllegalModifiersException(modifiers, EntryType.METHOD);
+			});
+		}
 
 		if ((modifiers & ACC_ABSTRACT)      != 0) out.record(LIT_ABSTRACT + " ");
 		if ((modifiers & ACC_STATIC)        != 0) out.record(LIT_STATIC + " ");
@@ -97,15 +147,5 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		if ((modifiers & ACC_FINAL)         != 0) out.record(LIT_FINAL + " ");
 		if ((modifiers & ACC_SYNCHRONIZED)  != 0) out.record(LIT_SYNCHRONIZED + " ");
 		if ((modifiers & ACC_NATIVE)        != 0) out.record(LIT_NATIVE + " ");
-	}
-
-	public void decompile(ClassContext context) {
-		if (codeGraph != null) {
-			try {
-				codeGraph.decompile(descriptor, context);
-			} catch (DecompilationException | DisassemblingException ex) {
-				throw new DecompilationException("In method " + descriptor, ex);
-			}
-		}
 	}
 }

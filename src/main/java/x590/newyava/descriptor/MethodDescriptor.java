@@ -1,7 +1,7 @@
 package x590.newyava.descriptor;
 
-import it.unimi.dsi.fastutil.objects.Object2IntArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.Importable;
@@ -14,6 +14,7 @@ import x590.newyava.io.SignatureReader;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
+import x590.newyava.type.TypeSize;
 
 import java.util.Collections;
 import java.util.List;
@@ -28,18 +29,18 @@ public record MethodDescriptor(
 		@Unmodifiable List<Type> arguments
 ) implements Importable {
 
-	private static final String
-			CONSTRUCTOR = "<init>",
-			STATIC_INITIALIZER = "<clinit>";
+	public static final String
+			INIT = "<init>",
+			CLINIT = "<clinit>";
 
 	public MethodDescriptor {
 		switch (name) {
-			case CONSTRUCTOR -> {
+			case INIT -> {
 				if (returnType != PrimitiveType.VOID)
 					throw new InvalidDescriptorException("Constructor has wrong return type: " + returnType);
 			}
 
-			case STATIC_INITIALIZER -> {
+			case CLINIT -> {
 				if (returnType != PrimitiveType.VOID)
 					throw new InvalidDescriptorException("Static initializer has wrong return type: " + returnType);
 
@@ -60,7 +61,11 @@ public record MethodDescriptor(
 	}
 
 	public boolean isConstructor() {
-		return name.equals(CONSTRUCTOR);
+		return name.equals(INIT);
+	}
+
+	public boolean isStaticInitializer() {
+		return name.equals(CLINIT);
 	}
 
 	@Override
@@ -68,42 +73,83 @@ public record MethodDescriptor(
 		context.addImport(returnType).addImportsFor(arguments);
 	}
 
-	public void write(DecompilationWriter out, ClassContext context, boolean isStatic, @Nullable List<Variable> variables) {
+	public void write(DecompilationWriter out, ClassContext context, boolean isStatic,
+	                  @Nullable List<Variable> variables) {
+
 		switch (name) {
-			case STATIC_INITIALIZER -> {
+			case CLINIT -> {
 				out.record(Literals.LIT_STATIC);
 				return;
 			}
 
-			case CONSTRUCTOR -> out.record(hostClass, context);
+			case INIT -> out.record(hostClass, context);
 			default -> out.recordsp(returnType, context).record(name);
 		}
 
-		int offset = isStatic ? 0 : 1; // skip "this"
-
 		IntFunction<String> nameGetter = variables != null ?
-				i -> variables.get(i + offset).name() :
-				new NameGetter();
+				new NameGetter(variables, isStatic) :
+				new NameGenerator();
 
-		out.record('(').record(arguments, ", ",
+		int start = context.isEnumClass() ? 2 : 0;
+
+		out.record('(').record(arguments, ", ", start,
 				(type, i) -> out.recordsp(type, context).record(nameGetter.apply(i))
 		).record(')');
 	}
 
 	private class NameGetter implements IntFunction<String> {
+		private final List<Variable> variables;
+		private int offset;
 
-		private final Object2IntMap<String> namesTable = new Object2IntArrayMap<>();
+		public NameGetter(List<Variable> variables, boolean isStatic) {
+			this.variables = variables;
+			this.offset = isStatic ? 0 : 1;
+		}
 
 		@Override
 		public String apply(int index) {
-			String name = arguments.get(index).getVarName();
-			int n = namesTable.getInt(name);
-			namesTable.put(name, n + 1);
+			String name = variables.get(index + offset).getName();
 
-			return n == 0 ? name : name + n;
+			if (arguments.get(index).getSize() == TypeSize.LONG)
+				offset++;
+
+			return name;
 		}
 	}
 
+	private class NameGenerator implements IntFunction<String> {
+		private final List<String> names;
+
+		public NameGenerator() {
+			Object2IntMap<String> namesTable = new Object2IntOpenHashMap<>();
+
+			arguments.stream().map(Type::getVarName)
+					.forEach(name -> namesTable.put(name, namesTable.getInt(name) + 1));
+
+			for (var entry : namesTable.object2IntEntrySet()) {
+				entry.setValue(entry.getIntValue() == 1 ? 0 : 1);
+			}
+
+			this.names = arguments.stream().map(Type::getVarName)
+					.map(name -> {
+						int n = namesTable.getInt(name);
+						return n == 0 ? name : name + namesTable.put(name, n + 1);
+					}).toList();
+		}
+
+		@Override
+		public String apply(int index) {
+			return names.get(index);
+		}
+	}
+
+
+	public boolean equals(ReferenceType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
+		return  this.hostClass.equals(hostClass) &&
+				this.name.equals(name) &&
+				this.returnType.equals(returnType) &&
+				this.arguments.equals(arguments);
+	}
 
 	@Override
 	public String toString() {

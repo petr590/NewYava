@@ -80,10 +80,14 @@ public class ArrayType implements ReferenceType {
 		return nestLevel == this.nestLevel ? type : forType(type, this.nestLevel - nestLevel);
 	}
 
+	/** @return конечный тип, который хранится в массиве. Например,
+	 * для {@code int[]} и для {@code int[][]} вернёт {@code int} */
 	public Type getMemberType() {
 		return type;
 	}
 
+	/** @return тип, который хранится в массиве. Например,
+	 * для {@code int[]} вернёт {@code int}, а для {@code int[][]} вернёт {@code int[]} */
 	public Type getElementType() {
 		return nestLevel == 1 ? type : forType(type, nestLevel - 1);
 	}

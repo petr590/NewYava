@@ -3,6 +3,7 @@ package x590.newyava.constant;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import x590.newyava.context.ClassContext;
 import x590.newyava.io.DecompilationWriter;
@@ -27,6 +28,7 @@ public final class IntConstant extends Constant {
 			FIVE = IntConstant.valueOf(5);
 
 
+	@Getter
 	private final int value;
 
 	@Override
@@ -39,9 +41,10 @@ public final class IntConstant extends Constant {
 
 	@Override
 	public void write(DecompilationWriter out, ClassContext context, Type type) {
-		out.record(type == PrimitiveType.BOOLEAN ?
-				String.valueOf(value != 0) :
-				String.valueOf(value)
+		out.record(
+				type == PrimitiveType.BOOLEAN ? String.valueOf(value != 0) :
+				type == PrimitiveType.CHAR ? "'" + JavaEscapeUtils.escapeChar((char)value) + "'" :
+						String.valueOf(value)
 		);
 	}
 }

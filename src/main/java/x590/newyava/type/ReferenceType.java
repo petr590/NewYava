@@ -13,7 +13,9 @@ public interface ReferenceType extends Type {
 	List<? extends ReferenceType> getInterfaces();
 
 	static boolean isAssignable(ReferenceType givenType, ReferenceType requiredType) {
-		if (requiredType.equals(givenType) || requiredType == Types.ANY_OBJECT_TYPE || requiredType.equals(ClassType.OBJECT)) {
+		if (requiredType.equals(givenType) ||
+			requiredType.equals(Types.ANY_OBJECT_TYPE) ||
+			requiredType.equals(ClassType.OBJECT)) {
 			return true;
 		}
 
@@ -31,7 +33,9 @@ public interface ReferenceType extends Type {
 	}
 
 	static @Nullable ReferenceType assignQuiet(ReferenceType givenType, ReferenceType requiredType) {
-		if (requiredType.equals(givenType) || requiredType == Types.ANY_OBJECT_TYPE || requiredType.equals(ClassType.OBJECT)) {
+		if (requiredType.equals(givenType) ||
+			requiredType.equals(Types.ANY_OBJECT_TYPE) ||
+			requiredType.equals(ClassType.OBJECT)) {
 			return givenType;
 		}
 

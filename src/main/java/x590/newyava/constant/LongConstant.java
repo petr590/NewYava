@@ -9,7 +9,11 @@ import x590.newyava.type.Type;
 @RequiredArgsConstructor
 public final class LongConstant extends Constant {
 
-	private final long value;
+	public static final LongConstant
+			ZERO = new LongConstant(0),
+			ONE = new LongConstant(1);
+
+	private final float value;
 
 	@Override
 	public Type getType() {

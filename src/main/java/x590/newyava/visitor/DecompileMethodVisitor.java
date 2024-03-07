@@ -7,6 +7,8 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import x590.newyava.Config;
+import x590.newyava.Modifiers;
 import x590.newyava.context.ClassContext;
 import x590.newyava.decompilation.CodeGraph;
 import x590.newyava.decompilation.instruction.*;
@@ -32,7 +34,9 @@ public class DecompileMethodVisitor extends MethodVisitor {
 
 	private CodeGraph codeGraph;
 
-	public DecompileMethodVisitor(String className, int modifiers, String name, String descriptor, @Nullable String signature, String @Nullable[] exceptions) {
+	public DecompileMethodVisitor(String className, int modifiers, String name, String descriptor,
+	                              @Nullable String signature, String @Nullable[] exceptions) {
+
 		super(Opcodes.ASM9);
 
 		this.className = className;
@@ -63,26 +67,31 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	public void visitLocalVariable(String name, String descriptor, @Nullable String signature,
 	                               Label start, Label end, int slotId) {
 
-		codeGraph.setVariable(slotId, Type.valueOf(descriptor), name, start, end);
+		if (!Config.getConfig().isIgnoreVariableTable()) {
+			codeGraph.setVariable(slotId, Type.valueOf(descriptor), name, start, end);
+		}
 	}
 
 	@Override
 	public void visitMaxs(int maxStack, int maxLocals) {
-		codeGraph.initVariables(maxLocals, Type.parseMethodArguments(new SignatureReader(descriptor)));
+		codeGraph.initVariables(maxLocals,
+				Type.parseMethodArguments(new SignatureReader(descriptor)),
+				(modifiers & Modifiers.ACC_STATIC) != 0,
+				ReferenceType.valueOf(className));
 	}
 
 	@Override
 	public void visitInsn(int opcode) {
-		switch (opcode) {
-			case IRETURN, LRETURN, FRETURN, DRETURN, ARETURN, RETURN ->
-					codeGraph.addInstruction(new ReturnInsn(opcode));
-
-			case ATHROW ->
-					codeGraph.addInstruction(ThrowInsn.INSTANCE);
-
-			default ->
-					codeGraph.addInstruction(new JustInsn(opcode));
-		}
+		codeGraph.addInstruction(switch (opcode) {
+			case IRETURN -> ReturnInsn.IRETURN;
+			case LRETURN -> ReturnInsn.LRETURN;
+			case FRETURN -> ReturnInsn.FRETURN;
+			case DRETURN -> ReturnInsn.DRETURN;
+			case ARETURN -> ReturnInsn.ARETURN;
+			case RETURN  -> ReturnInsn.RETURN;
+			case ATHROW  -> ThrowInsn.INSTANCE;
+			default -> new JustInsn(opcode);
+		});
 	}
 
 	@Override
@@ -111,8 +120,11 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	}
 
 	@Override
-	public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
-		codeGraph.addInstruction(new InvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments));
+	public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle,
+	                                   Object... bootstrapMethodArguments) {
+
+		codeGraph.addInstruction(new InvokeDynamicInsn(name, descriptor,
+				bootstrapMethodHandle, bootstrapMethodArguments));
 	}
 
 	@Override

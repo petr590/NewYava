@@ -51,6 +51,10 @@ public class CodeStack implements Stack<Operation> {
 
 	@Override
 	public Operation top() {
+		return peek();
+	}
+
+	public Operation peek() {
 		return stack.peek();
 	}
 

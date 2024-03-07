@@ -11,6 +11,7 @@ import x590.newyava.type.ClassType;
 import x590.newyava.visitor.DecompileClassVisitor;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 import static x590.newyava.Modifiers.*;
 import static x590.newyava.Literals.*;
@@ -30,6 +31,11 @@ public class DecompilingClass implements Writable {
 	private final @Unmodifiable List<DecompilingField> fields;
 	private final @Unmodifiable List<DecompilingMethod> methods;
 
+	private final @Unmodifiable List<DecompilingField> visibleFields;
+	private @Unmodifiable List<DecompilingMethod> visibleMethods;
+
+	private final @Nullable @Unmodifiable List<DecompilingField> enumConstants;
+
 	public DecompilingClass(ClassReader classReader) {
 		var visitor = new DecompileClassVisitor();
 		classReader.accept(visitor, 0);
@@ -40,8 +46,17 @@ public class DecompilingClass implements Writable {
 		this.superType  = visitor.getSuperType();
 		this.visibleSuperType = realSuperType(modifiers, superType);
 		this.interfaces = visitor.getInterfaces();
-		this.fields     = visitor.getFields(classContext);
-		this.methods    = visitor.getMethods(classContext);
+
+		this.fields         = visitor.getFields(classContext);
+		this.methods        = visitor.getMethods(classContext);
+
+		this.visibleFields  = fields.stream().filter(DecompilingField::keep).toList();
+
+		if ((modifiers & ACC_ENUM) != 0) {
+			this.enumConstants = fields.stream().filter(DecompilingField::isEnum).toList();
+		} else {
+			this.enumConstants = null;
+		}
 	}
 
 	private static @Nullable ClassType realSuperType(int modifiers, ClassType formalSuperType) {
@@ -58,11 +73,12 @@ public class DecompilingClass implements Writable {
 
 	public void decompile() {
 		methods.forEach(method -> method.decompile(classContext));
+		visibleMethods = methods.stream().filter(method -> method.keep(classContext)).toList();
 	}
 
 	public void addImports() {
 		classContext.addImport(thisType).addImport(visibleSuperType).addImports(interfaces)
-				.addImportsFor(fields).addImportsFor(methods);
+				.addImportsFor(visibleFields).addImportsFor(visibleMethods);
 	}
 
 	public void computeImports() {
@@ -109,12 +125,17 @@ public class DecompilingClass implements Writable {
 	}
 
 	private void writeFields(DecompilationWriter out) {
-		out.record(fields, classContext);
-		if (!fields.isEmpty()) out.ln();
+		if (enumConstants != null) {
+			out.ln().indent().record(enumConstants, ", ", (field, i) -> field.writeAsEnumConstant(out, classContext)).record(';');
+		}
+
+		if (out.writeIf(visibleFields, classContext, ", ", Predicate.not(DecompilingField::isEnum))) {
+			out.ln();
+		}
 	}
 
 	private void writeMethods(DecompilationWriter out) {
-		out.record(methods, classContext).ln();
+		out.record(visibleMethods, classContext).ln();
 	}
 
 	private void writeModifiers(DecompilationWriter out) {
