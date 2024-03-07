@@ -1,6 +1,6 @@
 package x590.newyava.decompilation.operation.invoke;
 
-import x590.newyava.ContextualWritable;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.operation.Operation;
@@ -10,7 +10,9 @@ import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.ListIterator;
 
 public abstract class InvokeOperation implements Operation {
 
@@ -18,13 +20,24 @@ public abstract class InvokeOperation implements Operation {
 
 	protected final List<Operation> arguments;
 
+	private final @UnmodifiableView List<Operation> argumentsView;
+
 	public InvokeOperation(MethodContext context, MethodDescriptor descriptor) {
 		this.descriptor = descriptor;
 		this.arguments = new ArrayList<>(descriptor.arguments().size());
+		this.argumentsView = Collections.unmodifiableList(arguments);
 
-		for (Type type : descriptor.arguments()) {
-			arguments.add(context.popAs(type));
+		var argTypes = descriptor.arguments();
+
+		for (ListIterator<Type> iter = argTypes.listIterator(argTypes.size()); iter.hasPrevious();) {
+			arguments.add(context.popAs(iter.previous()));
 		}
+
+		Collections.reverse(arguments);
+	}
+
+	public @UnmodifiableView List<Operation> getArguments() {
+		return argumentsView;
 	}
 
 	@Override

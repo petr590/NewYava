@@ -1,26 +1,51 @@
 package x590.newyava;
 
+import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
+import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.Priority;
+import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.exception.IllegalModifiersException;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.visitor.DecompileFieldVisitor;
 
+import java.util.List;
+
 import static x590.newyava.Modifiers.*;
 import static x590.newyava.Literals.*;
 
+@Getter
 public class DecompilingField implements ContextualWritable, Importable {
-
 	private final int modifiers;
+
 	private final FieldDescriptor descriptor;
 
-	private final @Nullable Object constantValue;
+	private @Nullable Operation initializer;
 
 	public DecompilingField(DecompileFieldVisitor visitor, ClassContext context) {
 		this.modifiers     = visitor.getModifiers();
 		this.descriptor    = visitor.getDescriptor(context);
-		this.constantValue = visitor.getConstantValue();
+		this.initializer = visitor.getInitializer();
+	}
+
+	/** Можно ли оставить поле в классе */
+	public boolean keep() {
+		return (modifiers & ACC_SYNTHETIC) == 0;
+	}
+
+	public boolean isEnum() {
+		return (modifiers & ACC_ENUM) != 0;
+	}
+
+	public boolean setInitializer(Operation value) {
+		if (initializer == null) {
+			initializer = value;
+			return true;
+		}
+
+		return false;
 	}
 
 	@Override
@@ -34,14 +59,14 @@ public class DecompilingField implements ContextualWritable, Importable {
 		writeModifiers(out, context);
 		out.record(descriptor, context);
 
-		if (constantValue != null)
-			out.record(" = ").record(constantValue.toString());
+		if (initializer != null)
+			out.record(" = ").record(initializer.toString());
 
 		out.record(';');
 	}
 
 	private void writeModifiers(DecompilationWriter out, ClassContext context) {
-		int classModifiers = context.getDecompilingClass().getModifiers();
+		int classModifiers = context.getClassModifiers();
 
 		if ((classModifiers & ACC_INTERFACE) != 0) {
 			if ((modifiers & ACC_FIELD) != ACC_PUBLIC_STATIC_FINAL) {
@@ -80,5 +105,17 @@ public class DecompilingField implements ContextualWritable, Importable {
 		if ((modifiers & ACC_FINAL)     != 0) out.record(LIT_FINAL + " ");
 		if ((modifiers & ACC_VOLATILE)  != 0) out.record(LIT_VOLATILE + " ");
 		if ((modifiers & ACC_TRANSIENT) != 0) out.record(LIT_TRANSIENT + " ");
+	}
+
+	public void writeAsEnumConstant(DecompilationWriter out, ClassContext context) {
+		out.record(descriptor.name());
+
+		if (initializer instanceof InvokeSpecialOperation invokeSpecial && invokeSpecial.isNew()) {
+			List<Operation> args = invokeSpecial.getArguments();
+
+			if (args.size() > 2) {
+				out.record('(').record(args.subList(2, args.size()), context, Priority.ZERO, ", ").record(')');
+			}
+		}
 	}
 }

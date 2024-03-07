@@ -30,12 +30,20 @@ public class MethodContext {
 	@Getter(AccessLevel.NONE)
 	private Chunk currentChunk;
 
+	public int getClassModifiers() {
+		return classContext.getClassModifiers();
+	}
+
 	public ReferenceType getThisType() {
 		return classContext.getThisType();
 	}
 
 	public ClassType getSuperType() {
 		return classContext.getSuperType();
+	}
+
+	public boolean isConstructor() {
+		return descriptor.isConstructor();
 	}
 
 	public VariableReference getVariable(int slotId) {
@@ -48,5 +56,25 @@ public class MethodContext {
 
 	public Operation popAs(TypeSize size) {
 		return stack.popAs(size);
+	}
+
+	public Operation peek() {
+		return stack.peek();
+	}
+
+	public boolean isStackEmpty() {
+		return stack.isEmpty();
+	}
+
+	/** Если операция на вершине стека равна {@code operation},
+	 * то убирает её со стека и возвращает {@code true}.
+	 * Иначе возвращает {@code false} */
+	public boolean popIfSame(Operation operation) {
+		if (!stack.isEmpty() && stack.peek() == operation) {
+			stack.pop();
+			return true;
+		}
+
+		return false;
 	}
 }

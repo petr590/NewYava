@@ -32,15 +32,21 @@ public class CompareCondition implements Condition {
 	}
 
 	public static CompareCondition icmp(MethodContext context, CompareType compareType) {
-		return new CompareCondition(compareType, context.popAs(PrimitiveType.INTEGRAL), context.popAs(PrimitiveType.INTEGRAL));
+		return new CompareCondition(compareType,
+				context.popAs(PrimitiveType.INTEGRAL),
+				context.popAs(PrimitiveType.INTEGRAL));
 	}
 
 	public static CompareCondition acmp(MethodContext context, CompareType compareType) {
-		return new CompareCondition(compareType, context.popAs(Types.ANY_OBJECT_TYPE), context.popAs(Types.ANY_OBJECT_TYPE));
+		return new CompareCondition(compareType,
+				context.popAs(Types.ANY_OBJECT_TYPE),
+				context.popAs(Types.ANY_OBJECT_TYPE));
 	}
 
 	public static CompareCondition acmpNull(MethodContext context, CompareType compareType) {
-		return new CompareCondition(compareType, context.popAs(Types.ANY_OBJECT_TYPE), ConstNullOperation.INSTANCE);
+		return new CompareCondition(compareType,
+				context.popAs(Types.ANY_OBJECT_TYPE),
+				ConstNullOperation.INSTANCE);
 	}
 
 

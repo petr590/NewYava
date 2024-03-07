@@ -7,7 +7,10 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.DecompilingClass;
+import x590.newyava.DecompilingField;
 import x590.newyava.Importable;
+import x590.newyava.Modifiers;
+import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
@@ -20,6 +23,14 @@ public class ClassContext {
 
 	@Getter
 	private final DecompilingClass decompilingClass;
+
+	public int getClassModifiers() {
+		return decompilingClass.getModifiers();
+	}
+
+	public boolean isEnumClass() {
+		return (decompilingClass.getModifiers() & Modifiers.ACC_ENUM) != 0;
+	}
 
 	public ReferenceType getThisType() {
 		return decompilingClass.getThisType();
@@ -90,5 +101,11 @@ public class ClassContext {
 
 	public boolean imported(ClassType classType) {
 		return imports.contains(classType);
+	}
+
+
+	public Optional<DecompilingField> findField(FieldDescriptor descriptor) {
+		return decompilingClass.getFields().stream()
+				.filter(field -> field.getDescriptor().equals(descriptor)).findAny();
 	}
 }

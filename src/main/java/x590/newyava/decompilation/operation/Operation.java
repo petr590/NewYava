@@ -2,6 +2,7 @@ package x590.newyava.decompilation.operation;
 
 import x590.newyava.Importable;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.scope.Scope;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
@@ -20,7 +21,7 @@ public interface Operation extends Importable {
 		return false;
 	}
 
-	default boolean isDefaultConstructor() {
+	default boolean isDefaultConstructor(MethodContext context) {
 		return false;
 	}
 
@@ -37,4 +38,13 @@ public interface Operation extends Importable {
 	}
 
 	void write(DecompilationWriter out, ClassContext context);
+
+	/**
+	 * Записывает массив без {@code new <type>[]} (если возможно).
+	 * Для всех остальных операций работает точно также,
+	 * как {@link #write(DecompilationWriter, ClassContext)}
+	 */
+	default void writeAsArrayInitializer(DecompilationWriter out, ClassContext context) {
+		write(out, context);
+	}
 }

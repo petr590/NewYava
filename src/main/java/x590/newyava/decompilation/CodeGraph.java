@@ -4,7 +4,6 @@ import it.unimi.dsi.fastutil.ints.*;
 import it.unimi.dsi.fastutil.objects.*;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.Label;
 import x590.newyava.ContextualWritable;
@@ -21,44 +20,60 @@ import x590.newyava.decompilation.variable.VariableTable;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
+import x590.newyava.type.TypeSize;
 import x590.newyava.visitor.DecompileMethodVisitor;
 
 import java.util.*;
 import java.util.function.Function;
 
+/**
+ * Хранит код и проводит его декомпиляцию.
+ */
 @RequiredArgsConstructor
 public class CodeGraph implements ContextualWritable, Importable {
 
 	private final DecompileMethodVisitor visitor;
 
 	private final List<Instruction> instructions = new ArrayList<>();
+
+	/** Связывает лейбл с индексом инструкции в списке {@link #instructions} */
 	private final Object2IntMap<Label> labels = new Object2IntOpenHashMap<>();
+
+
+	/** Набор лейблов, которые являются границами чанков. Нельзя преобразовать их сразу в индексы,
+	 * так как их ещё нет в {@link #labels}, если лейбл указывает вперёд. */
 	private final Set<Label> breakpointLabels = new HashSet<>();
 
+	/** Набор индексов, которые являются границами чанков. */
 	private final IntSet breakpoints = new IntOpenHashSet();
 
-	private final VariableTable varTable = new VariableTable();
 
-
+	/** Добавляет инструкцию. Все инструкции, которые являются {@link FlowControlInsn},
+	 * должны быть добавлены с помощью метода {@link #addInstruction(FlowControlInsn)} */
 	public void addInstruction(Instruction instruction) {
 		instructions.add(instruction);
 	}
 
 	public void addInstruction(FlowControlInsn instruction) {
-		breakpointLabels.addAll(instruction.getLabels());
 		addInstruction((Instruction) instruction);
 		breakpoints.add(instructions.size());
+		breakpointLabels.addAll(instruction.getLabels());
 	}
 
 	public void addLabel(Label label) {
 		labels.put(label, instructions.size());
 	}
 
+
+	private final VariableTable varTable = new VariableTable();
+
 	public void setVariable(int slotId, Type type, String name, Label start, Label end) {
 		varTable.add(slotId, new VariableReference(type, name, labels.getInt(start), labels.getInt(end)));
 	}
 
-	public void initVariables(int maxVariables, List<Type> argTypes) {
+	public void initVariables(int maxVariables, List<Type> argTypes,
+	                          boolean isStatic, Type classType) {
+
 		if (maxVariables < argTypes.size()) {
 			throw new IllegalArgumentException("maxVariables less than argTypes.size(): " + maxVariables + ", " + argTypes.size());
 		}
@@ -67,12 +82,26 @@ public class CodeGraph implements ContextualWritable, Importable {
 
 		varTable.extendTo(maxVariables - 1);
 
-		for (int slotId = 0; slotId < argTypes.size(); slotId++) {
-			var slot = varTable.get(slotId);
+		if (!isStatic) {
+			var thisSlot = varTable.get(0);
+
+			if (thisSlot.isEmpty()) {
+				thisSlot.add(new VariableReference(classType, 0, instructions.size()));
+			}
+		}
+
+		int offset = isStatic ? 0 : 1;
+
+		for (int i = 0; i < argTypes.size(); i++) {
+			var slot = varTable.get(i + offset);
+			var argType = argTypes.get(i);
 
 			if (slot.isEmpty()) {
-				slot.add(new VariableReference(argTypes.get(slotId), 0, instructions.size()));
+				slot.add(new VariableReference(argType, 0, instructions.size()));
 			}
+
+			if (argType.getSize() == TypeSize.LONG)
+				offset++;
 		}
 	}
 
@@ -81,6 +110,10 @@ public class CodeGraph implements ContextualWritable, Importable {
 
 	@Getter
 	private MethodScope methodScope;
+
+	public boolean isEmpty() {
+		return methodScope.isEmpty();
+	}
 
 	public void decompile(MethodDescriptor descriptor, ClassContext context) {
 		Int2ObjectMap<Chunk> chunkMap = readChunkMap();
@@ -92,37 +125,35 @@ public class CodeGraph implements ContextualWritable, Importable {
 		chunks.forEach(chunk -> chunk.decompile(methodContext));
 		chunks.forEach(chunk -> chunk.linkChunks(labels, chunkMap));
 
-		List<Event> events = new ArrayList<>();
+		List<Scope> scopes = new ArrayList<>();
 
 		// Сначала ищем циклы и операторы break/continue, связанные с ними
 		Int2IntMap loopChunkIds = findLoops(first, new Int2IntOpenHashMap(), new HashSet<>());
-		addEvents(events, chunks, loopChunkIds, LoopScope::new);
+		addScopes(scopes, chunks, loopChunkIds, LoopScope::new);
 
-		// Затем все условия, которые не является заголовком цикла/break/continue, становятся if-ами
+		// Затем все условия, которые не являются заголовком цикла/break/continue, становятся if-ами
 		Int2IntMap ifChunkIds = findIfs(first, new Int2IntOpenHashMap(), new HashSet<>());
-		addEvents(events, chunks, ifChunkIds,
+		addScopes(scopes, chunks, ifChunkIds,
 				(ifChunks) -> {
 					var condition = Objects.requireNonNull(chunks.get(ifChunks.get(0).getId() - 1).getCondition()).opposite();
 					return new IfScope(condition, ifChunks);
 				}
 		);
 
-
+		// После if-ов ищем связанные с ними else-ы
 		Int2IntMap elseChunkIds = findElses(chunks, ifChunkIds, new Int2IntOpenHashMap());
-		addEvents(events, chunks, elseChunkIds, ElseScope::new);
+		addScopes(scopes, chunks, elseChunkIds, ElseScope::new);
 
-
-		// Завершающий элемент
-		events.add(new Event(last.getId() + 1, EventType.END, null));
-		Collections.sort(events);
-
-		methodScope = createScopes(chunks, events);
+		Collections.sort(scopes);
+		methodScope = createMethodScope(chunks, scopes);
 
 		methodScope.initVariables();
 		methodScope.removeRedundantOperations(methodContext);
 	}
 
 
+	/** Преобразует список инструкций в список чанков.
+	 * Инициализирует {@link #first} и {@link #last} */
 	private Int2ObjectMap<Chunk> readChunkMap() {
 		for (var label : breakpointLabels) {
 			breakpoints.add(labels.getInt(label));
@@ -159,56 +190,40 @@ public class CodeGraph implements ContextualWritable, Importable {
 	}
 
 
-	private record Event(int chunkId, EventType type, Scope scope) implements Comparable<Event> {
-		@Override
-		public int compareTo(@NotNull Event other) {
-			int res = this.chunkId - other.chunkId;
-			return res != 0 ? res : this.type.compareTo(other.type);
-		}
-	}
-
-	private enum EventType { // Порядок элементов определяет порядок сортировки событий
-		SCOPE_END, SCOPE_START, END
-	}
-
-	private void addEvents(List<Event> events, @Unmodifiable List<Chunk> chunks, Int2IntMap chunkIds,
+	/**
+	 * Добавляет новые scope-ы в {@code scopes}. Каждый scope соответствует паре индексов
+	 * из {@code chunkIds}. Для их создания используется функция {@code scopeCreator}
+	 */
+	private void addScopes(List<Scope> scopes, @Unmodifiable List<Chunk> chunks, Int2IntMap chunkIds,
 	                       Function<? super @Unmodifiable List<Chunk>, ? extends Scope> scopeCreator) {
 
 		for (Int2IntMap.Entry entry : chunkIds.int2IntEntrySet()) {
 			int startId = entry.getIntKey(),
 				endId = entry.getIntValue();
 
-			var scope = scopeCreator.apply(chunks.subList(startId, endId));
-
-			events.add(new Event(startId, EventType.SCOPE_START, scope));
-			events.add(new Event(endId, EventType.SCOPE_END, scope));
-
+			scopes.add(scopeCreator.apply(chunks.subList(startId, endId)));
 		}
 	}
 
 
-	private MethodScope createScopes(@Unmodifiable List<Chunk> chunks, List<Event> events) {
+	/**
+	 * Преобразует список {@link Scope} в {@code MethodScope}, который содержит
+	 * все операции и scope-ы, соблюдая их иерархию.
+	 */
+	private MethodScope createMethodScope(@Unmodifiable List<Chunk> chunks, List<Scope> scopes) {
 		var methodScope = new MethodScope(chunks);
 
-		System.out.println(events);
+		int endId = last.getId();
 
-		Scope currentScope = methodScope;
-		int lastId = 0;
+		Queue<Scope> scopeQueue = new LinkedList<>(scopes);
+		Scope current = methodScope;
 
-		for (var event : events) {
-			int chunkId = event.chunkId;
+		for (int id = 0; id <= endId; id++) {
+			current = current.startScopes(scopeQueue, id);
 
-			for (int i = lastId; i < chunkId; i++) {
-				currentScope.addOperations(chunks.get(i).getOperations());
-			}
+			current.addOperations(chunks.get(id).getOperations());
 
-			lastId = chunkId;
-
-			currentScope = switch (event.type) {
-				case SCOPE_START -> currentScope.startScope(event.scope);
-				case SCOPE_END   -> currentScope.endScope(event.scope);
-				case END         -> currentScope;
-			};
+			current = current.endIfReached(id);
 		}
 
 		return methodScope;

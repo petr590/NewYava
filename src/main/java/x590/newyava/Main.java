@@ -16,10 +16,20 @@ public class Main {
 	public static void main(String[] args) {}
 
 	public static void run(Object exampleObj) {
-		run(exampleObj.getClass());
+		run(exampleObj.getClass(), Config.builder().build());
+	}
+
+	public static void run(Object exampleObj, Config config) {
+		run(exampleObj.getClass(), config);
 	}
 
 	public static void run(Class<?> exampleClass) {
+		run(exampleClass, Config.builder().build());
+	}
+
+	public static void run(Class<?> exampleClass, Config config) {
+		Config.init(config);
+
 		Class<?>[] classes = exampleClass.getNestMembers();
 
 		List<DecompilingClass> decompilingClasses = Arrays.stream(classes)

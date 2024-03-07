@@ -37,13 +37,13 @@ public record JustInsn(int opcode) implements Instruction {
 			case ICONST_3 -> new LdcOperation(IntConstant.THREE);
 			case ICONST_4 -> new LdcOperation(IntConstant.FOUR);
 			case ICONST_5 -> new LdcOperation(IntConstant.FIVE);
-			case LCONST_0 -> new LdcOperation(new LongConstant(0));
-			case LCONST_1 -> new LdcOperation(new LongConstant(1));
-			case FCONST_0 -> new LdcOperation(new FloatConstant(0));
-			case FCONST_1 -> new LdcOperation(new FloatConstant(1));
-			case FCONST_2 -> new LdcOperation(new FloatConstant(2));
-			case DCONST_0 -> new LdcOperation(new DoubleConstant(0));
-			case DCONST_1 -> new LdcOperation(new DoubleConstant(1));
+			case LCONST_0 -> new LdcOperation(LongConstant.ZERO);
+			case LCONST_1 -> new LdcOperation(LongConstant.ONE);
+			case FCONST_0 -> new LdcOperation(FloatConstant.ZERO);
+			case FCONST_1 -> new LdcOperation(FloatConstant.ONE);
+			case FCONST_2 -> new LdcOperation(FloatConstant.TWO);
+			case DCONST_0 -> new LdcOperation(DoubleConstant.ZERO);
+			case DCONST_1 -> new LdcOperation(DoubleConstant.ONE);
 
 			case IALOAD -> new ArrayLoadOperation(context, PrimitiveType.INT);
 			case LALOAD -> new ArrayLoadOperation(context, PrimitiveType.LONG);
@@ -54,14 +54,14 @@ public record JustInsn(int opcode) implements Instruction {
 			case CALOAD -> new ArrayLoadOperation(context, PrimitiveType.CHAR);
 			case SALOAD -> new ArrayLoadOperation(context, PrimitiveType.SHORT);
 
-			case IASTORE -> new ArrayStoreOperation(context, PrimitiveType.INT);
-			case LASTORE -> new ArrayStoreOperation(context, PrimitiveType.LONG);
-			case FASTORE -> new ArrayStoreOperation(context, PrimitiveType.FLOAT);
-			case DASTORE -> new ArrayStoreOperation(context, PrimitiveType.DOUBLE);
-			case AASTORE -> new ArrayStoreOperation(context, AnyObjectType.INSTANCE);
-			case BASTORE -> new ArrayStoreOperation(context, PrimitiveType.BYTE_OR_BOOLEAN);
-			case CASTORE -> new ArrayStoreOperation(context, PrimitiveType.CHAR);
-			case SASTORE -> new ArrayStoreOperation(context, PrimitiveType.SHORT);
+			case IASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.INT);
+			case LASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.LONG);
+			case FASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.FLOAT);
+			case DASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.DOUBLE);
+			case AASTORE -> ArrayStoreOperation.valueOf(context, AnyObjectType.INSTANCE);
+			case BASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.BYTE_OR_BOOLEAN);
+			case CASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.CHAR);
+			case SASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.SHORT);
 
 			case POP  -> new PopOperation(context, TypeSize.WORD);
 			case POP2 -> new PopOperation(context, TypeSize.LONG);

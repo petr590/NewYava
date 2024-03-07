@@ -9,6 +9,11 @@ import x590.newyava.type.Type;
 @RequiredArgsConstructor
 public final class FloatConstant extends Constant {
 
+	public static final FloatConstant
+			ZERO = new FloatConstant(0),
+			ONE = new FloatConstant(1),
+			TWO = new FloatConstant(2);
+
 	private final float value;
 
 	@Override

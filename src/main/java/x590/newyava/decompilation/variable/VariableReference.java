@@ -43,7 +43,7 @@ public class VariableReference {
 
 	/** @return Имя переменной. Доступно только после связывания ссылки с самой переменной */
 	public String getName() {
-		return variable.name();
+		return variable.getName();
 	}
 
 	/**
