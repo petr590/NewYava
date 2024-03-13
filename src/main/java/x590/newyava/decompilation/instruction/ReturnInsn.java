@@ -7,8 +7,8 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.ReturnOperation;
-import x590.newyava.decompilation.operation.ReturnVoidOperation;
+import x590.newyava.decompilation.operation.terminal.ReturnValueOperation;
+import x590.newyava.decompilation.operation.terminal.ReturnVoidOperation;
 import x590.newyava.type.AnyObjectType;
 import x590.newyava.type.PrimitiveType;
 
@@ -44,11 +44,11 @@ public enum ReturnInsn implements FlowControlInsn {
 	@Override
 	public @NotNull Operation toOperation(MethodContext context) {
 		return switch (this) {
-			case IRETURN -> new ReturnOperation(context, PrimitiveType.INTEGRAL);
-			case LRETURN -> new ReturnOperation(context, PrimitiveType.LONG);
-			case FRETURN -> new ReturnOperation(context, PrimitiveType.FLOAT);
-			case DRETURN -> new ReturnOperation(context, PrimitiveType.DOUBLE);
-			case ARETURN -> new ReturnOperation(context, AnyObjectType.INSTANCE);
+			case IRETURN -> new ReturnValueOperation(context, PrimitiveType.INTEGRAL);
+			case LRETURN -> new ReturnValueOperation(context, PrimitiveType.LONG);
+			case FRETURN -> new ReturnValueOperation(context, PrimitiveType.FLOAT);
+			case DRETURN -> new ReturnValueOperation(context, PrimitiveType.DOUBLE);
+			case ARETURN -> new ReturnValueOperation(context, AnyObjectType.INSTANCE);
 			case RETURN  -> ReturnVoidOperation.INSTANCE;
 		};
 	}

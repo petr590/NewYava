@@ -2,6 +2,7 @@ package x590.newyava.decompilation.operation;
 
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.ReferenceType;
@@ -20,7 +21,7 @@ public class InstanceofOperation implements Operation {
 
 	@Override
 	public Type getReturnType() {
-		return PrimitiveType.INT;
+		return PrimitiveType.BOOLEAN;
 	}
 
 	@Override
@@ -34,7 +35,7 @@ public class InstanceofOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, WriteContext context) {
 		out.record(value, context, getPriority()).record(" instanceof ").record(type, context);
 	}
 }

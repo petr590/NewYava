@@ -2,6 +2,7 @@ package x590.newyava.decompilation.operation.invoke;
 
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.io.DecompilationWriter;
@@ -21,7 +22,7 @@ public abstract class InvokeNonstaticOperation extends InvokeOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, WriteContext context) {
 		out.record(object, context, getPriority()).record('.');
 		writeNameAndArgs(out, context);
 	}

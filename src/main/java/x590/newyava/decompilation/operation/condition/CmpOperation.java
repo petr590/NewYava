@@ -8,7 +8,7 @@ import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
 @Getter
-public class CmpOperation extends SpecialOperation {
+public class CmpOperation implements SpecialOperation {
 
 	private final Operation operand1, operand2;
 

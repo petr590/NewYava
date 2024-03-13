@@ -1,17 +1,18 @@
 package x590.newyava.decompilation.operation.condition;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.objectweb.asm.Label;
 import x590.newyava.decompilation.operation.SpecialOperation;
+import x590.newyava.decompilation.scope.LabelNameGenerator;
+import x590.newyava.decompilation.scope.Scope;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
 /**
  * Операция условного/безусловного перехода на другой чанк
  */
-public abstract class JumpOperation extends SpecialOperation {
+public abstract class JumpOperation implements SpecialOperation {
 
 	/**
 	 * @return условие перехода. Операции безусловного перехода
@@ -29,18 +30,6 @@ public abstract class JumpOperation extends SpecialOperation {
 		return PrimitiveType.VOID;
 	}
 
-
-	@RequiredArgsConstructor
-	public enum Role {
-		UNKNOWN (false),
-		LOOP_CONDITION (false),
-		IF_BRANCH (false),
-		ELSE_BRANCH (false),
-		BREAK (true),
-		CONTINUE (true);
-
-		private final boolean canWrite;
-	}
 
 	@Getter
 	private @NotNull Role role = Role.UNKNOWN;
@@ -63,6 +52,11 @@ public abstract class JumpOperation extends SpecialOperation {
 	}
 
 	public boolean canWrite() {
-		return role.canWrite;
+		return role.canWrite();
+	}
+
+	@Override
+	public void resolveLabelNames(Scope currentScope, LabelNameGenerator generator) {
+		role.resolveLabelNames(currentScope, generator);
 	}
 }

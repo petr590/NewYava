@@ -16,4 +16,9 @@ public final class Variable {
 
 	@Setter
 	private @NotNull String name;
+
+	@Override
+	public String toString() {
+		return String.format("Variable(%s %s)", type, name);
+	}
 }

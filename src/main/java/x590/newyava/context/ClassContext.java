@@ -9,7 +9,6 @@ import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.DecompilingClass;
 import x590.newyava.DecompilingField;
 import x590.newyava.Importable;
-import x590.newyava.Modifiers;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.ReferenceType;
@@ -18,24 +17,26 @@ import x590.newyava.type.Type;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Представляет контекст класса.
+ */
 @RequiredArgsConstructor
-public class ClassContext {
+public class ClassContext implements Context {
 
 	@Getter
 	private final DecompilingClass decompilingClass;
 
+	@Override
 	public int getClassModifiers() {
 		return decompilingClass.getModifiers();
 	}
 
-	public boolean isEnumClass() {
-		return (decompilingClass.getModifiers() & Modifiers.ACC_ENUM) != 0;
-	}
-
+	@Override
 	public ReferenceType getThisType() {
 		return decompilingClass.getThisType();
 	}
 
+	@Override
 	public ClassType getSuperType() {
 		return decompilingClass.getSuperType();
 	}
@@ -99,11 +100,13 @@ public class ClassContext {
 		return Collections.unmodifiableSet(imports);
 	}
 
+	@Override
 	public boolean imported(ClassType classType) {
 		return imports.contains(classType);
 	}
 
 
+	@Override
 	public Optional<DecompilingField> findField(FieldDescriptor descriptor) {
 		return decompilingClass.getFields().stream()
 				.filter(field -> field.getDescriptor().equals(descriptor)).findAny();

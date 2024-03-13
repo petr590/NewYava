@@ -16,6 +16,8 @@ import x590.newyava.decompilation.instruction.Instruction;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.decompilation.operation.condition.JumpOperation;
+import x590.newyava.decompilation.operation.condition.Role;
+import x590.newyava.decompilation.operation.condition.SwitchOperation;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.decompilation.variable.VariableSlotView;
 import x590.newyava.type.PrimitiveType;
@@ -33,6 +35,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class Chunk implements Comparable<Chunk> {
 
+	@Getter
 	private final int startIndex;
 
 	@Setter(AccessLevel.PACKAGE)
@@ -42,7 +45,7 @@ public class Chunk implements Comparable<Chunk> {
 	private final int id;
 
 	@Getter
-	private final @UnmodifiableView List<? extends VariableSlotView> localVars;
+	private final @UnmodifiableView List<? extends VariableSlotView> varSlots;
 
 	private final List<Instruction> instructions = new ArrayList<>();
 
@@ -55,6 +58,11 @@ public class Chunk implements Comparable<Chunk> {
 	/** Операция условного/безусловного перехода в конце чанка или {@code null}, если такой операции нет.
 	 * Примечание: {@code return} и {@code throw} не являются операциями перехода. */
 	private @Nullable JumpOperation jumpOperation;
+
+	/** Операция {@code switch} в конце чанка или {@code null}, если такой операции нет.
+	 * Должна быть {@code null}, если {@link #jumpOperation} не является {@code null} */
+	@Getter
+	private @Nullable SwitchOperation switchOperation;
 
 	/** Следующий чанк. Если следующего чанка нет или переход на него
 	 * невозможен (из-за инструкций {@code goto/return/throw}), то поле равно {@code null} */
@@ -88,8 +96,8 @@ public class Chunk implements Comparable<Chunk> {
 	}
 
 
-	public VariableReference getVariableRef(int slotId) {
-		return localVars.get(slotId).getOrCreate(startIndex, endIndex);
+	public VariableReference getVarRef(int slotId) {
+		return varSlots.get(slotId).getOrCreate(startIndex, endIndex);
 	}
 
 	public void addInstruction(Instruction instruction) {
@@ -124,10 +132,10 @@ public class Chunk implements Comparable<Chunk> {
 			var operation = flowControlInsn.toOperation(methodContext);
 			assert operation.getReturnType() == PrimitiveType.VOID;
 
-			if (operation instanceof JumpOperation jump) {
-				jumpOperation = jump;
-			} else {
-				operations.add(operation);
+			switch (operation) {
+				case JumpOperation jump -> jumpOperation = jump;
+				case SwitchOperation sw -> switchOperation = sw;
+				default -> operations.add(operation);
 			}
 		}
 
@@ -152,7 +160,7 @@ public class Chunk implements Comparable<Chunk> {
 	 * @throws NullPointerException если операция перехода не найдена.
 	 * @throws IllegalStateException если роль уже инициализирована другим значением.
 	 */
-	public void initRole(JumpOperation.Role role) {
+	public void initRole(Role role) {
 		Objects.requireNonNull(jumpOperation).initRole(role);
 
 		if (!jumpOperationAdded && jumpOperation.canWrite()) {
@@ -168,6 +176,20 @@ public class Chunk implements Comparable<Chunk> {
 	 */
 	public boolean canTakeRole() {
 		return jumpOperation != null && !jumpOperation.roleInitialized();
+	}
+
+	/**
+	 * @return {@code true}, если у чанка есть операция перехода с назначенной ролью.
+	 * Это гарантирует, что {@link #jumpOperation}, {@link #conditionalChunk} и
+	 * {@link #condition} не равны {@code null}.
+	 */
+	public boolean hasRole() {
+		return jumpOperation != null && jumpOperation.roleInitialized();
+	}
+
+	/** @return {@code true}, если чанк оканчивается терминальной операцией */
+	public boolean isTerminal() {
+		return !operations.isEmpty() && operations.get(operations.size() - 1).isTerminal();
 	}
 
 	@Override

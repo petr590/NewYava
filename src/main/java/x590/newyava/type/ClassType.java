@@ -4,6 +4,7 @@ import com.google.common.base.CaseFormat;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.exception.InvalidTypeException;
 import x590.newyava.io.DecompilationWriter;
@@ -210,7 +211,7 @@ public class ClassType implements ReferenceType {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.record(context.imported(this) ? simpleName : name);
 	}
 }

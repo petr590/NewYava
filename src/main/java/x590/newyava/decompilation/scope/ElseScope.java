@@ -1,7 +1,7 @@
 package x590.newyava.decompilation.scope;
 
 import org.jetbrains.annotations.Unmodifiable;
-import x590.newyava.context.ClassContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.io.DecompilationWriter;
 
@@ -14,7 +14,7 @@ public class ElseScope extends Scope {
 	}
 
 	@Override
-	protected boolean writeHeader(DecompilationWriter out, ClassContext context) {
+	protected boolean writeHeader(DecompilationWriter out, WriteContext context) {
 		out.record("else");
 		return true;
 	}

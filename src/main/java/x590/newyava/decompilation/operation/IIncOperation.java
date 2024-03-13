@@ -1,19 +1,19 @@
 package x590.newyava.decompilation.operation;
 
-import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
 public class IIncOperation implements Operation {
-	private final VariableReference variable;
+	private final VariableReference varRef;
 
 	private final int value;
 
 	public IIncOperation(MethodContext context, int varIndex, int value) {
-		this.variable = context.getVariable(varIndex);
+		this.varRef = context.getVarRef(varIndex);
 		this.value = value;
 	}
 
@@ -29,8 +29,8 @@ public class IIncOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
-		out.record(variable.getName());
+	public void write(DecompilationWriter out, WriteContext context) {
+		out.record(varRef.getName());
 
 		int value = this.value;
 

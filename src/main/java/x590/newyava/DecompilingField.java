@@ -3,6 +3,8 @@ package x590.newyava;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
+import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
@@ -54,7 +56,7 @@ public class DecompilingField implements ContextualWritable, Importable {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.ln().indent();
 		writeModifiers(out, context);
 		out.record(descriptor, context);
@@ -65,7 +67,7 @@ public class DecompilingField implements ContextualWritable, Importable {
 		out.record(';');
 	}
 
-	private void writeModifiers(DecompilationWriter out, ClassContext context) {
+	private void writeModifiers(DecompilationWriter out, Context context) {
 		int classModifiers = context.getClassModifiers();
 
 		if ((classModifiers & ACC_INTERFACE) != 0) {
@@ -107,14 +109,16 @@ public class DecompilingField implements ContextualWritable, Importable {
 		if ((modifiers & ACC_TRANSIENT) != 0) out.record(LIT_TRANSIENT + " ");
 	}
 
-	public void writeAsEnumConstant(DecompilationWriter out, ClassContext context) {
+	public void writeAsEnumConstant(DecompilationWriter out, Context context) {
 		out.record(descriptor.name());
 
 		if (initializer instanceof InvokeSpecialOperation invokeSpecial && invokeSpecial.isNew()) {
 			List<Operation> args = invokeSpecial.getArguments();
 
 			if (args.size() > 2) {
-				out.record('(').record(args.subList(2, args.size()), context, Priority.ZERO, ", ").record(')');
+				// methodScope здесь установлен в null, так как не планируется, что он понадобится.
+				// Однако это может привести к неправильному поведению. Может, потребуется исправление.
+				out.record('(').record(args.subList(2, args.size()), new WriteContext(context, null), Priority.ZERO, ", ").record(')');
 			}
 		}
 	}

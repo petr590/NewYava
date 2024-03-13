@@ -4,20 +4,26 @@ import it.unimi.dsi.fastutil.ints.*;
 import it.unimi.dsi.fastutil.objects.*;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.Label;
 import x590.newyava.ContextualWritable;
 import x590.newyava.Importable;
+import x590.newyava.constant.IntConstant;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.instruction.FlowControlInsn;
 import x590.newyava.decompilation.instruction.Instruction;
 import x590.newyava.decompilation.operation.condition.ConstCondition;
-import x590.newyava.decompilation.operation.condition.JumpOperation;
+import x590.newyava.decompilation.operation.condition.Role;
+import x590.newyava.decompilation.operation.condition.SwitchOperation;
 import x590.newyava.decompilation.scope.*;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.decompilation.variable.VariableTable;
 import x590.newyava.descriptor.MethodDescriptor;
+import x590.newyava.exception.DecompilationException;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 import x590.newyava.type.TypeSize;
@@ -65,17 +71,25 @@ public class CodeGraph implements ContextualWritable, Importable {
 	}
 
 
+	/* ------------------------------------------------- Variables ------------------------------------------------- */
+
 	private final VariableTable varTable = new VariableTable();
 
 	public void setVariable(int slotId, Type type, String name, Label start, Label end) {
 		varTable.add(slotId, new VariableReference(type, name, labels.getInt(start), labels.getInt(end)));
 	}
 
-	public void initVariables(int maxVariables, List<Type> argTypes,
-	                          boolean isStatic, Type classType) {
+	/**
+	 * Инициализирует все {@link VariableReference} в таблице переменных,
+	 * которые соответствуют {@code this} и параметрам метода.
+	 */
+	public void initVariables(int maxVariables, List<Type> argTypes, boolean isStatic, Type classType) {
 
 		if (maxVariables < argTypes.size()) {
-			throw new IllegalArgumentException("maxVariables less than argTypes.size(): " + maxVariables + ", " + argTypes.size());
+			throw new DecompilationException(String.format(
+					"maxVariables < argTypes.size(): maxVariables = %d, argTypes.size() = %d",
+					maxVariables, argTypes.size()
+			));
 		}
 
 		var varTable = this.varTable;
@@ -100,11 +114,13 @@ public class CodeGraph implements ContextualWritable, Importable {
 				slot.add(new VariableReference(argType, 0, instructions.size()));
 			}
 
-			if (argType.getSize() == TypeSize.LONG)
+			if (argType.getSize() == TypeSize.LONG) {
 				offset++;
+			}
 		}
 	}
 
+	/* ----------------------------------------------- Decompilation ----------------------------------------------- */
 
 	private Chunk first, last;
 
@@ -120,19 +136,23 @@ public class CodeGraph implements ContextualWritable, Importable {
 
 		@Unmodifiable List<Chunk> chunks = chunkMap.values().stream().sorted().toList();
 
-		var methodContext = new MethodContext(descriptor, context, visitor.getModifiers());
+		var methodContext = new MethodContext(context, descriptor, visitor.getModifiers());
 
 		chunks.forEach(chunk -> chunk.decompile(methodContext));
 		chunks.forEach(chunk -> chunk.linkChunks(labels, chunkMap));
 
 		List<Scope> scopes = new ArrayList<>();
 
-		// Сначала ищем циклы и операторы break/continue, связанные с ними
-		Int2IntMap loopChunkIds = findLoops(first, new Int2IntOpenHashMap(), new HashSet<>());
-		addScopes(scopes, chunks, loopChunkIds, LoopScope::new);
+		// Ищем циклы и операторы break/continue, связанные с ними
+		addScopes(scopes, chunks, findLoops(chunks), LoopScope::new);
 
-		// Затем все условия, которые не являются заголовком цикла/break/continue, становятся if-ами
-		Int2IntMap ifChunkIds = findIfs(first, new Int2IntOpenHashMap(), new HashSet<>());
+		// Ищем switch и соответствующие break
+		List<SwitchScope> switchScopes = findSwitches(chunks, chunkMap);
+		scopes.addAll(switchScopes);
+		switchScopes.forEach(switchScope -> scopes.addAll(switchScope.getCases()));
+
+		// Все условия, которые не являются заголовком цикла/break/continue, становятся if-ами
+		Int2IntMap ifChunkIds = findIfs(chunks);
 		addScopes(scopes, chunks, ifChunkIds,
 				(ifChunks) -> {
 					var condition = Objects.requireNonNull(chunks.get(ifChunks.get(0).getId() - 1).getCondition()).opposite();
@@ -147,12 +167,13 @@ public class CodeGraph implements ContextualWritable, Importable {
 		Collections.sort(scopes);
 		methodScope = createMethodScope(chunks, scopes);
 
-		methodScope.initVariables();
+		methodScope.initVariables(chunks);
 		methodScope.removeRedundantOperations(methodContext);
 	}
 
 
-	/** Преобразует список инструкций в список чанков.
+	/** Преобразует список инструкций в карту чанков.
+	 * Ключ - индекс инструкции, значение - чанк, начинающийся на этом индексе.
 	 * Инициализирует {@link #first} и {@link #last} */
 	private Int2ObjectMap<Chunk> readChunkMap() {
 		for (var label : breakpointLabels) {
@@ -161,14 +182,14 @@ public class CodeGraph implements ContextualWritable, Importable {
 
 		breakpoints.remove(0); // На индексе 0 всегда начинается первый чанк
 
-		Chunk current = first = new Chunk(0, 0, varTable.toList());
+		Chunk current = first = new Chunk(0, 0, varTable.listView());
 
 		var chunkMap = new Int2ObjectOpenHashMap<Chunk>();
 		chunkMap.put(0, current);
 
 		for (int i = 0, s = instructions.size(); i < s; i++) {
 			if (breakpoints.contains(i)) {
-				var newChunk = new Chunk(i, chunkMap.size(), varTable.toList());
+				var newChunk = new Chunk(i, chunkMap.size(), varTable.listView());
 
 				if (instructions.get(i - 1).canStay()) {
 					current.setDirectChunk(newChunk);
@@ -218,10 +239,17 @@ public class CodeGraph implements ContextualWritable, Importable {
 		Queue<Scope> scopeQueue = new LinkedList<>(scopes);
 		Scope current = methodScope;
 
+		var generator = new LabelNameGenerator();
+
 		for (int id = 0; id <= endId; id++) {
 			current = current.startScopes(scopeQueue, id);
 
-			current.addOperations(chunks.get(id).getOperations());
+			var operations = chunks.get(id).getOperations();
+
+			current.addOperations(operations);
+
+			for (var operation : operations)
+				operation.resolveLabelNames(current, generator);
 
 			current = current.endIfReached(id);
 		}
@@ -230,62 +258,128 @@ public class CodeGraph implements ContextualWritable, Importable {
 	}
 
 	/**
-	 * Ищет все циклы и сохраняет их индексы в {@code loopChunkIds}.
-	 * @param loopChunkIds ключ - id начального чанка, значение - id чанка после цикла
-	 * @return {@code loopChunkIds}
+	 * Ищет все циклы и сохраняет их индексы.
+	 * @param chunks все чанки в методе.
+	 * @return Карту: ключ - id начального чанка, значение - id чанка после цикла
 	 */
-	private Int2IntMap findLoops(Chunk chunk, Int2IntMap loopChunkIds, Set<Chunk> visited) {
-		if (chunk == null || visited.contains(chunk))
-			return loopChunkIds;
+	private Int2IntMap findLoops(@Unmodifiable List<Chunk> chunks) {
+		Int2IntMap loopChunkIds = new Int2IntOpenHashMap();
 
-		visited.add(chunk);
+		for (Chunk chunk : chunks) {
+			Chunk jumpChunk = chunk.getConditionalChunk();
 
-		Chunk jumpChunk = chunk.getConditionalChunk();
+			if (jumpChunk != null) {
+				int jumpId = jumpChunk.getId();
 
-		if (jumpChunk != null) {
-			int jumpId = jumpChunk.getId();
-
-			if (jumpId <= chunk.getId()) {
-				loopChunkIds.put(jumpId, Math.max(loopChunkIds.get(jumpId), chunk.getId() + 1));
+				if (jumpId <= chunk.getId()) {
+					loopChunkIds.put(jumpId, Math.max(loopChunkIds.get(jumpId), chunk.getId() + 1));
+				}
 			}
-
-			findLoops(jumpChunk, loopChunkIds, visited);
 		}
 
-		return findLoops(chunk.getDirectChunk(), loopChunkIds, visited);
+		return loopChunkIds;
+	}
+
+
+	/** Ищет все switch и возвращает их список */
+	private List<SwitchScope> findSwitches(@Unmodifiable List<Chunk> chunks, Int2ObjectMap<Chunk> chunkMap) {
+		List<SwitchScope> switchScopes = new ArrayList<>();
+
+		for (Chunk chunk : chunks) {
+			var switchOperation = chunk.getSwitchOperation();
+
+			if (switchOperation != null) {
+				SortedMap<Chunk, @Nullable Collection<IntConstant>> table = new TreeMap<>();
+
+				for (var entry : switchOperation.table().int2ObjectEntrySet()) {
+					table.computeIfAbsent(
+							chunkMap.get(labels.getInt(entry.getValue())),
+							c -> new ArrayList<>()
+					).add(IntConstant.valueOf(entry.getIntKey()));
+				}
+
+				table.put(chunkMap.get(labels.getInt(switchOperation.defaultLabel())), null);
+
+				switchScopes.add(createSwitchScope(switchOperation, chunks, table));
+			}
+		}
+
+		return switchScopes;
+	}
+
+	private static SwitchScope createSwitchScope(SwitchOperation switchOperation, @Unmodifiable List<Chunk> chunks,
+	                                             SortedMap<Chunk, @Nullable Collection<IntConstant>> table) {
+
+		var entries = new ArrayList<>(table.entrySet());
+
+		List<SwitchScope.CaseScope> cases = new ArrayList<>();
+
+		// Собираем все case кроме последнего
+		for (int i = 0, s = entries.size() - 1; i < s; i++) {
+			cases.add(new SwitchScope.CaseScope(
+					chunks.subList(
+							entries.get(i).getKey().getId(),
+							entries.get(i + 1).getKey().getId()
+					),
+					entries.get(i).getValue()
+			));
+		}
+
+		// Ищем, где конец последнего case
+		var lastEntry = entries.get(entries.size() - 1);
+		int lastId = lastEntry.getKey().getId();
+
+		var minEndId = cases.stream()
+				.map(Scope::getEndChunk).filter(Chunk::canTakeRole)
+				.map(Chunk::getConditionalChunk).filter(Objects::nonNull)
+				.mapToInt(Chunk::getId).filter(id -> id >= lastId)
+				.max();
+
+		if (minEndId.isPresent() && lastId != minEndId.getAsInt()) {
+			cases.add(new SwitchScope.CaseScope(
+					chunks.subList(lastId, minEndId.getAsInt()),
+					lastEntry.getValue()
+			));
+		}
+
+		return new SwitchScope(
+				switchOperation.value(),
+				cases,
+				chunks.subList(
+						cases.get(0).getStartChunk().getId(),
+						cases.get(cases.size() - 1).getEndChunk().getId() + 1
+				)
+		);
 	}
 
 	/**
-	 * Ищет все if-ы и сохраняет их индексы в {@code ifChunkIds}.
-	 * @param ifChunkIds ключ - id начального чанка, значение - id чанка после if-а
-	 * @return {@code ifChunkIds}
+	 * Ищет все if-ы и сохраняет их индексы.
+	 * @param chunks все чанки в методе.
+	 * @return Карту: ключ - id начального чанка, значение - id чанка после if-а
 	 */
-	private Int2IntMap findIfs(Chunk chunk, Int2IntMap ifChunkIds, Set<Chunk> visited) {
-		if (chunk == null || visited.contains(chunk))
-			return ifChunkIds;
+	private Int2IntMap findIfs(@Unmodifiable List<Chunk> chunks) {
+		Int2IntMap ifChunkIds = new Int2IntOpenHashMap();
 
-		visited.add(chunk);
+		for (Chunk chunk : chunks) {
+			Chunk jumpChunk = chunk.getConditionalChunk();
 
-		Chunk jumpChunk = chunk.getConditionalChunk();
+			if (jumpChunk != null) {
+				if (chunk.canTakeRole()) {
+					int jumpId = jumpChunk.getId();
 
-		if (jumpChunk != null) {
-			if (chunk.canTakeRole()) {
-				int jumpId = jumpChunk.getId();
+					if (jumpId > chunk.getId() && chunk.getCondition() != ConstCondition.TRUE) {
 
-				if (jumpId > chunk.getId() && chunk.getCondition() != ConstCondition.TRUE) {
+						// Не берём чанк с самим условием, так как
+						// в нём может быть код, не относящийся к if
+						ifChunkIds.put(chunk.getId() + 1, jumpId);
 
-					// Не берём чанк с самим условием, так как
-					// в нём может быть код, не относящийся к if
-					ifChunkIds.put(chunk.getId() + 1, jumpId);
-
-					chunk.initRole(JumpOperation.Role.IF_BRANCH);
+						chunk.initRole(Role.IF_BRANCH);
+					}
 				}
 			}
-
-			findIfs(jumpChunk, ifChunkIds, visited);
 		}
 
-		return findIfs(chunk.getDirectChunk(), ifChunkIds, visited);
+		return ifChunkIds;
 	}
 
 	/**
@@ -303,7 +397,7 @@ public class CodeGraph implements ContextualWritable, Importable {
 				lastIfChunk.requireConditionalChunk().getId() > lastIfChunk.getId()) {
 
 				elseChunkIds.put(lastIfChunk.getId() + 1, lastIfChunk.requireConditionalChunk().getId());
-				lastIfChunk.initRole(JumpOperation.Role.ELSE_BRANCH);
+				lastIfChunk.initRole(Role.ELSE_BRANCH);
 			}
 		}
 
@@ -317,7 +411,7 @@ public class CodeGraph implements ContextualWritable, Importable {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
-		out.record(methodScope, context);
+	public void write(DecompilationWriter out, Context context) {
+		out.record(methodScope, new WriteContext(context, null));
 	}
 }

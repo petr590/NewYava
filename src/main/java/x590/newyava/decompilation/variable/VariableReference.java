@@ -51,10 +51,11 @@ public class VariableReference {
 	 * @throws IllegalStateException если ссылка уже связана с другой переменной.
 	 */
 	public void initVariable(Variable variable) {
-		if (this.variable != null && this.variable != variable)
+		if (this.variable != null && this.variable != variable) {
 			throw new IllegalStateException(
 					"Reinitialized variable is not matches: " + this.variable + ", " + variable
 			);
+		}
 
 		this.variable = variable;
 	}

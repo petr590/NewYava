@@ -5,11 +5,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.decompilation.operation.condition.ConstCondition;
 import x590.newyava.decompilation.operation.condition.JumpOperation;
+import x590.newyava.decompilation.operation.condition.Role;
 import x590.newyava.io.DecompilationWriter;
 
 import java.util.List;
@@ -28,7 +30,7 @@ public class LoopScope extends Scope {
 
 		if (firstConditional != null && firstConditional.getId() == last.getId() + 1) {
 			this.condition = first.requireCondition().opposite();
-			first.initRole(JumpOperation.Role.LOOP_CONDITION);
+			first.initRole(Role.LOOP_CONDITION);
 
 		} else {
 			this.condition = Objects.requireNonNullElse(last.getCondition(), ConstCondition.TRUE);
@@ -39,10 +41,10 @@ public class LoopScope extends Scope {
 				Chunk conditional = chunk.getConditionalChunk();
 
 				if (conditional == first) {
-					chunk.initRole(JumpOperation.Role.CONTINUE);
+					chunk.initRole(Role.continueScope(this));
 
 				} else if (conditional != null && conditional.getId() == last.getId() + 1) {
-					chunk.initRole(JumpOperation.Role.BREAK);
+					chunk.initRole(Role.breakScope(this));
 				}
 			}
 		}
@@ -56,7 +58,7 @@ public class LoopScope extends Scope {
 		int last = operations.size() - 1;
 
 		if (last >= 0 && operations.get(last) instanceof JumpOperation jumpOperation &&
-			jumpOperation.getRole() == JumpOperation.Role.CONTINUE) {
+			jumpOperation.getRole().isContinueFor(this)) {
 
 			operations.remove(last);
 		}
@@ -69,7 +71,7 @@ public class LoopScope extends Scope {
 	}
 
 	@Override
-	protected boolean writeHeader(DecompilationWriter out, ClassContext context) {
+	protected boolean writeHeader(DecompilationWriter out, WriteContext context) {
 		out.record("while (").record(condition, context, Priority.ZERO).record(')');
 		return true;
 	}
