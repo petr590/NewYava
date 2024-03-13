@@ -1,19 +1,19 @@
 package x590.newyava.decompilation.operation;
 
-import x590.newyava.context.ClassContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.io.DecompilationWriter;
 
 /**
  * Специальная операция, которая не поддерживает запись.
  */
-public abstract class SpecialOperation implements Operation {
+public interface SpecialOperation extends Operation {
 
 	/**
 	 * @throws DecompilationException всегда. Это поведение может быть переопределено в подклассах.
 	 */
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
-		throw new DecompilationException("Cannot write " + this.getClass());
+	default void write(DecompilationWriter out, WriteContext context) {
+		throw new DecompilationException("Cannot write " + this.getClass().getCanonicalName());
 	}
 }

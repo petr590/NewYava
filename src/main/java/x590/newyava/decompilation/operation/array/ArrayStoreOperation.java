@@ -1,9 +1,13 @@
-package x590.newyava.decompilation.operation;
+package x590.newyava.decompilation.operation.array;
 
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
+import x590.newyava.decompilation.operation.LdcOperation;
+import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ArrayType;
 import x590.newyava.type.PrimitiveType;
@@ -43,7 +47,7 @@ public class ArrayStoreOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, WriteContext context) {
 		out.record(array, context, getPriority())
 			.record('[').record(index, context, Priority.ZERO).record("] = ")
 			.record(value, context, Priority.ASSIGNMENT);

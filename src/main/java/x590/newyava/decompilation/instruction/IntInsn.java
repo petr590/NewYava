@@ -3,7 +3,7 @@ package x590.newyava.decompilation.instruction;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.operation.LdcOperation;
-import x590.newyava.decompilation.operation.NewArrayOperation;
+import x590.newyava.decompilation.operation.array.NewArrayOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.exception.DisassemblingException;
 import x590.newyava.exception.UnknownOpcodeException;

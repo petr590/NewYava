@@ -1,7 +1,7 @@
 package x590.newyava.type;
 
 import org.jetbrains.annotations.Nullable;
-import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 
 import java.util.Collections;
@@ -21,7 +21,7 @@ public enum AnyObjectType implements ReferenceType {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.record(ClassType.OBJECT, context);
 	}
 

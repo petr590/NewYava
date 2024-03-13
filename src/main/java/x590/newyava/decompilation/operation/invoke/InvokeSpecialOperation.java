@@ -1,8 +1,8 @@
 package x590.newyava.decompilation.operation.invoke;
 
 import x590.newyava.Modifiers;
-import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.NewOperation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.descriptor.MethodDescriptor;
@@ -26,14 +26,14 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 	public InvokeSpecialOperation(MethodContext context, MethodDescriptor descriptor) {
 		super(context, descriptor);
 
-		this.invokeType = getType(context, descriptor);
+		this.invokeType = getInvokeType(context, descriptor);
 
 		this.returnType = invokeType == InvokeType.NEW ?
 				object.getReturnType() :
 				descriptor.returnType();
 	}
 
-	private InvokeType getType(MethodContext context, MethodDescriptor descriptor) {
+	private InvokeType getInvokeType(MethodContext context, MethodDescriptor descriptor) {
 		if (descriptor.isConstructor()) {
 			if (object.isThisRef()) {
 				var hostClass = descriptor.hostClass();
@@ -74,7 +74,7 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, WriteContext context) {
 		switch (invokeType) {
 			case PLAIN -> super.write(out, context);
 			case NEW -> out.record(object, context, Priority.ZERO);

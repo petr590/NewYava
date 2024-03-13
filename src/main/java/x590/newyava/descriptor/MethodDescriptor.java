@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.Importable;
 import x590.newyava.Literals;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.decompilation.variable.Variable;
 import x590.newyava.exception.InvalidDescriptorException;
 import x590.newyava.io.DecompilationWriter;
@@ -18,10 +19,10 @@ import x590.newyava.type.TypeSize;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 
+/** Дескриптор метода */
 public record MethodDescriptor(
 		ReferenceType hostClass,
 		String name,
@@ -73,7 +74,7 @@ public record MethodDescriptor(
 		context.addImport(returnType).addImportsFor(arguments);
 	}
 
-	public void write(DecompilationWriter out, ClassContext context, boolean isStatic,
+	public void write(DecompilationWriter out, Context context, boolean isStatic,
 	                  @Nullable List<Variable> variables) {
 
 		switch (name) {
@@ -154,6 +155,6 @@ public record MethodDescriptor(
 	@Override
 	public String toString() {
 		return String.format("%s %s.%s(%s)", returnType, hostClass, name,
-				arguments.stream().map(Objects::toString).collect(Collectors.joining(", ")));
+				arguments.stream().map(Object::toString).collect(Collectors.joining(", ")));
 	}
 }

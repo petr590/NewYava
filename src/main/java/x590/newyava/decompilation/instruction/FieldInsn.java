@@ -23,8 +23,8 @@ public record FieldInsn(int opcode, String className, String name, String typeNa
 		return switch (opcode) {
 			case GETSTATIC -> FieldOperation.getStatic(descriptor);
 			case PUTSTATIC -> FieldOperation.putStatic(context, descriptor, context.popAs(descriptor.type()));
-			case GETFIELD  -> new FieldOperation(descriptor, context.popAs(descriptor.hostClass()), null);
-			case PUTFIELD  -> new FieldOperation(descriptor, context.popAs(descriptor.hostClass()), context.popAs(descriptor.type()));
+			case GETFIELD  -> new FieldOperation(descriptor, null, context.popAs(descriptor.hostClass()));
+			case PUTFIELD  -> new FieldOperation(descriptor, context.popAs(descriptor.type()), context.popAs(descriptor.hostClass()));
 			default -> throw new UnknownOpcodeException(opcode);
 		};
 	}

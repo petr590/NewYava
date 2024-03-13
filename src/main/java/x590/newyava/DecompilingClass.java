@@ -129,7 +129,7 @@ public class DecompilingClass implements Writable {
 			out.ln().indent().record(enumConstants, ", ", (field, i) -> field.writeAsEnumConstant(out, classContext)).record(';');
 		}
 
-		if (out.writeIf(visibleFields, classContext, ", ", Predicate.not(DecompilingField::isEnum))) {
+		if (out.writeIf(visibleFields, classContext, "", Predicate.not(DecompilingField::isEnum))) {
 			out.ln();
 		}
 	}

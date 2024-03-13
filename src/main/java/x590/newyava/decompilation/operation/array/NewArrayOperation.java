@@ -1,4 +1,4 @@
-package x590.newyava.decompilation.operation;
+package x590.newyava.decompilation.operation.array;
 
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.constant.DoubleConstant;
@@ -7,6 +7,11 @@ import x590.newyava.constant.IntConstant;
 import x590.newyava.constant.LongConstant;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
+import x590.newyava.decompilation.operation.ConstNullOperation;
+import x590.newyava.decompilation.operation.LdcOperation;
+import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ArrayType;
@@ -56,8 +61,8 @@ public class NewArrayOperation implements Operation {
 	}
 
 	private static Operation defaultOperation(Type elementType) {
-		if (elementType instanceof PrimitiveType primitive) {
-			return new LdcOperation(switch (primitive) {
+		if (elementType instanceof PrimitiveType.NonIntType nonIntType) {
+			return new LdcOperation(switch (nonIntType) {
 				case LONG -> LongConstant.ZERO;
 				case FLOAT -> FloatConstant.ZERO;
 				case DOUBLE -> DoubleConstant.ZERO;
@@ -104,7 +109,7 @@ public class NewArrayOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, WriteContext context) {
 		if (useInitializersList) {
 			out .recordsp("new").record(memberType, context)
 				.recordN("[]", arrayType.getNestLevel()).recordsp();
@@ -114,7 +119,7 @@ public class NewArrayOperation implements Operation {
 	}
 
 	@Override
-	public void writeAsArrayInitializer(DecompilationWriter out, ClassContext context) {
+	public void writeAsArrayInitializer(DecompilationWriter out, WriteContext context) {
 		if (useInitializersList) {
 			if (Objects.requireNonNull(initializers).isEmpty()) {
 				out.record("{}");

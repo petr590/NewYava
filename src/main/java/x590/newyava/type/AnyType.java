@@ -1,13 +1,13 @@
 package x590.newyava.type;
 
-import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 
 public enum AnyType implements Type {
 	INSTANCE;
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.record(ClassType.OBJECT, context);
 	}
 

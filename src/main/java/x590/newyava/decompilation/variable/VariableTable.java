@@ -6,6 +6,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Таблица, которая содержит список {@link VariableSlot}.
+ */
 public class VariableTable {
 
 	private final List<VariableSlot> slots = new ArrayList<>();
@@ -30,7 +33,7 @@ public class VariableTable {
 
 	private final @UnmodifiableView List<VariableSlot> unmodifiableSlots = Collections.unmodifiableList(slots);
 
-	public @UnmodifiableView List<VariableSlot> toList() {
+	public @UnmodifiableView List<VariableSlot> listView() {
 		return unmodifiableSlots;
 	}
 }

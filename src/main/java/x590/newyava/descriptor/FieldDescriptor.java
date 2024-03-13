@@ -3,6 +3,7 @@ package x590.newyava.descriptor;
 import x590.newyava.ContextualWritable;
 import x590.newyava.Importable;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.ReferenceType;
@@ -21,7 +22,7 @@ public record FieldDescriptor(ReferenceType hostClass, String name, Type type)
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.recordsp(type, context).record(name);
 	}
 

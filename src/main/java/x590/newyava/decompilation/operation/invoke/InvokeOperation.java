@@ -3,6 +3,7 @@ package x590.newyava.decompilation.operation.invoke;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.descriptor.MethodDescriptor;
@@ -50,7 +51,7 @@ public abstract class InvokeOperation implements Operation {
 		return descriptor.returnType();
 	}
 
-	protected void writeNameAndArgs(DecompilationWriter out, ClassContext context) {
+	protected void writeNameAndArgs(DecompilationWriter out, WriteContext context) {
 		out.record(descriptor.name()).record('(').record(arguments, context, Priority.ZERO, ", ").record(')');
 	}
 }

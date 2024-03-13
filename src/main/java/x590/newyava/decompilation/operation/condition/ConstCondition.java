@@ -1,7 +1,7 @@
 package x590.newyava.decompilation.operation.condition;
 
 import lombok.RequiredArgsConstructor;
-import x590.newyava.context.ClassContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.io.DecompilationWriter;
 
 @RequiredArgsConstructor
@@ -17,7 +17,7 @@ public enum ConstCondition implements Condition {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, WriteContext context) {
 		out.record(literal);
 	}
 }

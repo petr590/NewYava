@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import x590.newyava.constant.ClassConstant;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
@@ -15,7 +16,7 @@ import x590.newyava.type.Type;
 public class FieldOperation implements Operation {
 	private final FieldDescriptor descriptor;
 
-	private final @Nullable Operation instance, value;
+	private final @Nullable Operation value, instance;
 
 	public static Operation getStatic(FieldDescriptor descriptor) {
 		if (descriptor.name().equals("TYPE")) {
@@ -39,7 +40,7 @@ public class FieldOperation implements Operation {
 		if (context.getDescriptor().isStaticInitializer() &&
 			descriptor.hostClass().equals(context.getDescriptor().hostClass())) {
 
-			var foundField = context.getClassContext().findField(descriptor);
+			var foundField = context.findField(descriptor);
 
 			if (foundField.isPresent()) {
 				if (foundField.get().setInitializer(value)) {
@@ -54,7 +55,7 @@ public class FieldOperation implements Operation {
 			}
 		}
 
-		return new FieldOperation(descriptor, null, value);
+		return new FieldOperation(descriptor, value, null);
 	}
 
 	@Override
@@ -77,7 +78,7 @@ public class FieldOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, WriteContext context) {
 		if (instance != null) {
 			out.record(instance, context, getPriority());
 		} else {

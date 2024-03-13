@@ -5,6 +5,7 @@ import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.decompilation.CodeGraph;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
@@ -55,6 +56,10 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 					!descriptor.equals(enumType, "values", ArrayType.forType(enumType), List.of());
 		}
 
+		if ((context.getClassModifiers() & ACC_RECORD) != 0) {
+			return codeGraph == null || !codeGraph.getMethodScope().isRecordInvokedynamic();
+		}
+
 		return true;
 	}
 
@@ -74,7 +79,7 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.ln().ln().indent();
 		writeModifiers(out, context);
 
@@ -90,7 +95,7 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		}
 	}
 
-	private void writeModifiers(DecompilationWriter out, ClassContext context) {
+	private void writeModifiers(DecompilationWriter out, Context context) {
 		if (descriptor.isStaticInitializer()) {
 			if (modifiers != ACC_STATIC) {
 				throw new IllegalModifiersException("In the static initializer: ", modifiers, EntryType.METHOD);

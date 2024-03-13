@@ -5,13 +5,15 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public final class IntConstant extends Constant {
+public final class IntConstant extends Constant implements Comparable<IntConstant> {
 	private static final Int2ObjectMap<IntConstant> CACHE = new Int2ObjectOpenHashMap<>();
 
 	public static IntConstant valueOf(int value) {
@@ -40,11 +42,21 @@ public final class IntConstant extends Constant {
 	public void addImports(ClassContext context) {}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context, Type type) {
+	public void write(DecompilationWriter out, Context context, Type type) {
 		out.record(
 				type == PrimitiveType.BOOLEAN ? String.valueOf(value != 0) :
 				type == PrimitiveType.CHAR ? "'" + JavaEscapeUtils.escapeChar((char)value) + "'" :
 						String.valueOf(value)
 		);
+	}
+
+	@Override
+	public int compareTo(@NotNull IntConstant other) {
+		return value - other.value;
+	}
+
+	@Override
+	public String toString() {
+		return "IntConstant(" + value + ")";
 	}
 }

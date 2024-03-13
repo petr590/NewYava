@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.objectweb.asm.Label;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
 
@@ -45,17 +46,12 @@ public class IfOperation extends JumpOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
-		switch (getRole()) {
-			case BREAK ->
-					out.record("if (").record(condition, context, Priority.ZERO).record(')')
-						.incIndent().ln().indent().record("break").decIndent();
+	public void write(DecompilationWriter out, WriteContext context) {
+		out.record("if (").record(condition, context, Priority.ZERO).record(')')
+				.incIndent().ln().indent();
 
-			case CONTINUE ->
-					out.record("if (").record(condition, context, Priority.ZERO).record(')')
-						.incIndent().ln().indent().record("continue").decIndent();
+		getRole().write(out, context);
 
-			default -> super.write(out, context);
-		}
+		out.decIndent();
 	}
 }

@@ -8,15 +8,17 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.condition.SwitchOperation;
+import x590.newyava.type.PrimitiveType;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class SwitchInsn implements FlowControlInsn {
+	private final Int2ObjectMap<Label> table;
 
 	private final Label defaultLabel;
-	private final Int2ObjectMap<Label> table;
 
 	private final @Unmodifiable List<Label> labels;
 
@@ -29,15 +31,15 @@ public class SwitchInsn implements FlowControlInsn {
 	}
 
 	public SwitchInsn(int min, int max, Label defaultLabel, Label[] labels) {
-		if (labels.length != max - min) {
+		if (labels.length != max - min + 1) {
 			throw new IllegalArgumentException(String.format(
-					"labels.length != max - min; labels.length = %d, max = %d, min = %d",
+					"labels.length != max - min + 1; labels.length = %d, max = %d, min = %d",
 					labels.length, max, min));
 		}
 
 		this.table = new Int2ObjectArrayMap<>(labels.length);
 
-		for (int i = 0, key = min; key < max; i++, key++) {
+		for (int i = 0, key = min; key <= max; i++, key++) {
 			table.put(key, labels[i]);
 		}
 
@@ -76,6 +78,6 @@ public class SwitchInsn implements FlowControlInsn {
 
 	@Override
 	public @NotNull Operation toOperation(MethodContext context) {
-		return null; // TODO
+		return new SwitchOperation(context.popAs(PrimitiveType.INT), table, defaultLabel);
 	}
 }

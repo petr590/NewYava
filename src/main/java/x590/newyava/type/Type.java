@@ -35,12 +35,6 @@ public interface Type extends ContextualWritable, Importable {
 			return PrimitiveType.isAssignable(type1, type2);
 		}
 
-		if (givenType instanceof IntMultiType type1 &&
-			requiredType instanceof IntMultiType type2) {
-
-			return IntMultiType.isAssignable(type1, type2);
-		}
-
 		if (givenType instanceof ReferenceType type1 &&
 			requiredType instanceof ReferenceType type2) {
 
@@ -76,12 +70,6 @@ public interface Type extends ContextualWritable, Importable {
 			requiredType instanceof PrimitiveType type2) {
 
 			return PrimitiveType.assignQuiet(type1, type2);
-		}
-
-		if (givenType instanceof IntMultiType type1 &&
-			requiredType instanceof IntMultiType type2) {
-
-			return IntMultiType.assignQuiet(type1, type2);
 		}
 
 		if (givenType instanceof ReferenceType type1 &&
@@ -151,22 +139,11 @@ public interface Type extends ContextualWritable, Importable {
 	}
 
 	static Type valueOf(Class<?> clazz) {
-		if (clazz.isPrimitive()) {
-			if (clazz == int.class)     return PrimitiveType.INT;
-			if (clazz == long.class)    return PrimitiveType.LONG;
-			if (clazz == float.class)   return PrimitiveType.FLOAT;
-			if (clazz == double.class)  return PrimitiveType.DOUBLE;
-			if (clazz == byte.class)    return PrimitiveType.BYTE;
-			if (clazz == short.class)   return PrimitiveType.SHORT;
-			if (clazz == char.class)    return PrimitiveType.CHAR;
-			if (clazz == boolean.class) return PrimitiveType.BOOLEAN;
-			if (clazz == void.class)    return PrimitiveType.VOID;
-			throw new IllegalArgumentException("Class " + clazz + " is primitive but does not matches any primitive class");
-		}
+		if (clazz.isPrimitive())
+			return PrimitiveType.valueOf(clazz);
 
-		if (clazz.isArray()) {
+		if (clazz.isArray())
 			return ArrayType.forType(valueOf(clazz.componentType()));
-		}
 
 		return ClassType.valueOf(clazz);
 	}

@@ -1,7 +1,7 @@
 package x590.newyava.constant;
 
 import x590.newyava.Importable;
-import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
@@ -28,5 +28,5 @@ public abstract sealed class Constant implements Importable
 
 	public abstract Type getType();
 
-	public abstract void write(DecompilationWriter out, ClassContext context, Type type);
+	public abstract void write(DecompilationWriter out, Context context, Type type);
 }

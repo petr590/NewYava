@@ -6,11 +6,11 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Nullable;
-import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public class IntMultiType implements Type {
+public final class IntMultiType implements PrimitiveType {
 
 	public static final int
 			BOOLEAN_FLAG = 0x1,
@@ -39,7 +39,7 @@ public class IntMultiType implements Type {
 
 
 	@Override
-	public void write(DecompilationWriter out, ClassContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.record(getName());
 	}
 

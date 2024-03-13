@@ -1,11 +1,13 @@
 package x590.newyava.io;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.TriConsumer;
 import org.jetbrains.annotations.NotNull;
 import x590.newyava.ContextualWritable;
 import x590.newyava.Writable;
-import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
+import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.Associativity;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
@@ -35,6 +37,8 @@ public class DecompilationWriter extends Writer {
 	}
 
 	private int indentWidth = 0;
+
+	@Getter
 	private String indent = "";
 
 	public DecompilationWriter incIndent() {
@@ -126,21 +130,21 @@ public class DecompilationWriter extends Writer {
 	}
 
 	/* --------------------------------------------- ContextualWritable --------------------------------------------- */
-	public DecompilationWriter record(ContextualWritable writable, ClassContext context) {
+	public DecompilationWriter record(ContextualWritable writable, Context context) {
 		writable.write(this, context);
 		return this;
 	}
 
-	public DecompilationWriter record(Collection<? extends ContextualWritable> writables, ClassContext context) {
+	public DecompilationWriter record(Collection<? extends ContextualWritable> writables, Context context) {
 		writables.forEach(writable -> record(writable, context));
 		return this;
 	}
 
 	/**
-	 * Работает также, как и {@link #record(Collection, String, ObjIntConsumer, int)}.
+	 * Работает также, как и {@link #record(Collection, String, int, ObjIntConsumer)}.
 	 * {@code startIndex} равен 0.
 	 */
-	public <T extends ContextualWritable> DecompilationWriter record(
+	public <T> DecompilationWriter record(
 			Collection<? extends T> writables, String separator, ObjIntConsumer<T> writer
 	) {
 		return record(writables, separator, 0, writer);
@@ -152,7 +156,7 @@ public class DecompilationWriter extends Writer {
 	 * Между вызовами записывает разделитель {@code separator}.
 	 * @return {@code this}
 	 */
-	public <T extends ContextualWritable> DecompilationWriter record(
+	public <T> DecompilationWriter record(
 			Collection<? extends T> writables, String separator, int startIndex, ObjIntConsumer<T> writer
 	) {
 		int i = 0;
@@ -177,7 +181,7 @@ public class DecompilationWriter extends Writer {
 	 * @return {@code true}, если записан хотя бы один объект.
 	 */
 	public <T extends ContextualWritable> boolean writeIf(
-			Collection<? extends T> writables, ClassContext context, String separator, Predicate<T> predicate
+			Collection<? extends T> writables, Context context, String separator, Predicate<T> predicate
 	) {
 		boolean wrote = false;
 
@@ -197,30 +201,30 @@ public class DecompilationWriter extends Writer {
 
 
 	/* ---------------------------------------------- Operation, Scope ---------------------------------------------- */
-	public DecompilationWriter record(Scope scope, ClassContext context) {
+	public DecompilationWriter record(Scope scope, WriteContext context) {
 		return record(scope, context, Priority.ZERO);
 	}
 
-	public DecompilationWriter record(Operation operation, ClassContext context, Priority priority) {
+	public DecompilationWriter record(Operation operation, WriteContext context, Priority priority) {
 		return record(operation, context, priority, priority.getAssociativity());
 	}
 
-	public DecompilationWriter record(
-			Operation operation, ClassContext context, Priority priority,
-			TriConsumer<Operation, DecompilationWriter, ClassContext> writer
+	public <T extends Operation> DecompilationWriter record(
+			T operation, WriteContext context, Priority priority,
+			TriConsumer<T, DecompilationWriter, WriteContext> writer
 	) {
 		return record(operation, context, priority, priority.getAssociativity(), writer);
 	}
 
 	public DecompilationWriter record(
-			Operation operation, ClassContext context, Priority priority, Associativity side
+			Operation operation, WriteContext context, Priority priority, Associativity side
 	) {
 		return record(operation, context, priority, side, Operation::write);
 	}
 
-	public DecompilationWriter record(
-			Operation operation, ClassContext context, Priority priority, Associativity side,
-	        TriConsumer<Operation, DecompilationWriter, ClassContext> writer
+	public <T extends Operation> DecompilationWriter record(
+			T operation, WriteContext context, Priority priority, Associativity side,
+	        TriConsumer<T, DecompilationWriter, WriteContext> writer
 	) {
 		var selfPriority = operation.getPriority();
 
@@ -238,20 +242,24 @@ public class DecompilationWriter extends Writer {
 
 	public DecompilationWriter record(
 			Collection<? extends Operation> operations,
-			ClassContext context, Priority priority, String separator
+			WriteContext context, Priority priority, String separator
 	) {
 		return record(operations, context, priority, separator, Operation::write);
 	}
 
-	public DecompilationWriter record(
-			Collection<? extends Operation> operations, ClassContext context, Priority priority,
-			String separator, TriConsumer<Operation, DecompilationWriter, ClassContext> writer
+	public <T extends Operation> DecompilationWriter record(
+			Collection<? extends T> operations, WriteContext context, Priority priority,
+			String separator, TriConsumer<T, DecompilationWriter, WriteContext> writer
 	) {
 		if (!operations.isEmpty()) {
-			record(operations.iterator().next(), context, priority, writer);
+			record(operations.iterator().next(), context, priority, priority.getAssociativity(), writer);
 
-			operations.stream().skip(1)
-					.forEach(operation -> record(separator).record(operation, context, priority, writer));
+			if (operations.size() > 1) {
+				var opposite = priority.getAssociativity().opposite();
+
+				operations.stream().skip(1).forEach(operation -> record(separator)
+						.record(operation, context, priority, opposite, writer));
+			}
 		}
 
 		return this;
@@ -271,7 +279,7 @@ public class DecompilationWriter extends Writer {
 		return record(writable).record(' ');
 	}
 
-	public DecompilationWriter recordsp(ContextualWritable writable, ClassContext context) {
+	public DecompilationWriter recordsp(ContextualWritable writable, Context context) {
 		return record(writable, context).record(' ');
 	}
 

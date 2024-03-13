@@ -3,7 +3,7 @@ package x590.newyava.decompilation.instruction;
 import org.objectweb.asm.Opcodes;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.ThrowOperation;
+import x590.newyava.decompilation.operation.terminal.ThrowOperation;
 
 public enum ThrowInsn implements Instruction {
 	INSTANCE;
