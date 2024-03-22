@@ -4,6 +4,7 @@ import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.Config;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
@@ -35,13 +36,19 @@ public class Scope implements Operation, Comparable<Scope> {
 
 	protected final List<Operation> operations = new ArrayList<>();
 
+	private final @UnmodifiableView List<Operation> operationsView = Collections.unmodifiableList(operations);
+
+	public @UnmodifiableView List<Operation> getOperations() {
+		return operationsView;
+	}
+
 	private final List<Scope> scopes = new ArrayList<>();
 
 	private final List<@Nullable Variable> variables = new ArrayList<>();
 
-	private final @Unmodifiable List<Variable> variablesView = Collections.unmodifiableList(variables);
+	private final @UnmodifiableView List<Variable> variablesView = Collections.unmodifiableList(variables);
 
-	public @Unmodifiable List<Variable> getVariables() {
+	public @UnmodifiableView List<Variable> getVariables() {
 		return variablesView;
 	}
 
@@ -104,6 +111,7 @@ public class Scope implements Operation, Comparable<Scope> {
 		return this;
 	}
 
+	/** Завершает все текущие scope-ы, если они достигли конца */
 	public Scope endIfReached(int currentId) {
 		return currentId >= endChunk.getId() && parent != null ?
 				parent.endIfReached(currentId) :

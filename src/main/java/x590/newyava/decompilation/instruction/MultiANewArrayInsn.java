@@ -22,14 +22,14 @@ public record MultiANewArrayInsn(String descriptor, int dimensions) implements I
 	public Operation toOperation(MethodContext context) {
 		int dimensions = this.dimensions;
 
-		List<Operation> indexes = new ArrayList<>(dimensions);
+		List<Operation> sizes = new ArrayList<>(dimensions);
 
 		for (int i = 0; i < dimensions; i++) {
-			indexes.add(context.popAs(PrimitiveType.INT));
+			sizes.add(context.popAs(PrimitiveType.INT));
 		}
 
-		Collections.reverse(indexes);
+		Collections.reverse(sizes);
 
-		return new NewArrayOperation(ArrayType.valueOf(descriptor), indexes);
+		return new NewArrayOperation(ArrayType.valueOf(descriptor), sizes);
 	}
 }

@@ -21,13 +21,13 @@ public final class IntConstant extends Constant implements Comparable<IntConstan
 	}
 
 	public static final IntConstant
-			MINUS_ONE = IntConstant.valueOf(-1),
-			ZERO = IntConstant.valueOf(0),
-			ONE = IntConstant.valueOf(1),
-			TWO = IntConstant.valueOf(2),
-			THREE = IntConstant.valueOf(3),
-			FOUR = IntConstant.valueOf(4),
-			FIVE = IntConstant.valueOf(5);
+			MINUS_ONE = valueOf(-1),
+			ZERO = valueOf(0),
+			ONE = valueOf(1),
+			TWO = valueOf(2),
+			THREE = valueOf(3),
+			FOUR = valueOf(4),
+			FIVE = valueOf(5);
 
 
 	@Getter

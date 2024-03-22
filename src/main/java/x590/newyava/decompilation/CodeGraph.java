@@ -7,8 +7,6 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.Label;
-import x590.newyava.ContextualWritable;
-import x590.newyava.Importable;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
@@ -36,7 +34,7 @@ import java.util.function.Function;
  * Хранит код и проводит его декомпиляцию.
  */
 @RequiredArgsConstructor
-public class CodeGraph implements ContextualWritable, Importable {
+public class CodeGraph implements ReadonlyCode {
 
 	private final DecompileMethodVisitor visitor;
 

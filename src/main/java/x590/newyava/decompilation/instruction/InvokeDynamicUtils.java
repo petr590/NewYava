@@ -9,24 +9,38 @@ import java.lang.runtime.ObjectMethods;
 public class InvokeDynamicUtils {
 	private InvokeDynamicUtils() {}
 
-	public static final Handle RECORD_BOOTSTRAP = new Handle(
+	static final String STRING_CONCAT_METHOD = "makeConcatWithConstants";
+
+	static final Handle STRING_CONCAT_BOOTSTRAP = new Handle(
 			Opcodes.H_INVOKESTATIC,
-			InvokeDynamicUtils.classDescriptor(ObjectMethods.class),
+			classDescriptor(StringConcatFactory.class),
+			STRING_CONCAT_METHOD,
+			methodDescriptor(CallSite.class,
+					MethodHandles.Lookup.class, String.class,
+					MethodType.class, String.class, Object[].class
+			),
+			false
+	);
+
+	static final Handle RECORD_BOOTSTRAP = new Handle(
+			Opcodes.H_INVOKESTATIC,
+			classDescriptor(ObjectMethods.class),
 			"bootstrap",
-			InvokeDynamicUtils.methodDescriptor(Object.class,
+			methodDescriptor(Object.class,
 					MethodHandles.Lookup.class, String.class, TypeDescriptor.class,
 					Class.class, String.class, MethodHandle[].class
 			),
 			false
 	);
 
-	public static final Handle STRING_CONCAT_BOOTSTRAP = new Handle(
+
+	static final Handle LAMBDA_BOOTSTRAP = new Handle(
 			Opcodes.H_INVOKESTATIC,
-			InvokeDynamicUtils.classDescriptor(StringConcatFactory.class),
-			"makeConcatWithConstants",
-			InvokeDynamicUtils.methodDescriptor(CallSite.class,
-					MethodHandles.Lookup.class, String.class,
-					MethodType.class, String.class, Object[].class
+			classDescriptor(LambdaMetafactory.class),
+			"metafactory",
+			methodDescriptor(CallSite.class,
+					MethodHandles.Lookup.class, String.class, MethodType.class,
+					MethodType.class, MethodHandle.class, MethodType.class
 			),
 			false
 	);

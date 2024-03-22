@@ -1,6 +1,8 @@
 package x590.newyava.decompilation.operation.array;
 
+import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.constant.DoubleConstant;
 import x590.newyava.constant.FloatConstant;
 import x590.newyava.constant.IntConstant;
@@ -20,6 +22,7 @@ import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -27,7 +30,8 @@ public class NewArrayOperation implements Operation {
 	private final ArrayType arrayType;
 	private final Type memberType;
 
-	private final List<Operation> indexes;
+	@Getter
+	private final @Unmodifiable List<Operation> sizes;
 
 	private final @Nullable List<Operation> initializers;
 
@@ -37,12 +41,12 @@ public class NewArrayOperation implements Operation {
 		this(arrayType, List.of(context.popAs(PrimitiveType.INT)));
 	}
 
-	public NewArrayOperation(ArrayType arrayType, List<Operation> indexes) {
+	public NewArrayOperation(ArrayType arrayType, List<Operation> sizes) {
 		this.arrayType = arrayType;
 		this.memberType = arrayType.getMemberType();
-		this.indexes = indexes;
+		this.sizes = Collections.unmodifiableList(sizes);
 
-		var indexConst = LdcOperation.getIntConstant(indexes.get(0));
+		var indexConst = LdcOperation.getIntConstant(sizes.get(0));
 
 		this.initializers = indexConst == null ? null :
 				createInitializers(indexConst.getValue(), arrayType.getElementType());
@@ -90,6 +94,10 @@ public class NewArrayOperation implements Operation {
 		}
 	}
 
+	public boolean hasInitializer() {
+		return initializers != null && !initializers.isEmpty();
+	}
+
 	@Override
 	public Type getReturnType() {
 		return arrayType;
@@ -102,7 +110,7 @@ public class NewArrayOperation implements Operation {
 
 	@Override
 	public void addImports(ClassContext context) {
-		context.addImport(memberType).addImportsFor(indexes);
+		context.addImport(memberType).addImportsFor(sizes);
 
 		if (initializers != null)
 			context.addImportsFor(initializers);
@@ -132,11 +140,11 @@ public class NewArrayOperation implements Operation {
 		} else {
 			out.recordsp("new").record(memberType, context);
 
-			for (Operation index : indexes) {
+			for (Operation index : sizes) {
 				out.record('[').record(index, context, Priority.ZERO).record(']');
 			}
 
-			out.recordN("[]", arrayType.getNestLevel() - indexes.size());
+			out.recordN("[]", arrayType.getNestLevel() - sizes.size());
 		}
 	}
 }

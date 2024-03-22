@@ -1,5 +1,8 @@
 package x590.newyava.constant;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
@@ -7,14 +10,20 @@ import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
-@RequiredArgsConstructor
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class LongConstant extends Constant {
 
-	public static final LongConstant
-			ZERO = new LongConstant(0),
-			ONE = new LongConstant(1);
+	private static final Long2ObjectMap<LongConstant> CACHE = new Long2ObjectOpenHashMap<>();
 
-	private final float value;
+	public static LongConstant valueOf(long value) {
+		return CACHE.computeIfAbsent(value, LongConstant::new);
+	}
+
+	public static final LongConstant
+			ZERO = valueOf(0),
+			ONE = valueOf(1);
+
+	private final long value;
 
 	@Override
 	public Type getType() {

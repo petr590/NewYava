@@ -1,5 +1,6 @@
 package x590.newyava.constant;
 
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
@@ -8,19 +9,23 @@ import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
-@RequiredArgsConstructor
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class ClassConstant extends Constant {
 
 	public static final ClassConstant
-			BYTE    = new ClassConstant(PrimitiveType.BYTE),
-			SHORT   = new ClassConstant(PrimitiveType.SHORT),
-			CHAR    = new ClassConstant(PrimitiveType.CHAR),
-			INT     = new ClassConstant(PrimitiveType.INT),
-			LONG    = new ClassConstant(PrimitiveType.LONG),
-			FLOAT   = new ClassConstant(PrimitiveType.FLOAT),
-			DOUBLE  = new ClassConstant(PrimitiveType.DOUBLE),
-			BOOLEAN = new ClassConstant(PrimitiveType.BOOLEAN),
-			VOID    = new ClassConstant(PrimitiveType.VOID);
+			BYTE    = valueOf(PrimitiveType.BYTE),
+			SHORT   = valueOf(PrimitiveType.SHORT),
+			CHAR    = valueOf(PrimitiveType.CHAR),
+			INT     = valueOf(PrimitiveType.INT),
+			LONG    = valueOf(PrimitiveType.LONG),
+			FLOAT   = valueOf(PrimitiveType.FLOAT),
+			DOUBLE  = valueOf(PrimitiveType.DOUBLE),
+			BOOLEAN = valueOf(PrimitiveType.BOOLEAN),
+			VOID    = valueOf(PrimitiveType.VOID);
+
+	public static ClassConstant valueOf(Type type) {
+		return new ClassConstant(type);
+	}
 
 	private final Type type;
 

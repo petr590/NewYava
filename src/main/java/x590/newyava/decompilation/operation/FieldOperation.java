@@ -43,13 +43,9 @@ public class FieldOperation implements Operation {
 			var foundField = context.findField(descriptor);
 
 			if (foundField.isPresent()) {
-				if (foundField.get().setInitializer(value)) {
-					return null;
-				}
+				var field = foundField.get();
 
-				System.out.println(foundField.get() + ", " + foundField.get().keep());
-
-				if (!foundField.get().keep()) {
+				if (field.setInitializer(value) || !field.keep()) {
 					return null;
 				}
 			}

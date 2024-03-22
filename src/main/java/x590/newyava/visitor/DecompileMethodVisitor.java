@@ -3,12 +3,11 @@ package x590.newyava.visitor;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
-import org.objectweb.asm.Handle;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.*;
 import x590.newyava.Config;
 import x590.newyava.Modifiers;
+import x590.newyava.annotation.DecompilingAnnotation;
+import x590.newyava.annotation.DefaultValue;
 import x590.newyava.context.ClassContext;
 import x590.newyava.decompilation.CodeGraph;
 import x590.newyava.decompilation.instruction.*;
@@ -17,6 +16,7 @@ import x590.newyava.io.SignatureReader;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -31,7 +31,11 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	private final String name, descriptor;
 	private final @Nullable String signature;
 	private final String @Nullable[] exceptions;
+	private final List<DecompilingAnnotation> annotations = new ArrayList<>();
 
+	private @Nullable DefaultValue defaultValue;
+
+	// Является @Nullable, но это не указывается из-за кучи предупреждений
 	private CodeGraph codeGraph;
 
 	public DecompileMethodVisitor(String className, int modifiers, String name, String descriptor,
@@ -47,6 +51,10 @@ public class DecompileMethodVisitor extends MethodVisitor {
 		this.exceptions = exceptions;
 	}
 
+	public @Nullable CodeGraph getCodeGraph() {
+		return codeGraph;
+	}
+
 	public MethodDescriptor getDescriptor(ClassContext context) {
 		return MethodDescriptor.of(context.getThisType(), name, descriptor);
 	}
@@ -57,6 +65,21 @@ public class DecompileMethodVisitor extends MethodVisitor {
 				Arrays.stream(exceptions).map(ReferenceType::valueOf).toList();
 	}
 
+	public @Unmodifiable List<DecompilingAnnotation> getAnnotations() {
+		return Collections.unmodifiableList(annotations);
+	}
+
+	@Override
+	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+		var annotation = new DecompilingAnnotation(descriptor);
+		annotations.add(annotation);
+		return annotation;
+	}
+
+	@Override
+	public AnnotationVisitor visitAnnotationDefault() {
+		return defaultValue = new DefaultValue();
+	}
 
 	@Override
 	public void visitCode() {
