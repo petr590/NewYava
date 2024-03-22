@@ -114,6 +114,14 @@ public class ArrayType implements ReferenceType {
 	}
 
 	@Override
+	public boolean equals(Object obj) {
+		return this == obj ||
+				obj instanceof ArrayType other &&
+				nestLevel == other.nestLevel &&
+				type.equals(other.type);
+	}
+
+	@Override
 	public String toString() {
 		return type.toString() + braces;
 	}

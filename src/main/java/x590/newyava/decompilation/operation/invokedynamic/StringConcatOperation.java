@@ -19,6 +19,9 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class StringConcatOperation implements Operation {
+
+	private static final LdcOperation EMPTY_STRING = new LdcOperation(StringConstant.valueOf(""));
+
 	private final List<Operation> operands;
 
 	public StringConcatOperation(MethodContext context, List<String> bootstrapArgs, @Unmodifiable List<Type> argTypes) {
@@ -39,7 +42,7 @@ public class StringConcatOperation implements Operation {
 		for (int i = 0, s = pattern.length(); ; ++i) {
 			if (i == s || pattern.charAt(i) == '\1' || pattern.charAt(i) == '\2') {
 				if (i > last) {
-					operands.add(new LdcOperation(new StringConstant(pattern.substring(last, i))));
+					operands.add(new LdcOperation(StringConstant.valueOf(pattern.substring(last, i))));
 				}
 
 				last = i + 1;
@@ -64,7 +67,7 @@ public class StringConcatOperation implements Operation {
 										"; bootstrapArgs = " + bootstrapArgs);
 					}
 
-					operands.add(new LdcOperation(new StringConstant(bootstrapArgIter.next())));
+					operands.add(new LdcOperation(StringConstant.valueOf(bootstrapArgIter.next())));
 				}
 			}
 		}
@@ -84,7 +87,7 @@ public class StringConcatOperation implements Operation {
 		if (!operands.get(0).getReturnType().equals(ClassType.STRING) &&
 			(operands.size() < 2 || !operands.get(1).getReturnType().equals(ClassType.STRING))) {
 
-			operands.add(0, new LdcOperation(new StringConstant("")));
+			operands.add(0, EMPTY_STRING);
 		}
 	}
 

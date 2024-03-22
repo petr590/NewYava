@@ -2,6 +2,8 @@ package x590.newyava;
 
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
+import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.context.WriteContext;
@@ -24,11 +26,14 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 	private final FieldDescriptor descriptor;
 
+	private final @Unmodifiable List<DecompilingAnnotation> annotations;
+
 	private @Nullable Operation initializer;
 
 	public DecompilingField(DecompileFieldVisitor visitor, ClassContext context) {
-		this.modifiers     = visitor.getModifiers();
-		this.descriptor    = visitor.getDescriptor(context);
+		this.modifiers   = visitor.getModifiers();
+		this.descriptor  = visitor.getDescriptor(context);
+		this.annotations = visitor.getAnnotations();
 		this.initializer = visitor.getInitializer();
 	}
 
@@ -52,13 +57,17 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 	@Override
 	public void addImports(ClassContext context) {
-		context.addImportsFor(descriptor);
+		context.addImportsFor(descriptor).addImportsFor(annotations).addImportsFor(initializer);
 	}
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
 		out.ln().indent();
+
+		DecompilingAnnotation.writeAnnotations(out, context, annotations);
+
 		writeModifiers(out, context);
+
 		out.record(descriptor, context);
 
 		if (initializer != null)

@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import org.objectweb.asm.Handle;
 import x590.newyava.Importable;
 import x590.newyava.Literals;
 import x590.newyava.context.ClassContext;
@@ -59,6 +60,19 @@ public record MethodDescriptor(
 		reader.checkEndForType();
 
 		return new MethodDescriptor(hostClass, name, returnType, Collections.unmodifiableList(arguments));
+	}
+
+	public static MethodDescriptor of(Handle handle) {
+		return of(ReferenceType.valueOf(handle.getOwner()), handle.getName(), handle.getDesc());
+	}
+
+	public long slots() {
+		return slots(arguments);
+	}
+
+	public static long slots(List<Type> arguments) {
+		return arguments.size() +
+				arguments.stream().filter(type -> type.getSize() == TypeSize.LONG).count();
 	}
 
 	public boolean isConstructor() {

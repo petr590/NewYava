@@ -8,8 +8,10 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.DecompilingClass;
 import x590.newyava.DecompilingField;
+import x590.newyava.DecompilingMethod;
 import x590.newyava.Importable;
 import x590.newyava.descriptor.FieldDescriptor;
+import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
@@ -110,5 +112,11 @@ public class ClassContext implements Context {
 	public Optional<DecompilingField> findField(FieldDescriptor descriptor) {
 		return decompilingClass.getFields().stream()
 				.filter(field -> field.getDescriptor().equals(descriptor)).findAny();
+	}
+
+	@Override
+	public Optional<DecompilingMethod> findMethod(MethodDescriptor descriptor) {
+		return decompilingClass.getMethods().stream()
+				.filter(method -> method.getDescriptor().equals(descriptor)).findAny();
 	}
 }

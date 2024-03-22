@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.TriConsumer;
 import org.jetbrains.annotations.NotNull;
+import x590.newyava.ContextualTypeWritable;
 import x590.newyava.ContextualWritable;
 import x590.newyava.Writable;
 import x590.newyava.context.Context;
@@ -12,6 +13,7 @@ import x590.newyava.decompilation.operation.Associativity;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.scope.Scope;
+import x590.newyava.type.Type;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -83,11 +85,21 @@ public class DecompilationWriter extends Writer {
 		return record(indent);
 	}
 
-
-	/* --------------------------------------------------- record --------------------------------------------------- */
 	@Override
 	public void write(char @NotNull[] buffer, int off, int len) throws IOException {
 		out.write(buffer, off, len);
+	}
+
+	/* --------------------------------------------------- record --------------------------------------------------- */
+
+	public DecompilationWriter record(char ch) {
+		try {
+			out.write(ch);
+		} catch (IOException ex) {
+			throw new UncheckedIOException(ex);
+		}
+
+		return this;
 	}
 
 	public DecompilationWriter record(String str) {
@@ -103,16 +115,6 @@ public class DecompilationWriter extends Writer {
 	public DecompilationWriter recordN(String str, int n) {
 		for (int i = 0; i < n; i++) {
 			record(str);
-		}
-
-		return this;
-	}
-
-	public DecompilationWriter record(char ch) {
-		try {
-			out.write(ch);
-		} catch (IOException ex) {
-			throw new UncheckedIOException(ex);
 		}
 
 		return this;
@@ -139,14 +141,64 @@ public class DecompilationWriter extends Writer {
 		writables.forEach(writable -> record(writable, context));
 		return this;
 	}
+	public DecompilationWriter record(Collection<? extends ContextualWritable> writables,
+	                                  Context context, String separator) {
+
+		return record(writables, separator, 0, (writable, index) -> record(writable, context));
+	}
+
+	/* ------------------------------------------- ContextualTypeWritable ------------------------------------------- */
+	public DecompilationWriter record(ContextualTypeWritable writable, Context context, Type type) {
+		writable.write(this, context, type);
+		return this;
+	}
+
+	public DecompilationWriter record(Collection<? extends ContextualTypeWritable> writables,
+	                                  Context context, Type type, String separator) {
+		return record(writables, separator, (writable, index) -> writable.write(this, context, type));
+	}
+
+	/**
+	 * Записывает все объекты из {@code writables}, для которых {@code predicate} вернул {@code true}.
+	 * Между ними записывает {@code separator}.
+	 * @return {@code true}, если записан хотя бы один объект.
+	 */
+	public <T extends ContextualWritable> boolean writeIf(
+			Collection<? extends T> writables, Context context, String separator, Predicate<T> predicate
+	) {
+		boolean wrote = false;
+
+		for (T writable : writables) {
+			if (wrote) {
+				record(separator);
+			}
+
+			if (predicate.test(writable)) {
+				record(writable, context);
+				wrote = true;
+			}
+		}
+
+		return wrote;
+	}
+
+	/* ---------------------------------------------- Common generics ---------------------------------------------- */
+
+	/**
+	 * Работает также, как и {@link #record(Collection, String, int, ObjIntConsumer)}.
+	 * {@code separator} равен {@code ""}.
+	 * {@code startIndex} равен 0.
+	 */
+	public <T> DecompilationWriter record(Collection<? extends T> writables, ObjIntConsumer<T> writer) {
+		return record(writables, "", 0, writer);
+	}
 
 	/**
 	 * Работает также, как и {@link #record(Collection, String, int, ObjIntConsumer)}.
 	 * {@code startIndex} равен 0.
 	 */
-	public <T> DecompilationWriter record(
-			Collection<? extends T> writables, String separator, ObjIntConsumer<T> writer
-	) {
+	public <T> DecompilationWriter record(Collection<? extends T> writables, String separator,
+	                                      ObjIntConsumer<T> writer) {
 		return record(writables, separator, 0, writer);
 	}
 
@@ -173,30 +225,6 @@ public class DecompilationWriter extends Writer {
 		}
 
 		return this;
-	}
-
-	/**
-	 * Записывает все объекты из {@code writables}, для которых {@code predicate} вернул {@code true}.
-	 * Между ними записывает {@code separator}.
-	 * @return {@code true}, если записан хотя бы один объект.
-	 */
-	public <T extends ContextualWritable> boolean writeIf(
-			Collection<? extends T> writables, Context context, String separator, Predicate<T> predicate
-	) {
-		boolean wrote = false;
-
-		for (T writable : writables) {
-			if (wrote) {
-				record(separator);
-			}
-
-			if (predicate.test(writable)) {
-				record(writable, context);
-				wrote = true;
-			}
-		}
-
-		return wrote;
 	}
 
 
@@ -273,10 +301,6 @@ public class DecompilationWriter extends Writer {
 
 	public DecompilationWriter recordsp(String str) {
 		return record(str).record(' ');
-	}
-
-	public DecompilationWriter recordsp(Writable writable) {
-		return record(writable).record(' ');
 	}
 
 	public DecompilationWriter recordsp(ContextualWritable writable, Context context) {

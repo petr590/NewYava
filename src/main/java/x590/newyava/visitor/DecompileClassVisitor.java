@@ -7,12 +7,14 @@ import org.objectweb.asm.*;
 import x590.newyava.DecompilingField;
 import x590.newyava.DecompilingMethod;
 import x590.newyava.EntryType;
+import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.context.ClassContext;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.type.ClassType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static x590.newyava.Modifiers.*;
@@ -39,6 +41,7 @@ public class DecompileClassVisitor extends ClassVisitor {
 
 	private final List<DecompileFieldVisitor> fieldVisitors = new ArrayList<>();
 	private final List<DecompileMethodVisitor> methodVisitors = new ArrayList<>();
+	private final List<DecompilingAnnotation> annotations = new ArrayList<>();
 
 	public DecompileClassVisitor() {
 		super(Opcodes.ASM9);
@@ -130,6 +133,13 @@ public class DecompileClassVisitor extends ClassVisitor {
 	}
 
 	@Override
+	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+		var annotation = new DecompilingAnnotation(descriptor);
+		annotations.add(annotation);
+		return annotation;
+	}
+
+	@Override
 	public void visitAttribute(Attribute attr) {
 		super.visitAttribute(attr);
 	}
@@ -157,5 +167,9 @@ public class DecompileClassVisitor extends ClassVisitor {
 
 	public @Unmodifiable List<DecompilingMethod> getMethods(ClassContext context) {
 		return methodVisitors.stream().map(visitor -> new DecompilingMethod(visitor, context)).toList();
+	}
+
+	public @Unmodifiable List<DecompilingAnnotation> getAnnotations() {
+		return Collections.unmodifiableList(annotations);
 	}
 }

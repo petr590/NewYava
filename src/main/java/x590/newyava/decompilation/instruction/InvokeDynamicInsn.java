@@ -4,9 +4,11 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.invokedynamic.LambdaOperation;
 import x590.newyava.decompilation.operation.invokedynamic.RecordInvokedynamicOperation;
 import x590.newyava.decompilation.operation.invokedynamic.StringConcatOperation;
 import x590.newyava.descriptor.IncompleteMethodDescriptor;
+import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
@@ -18,7 +20,6 @@ import java.util.stream.Collectors;
 public record InvokeDynamicInsn(String name, String descriptor, Handle bootstrapHandle, Object[] bootstrapArgs)
 	implements Instruction {
 
-
 	@Override
 	public int getOpcode() {
 		return Opcodes.INVOKEDYNAMIC;
@@ -29,7 +30,7 @@ public record InvokeDynamicInsn(String name, String descriptor, Handle bootstrap
 		if (bootstrapHandle.equals(InvokeDynamicUtils.STRING_CONCAT_BOOTSTRAP)) {
 			var methodDescriptor = IncompleteMethodDescriptor.of(name, descriptor);
 
-			if (name.equals("makeConcatWithConstants") &&
+			if (name.equals(InvokeDynamicUtils.STRING_CONCAT_METHOD) &&
 				methodDescriptor.returnType().equals(ClassType.STRING)) {
 
 				if (bootstrapArgs.length >= 1 &&
@@ -40,8 +41,8 @@ public record InvokeDynamicInsn(String name, String descriptor, Handle bootstrap
 				}
 
 				throw new DecompilationException(
-						"Wrong bootstrapArgs for \"makeConcatWithConstants\" method: " +
-								Arrays.toString(bootstrapArgs)
+						"Wrong bootstrapArgs for \"" + InvokeDynamicUtils.STRING_CONCAT_METHOD + "\"" +
+						" method: " + Arrays.toString(bootstrapArgs)
 				);
 			}
 
@@ -65,6 +66,19 @@ public record InvokeDynamicInsn(String name, String descriptor, Handle bootstrap
 				context.popAs(thisType);
 				return RecordInvokedynamicOperation.TO_STRING;
 			}
+
+		} else if (bootstrapHandle.equals(InvokeDynamicUtils.LAMBDA_BOOTSTRAP)) {
+
+			if (bootstrapArgs.length >= 2 && bootstrapArgs[1] instanceof Handle lambdaMethod) {
+				return new LambdaOperation(context,
+						IncompleteMethodDescriptor.of("<invokedynamic>", descriptor),
+						MethodDescriptor.of(lambdaMethod)
+				);
+			}
+
+			throw new DecompilationException(
+					"Wrong bootstrapArgs for lambda invokedynamic: " + Arrays.toString(bootstrapArgs)
+			);
 		}
 
 		throw new DecompilationException(String.format(

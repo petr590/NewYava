@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation;
 
+import lombok.Getter;
 import org.objectweb.asm.Opcodes;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.WriteContext;
@@ -9,6 +10,7 @@ import x590.newyava.type.Type;
 
 public class LoadOperation implements Operation {
 
+	@Getter
 	private final VariableReference varRef;
 	private final boolean isThisRef;
 

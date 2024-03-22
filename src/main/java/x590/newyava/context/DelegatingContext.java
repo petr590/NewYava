@@ -2,7 +2,9 @@ package x590.newyava.context;
 
 import lombok.RequiredArgsConstructor;
 import x590.newyava.DecompilingField;
+import x590.newyava.DecompilingMethod;
 import x590.newyava.descriptor.FieldDescriptor;
+import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.ReferenceType;
 
@@ -38,5 +40,10 @@ public class DelegatingContext implements Context {
 	@Override
 	public Optional<DecompilingField> findField(FieldDescriptor descriptor) {
 		return context.findField(descriptor);
+	}
+
+	@Override
+	public Optional<DecompilingMethod> findMethod(MethodDescriptor descriptor) {
+		return context.findMethod(descriptor);
 	}
 }

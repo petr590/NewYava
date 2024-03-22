@@ -21,6 +21,10 @@ public record IncompleteMethodDescriptor(String name, Type returnType, @Unmodifi
 		return new IncompleteMethodDescriptor(name, returnType, Collections.unmodifiableList(arguments));
 	}
 
+	public long slots() {
+		return MethodDescriptor.slots(arguments);
+	}
+
 	public boolean equals(String name, Type returnType, @Unmodifiable List<Type> arguments) {
 		return  this.name.equals(name) &&
 				this.returnType.equals(returnType) &&

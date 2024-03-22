@@ -4,9 +4,12 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import x590.newyava.annotation.DecompilingAnnotation;
+import x590.newyava.annotation.DefaultValue;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.decompilation.CodeGraph;
+import x590.newyava.decompilation.ReadonlyCode;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.exception.DisassemblingException;
@@ -28,16 +31,26 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 
 	private final MethodDescriptor descriptor;
 
+	private final @Unmodifiable List<DecompilingAnnotation> annotations;
+
 	private final @Unmodifiable List<ReferenceType> exceptions;
+
+	private final @Nullable DefaultValue defaultValue;
 
 	@Getter(AccessLevel.NONE)
 	private final @Nullable CodeGraph codeGraph;
 
 	public DecompilingMethod(DecompileMethodVisitor visitor, ClassContext context) {
-		this.modifiers  = visitor.getModifiers();
-		this.descriptor = visitor.getDescriptor(context);
-		this.exceptions = visitor.getExceptions();
-		this.codeGraph  = visitor.getCodeGraph();
+		this.modifiers    = visitor.getModifiers();
+		this.descriptor   = visitor.getDescriptor(context);
+		this.annotations  = visitor.getAnnotations();
+		this.exceptions   = visitor.getExceptions();
+		this.defaultValue = visitor.getDefaultValue();
+		this.codeGraph    = visitor.getCodeGraph();
+	}
+
+	public ReadonlyCode getCode() {
+		return codeGraph;
 	}
 
 	public boolean keep(ClassContext context) {
@@ -75,12 +88,16 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 
 	@Override
 	public void addImports(ClassContext context) {
-		context.addImportsFor(descriptor).addImportsFor(exceptions).addImportsFor(codeGraph);
+		context.addImportsFor(descriptor).addImportsFor(annotations)
+				.addImportsFor(exceptions).addImportsFor(defaultValue).addImportsFor(codeGraph);
 	}
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
 		out.ln().ln().indent();
+
+		DecompilingAnnotation.writeAnnotations(out, context, annotations);
+
 		writeModifiers(out, context);
 
 		boolean isStatic = (modifiers & ACC_STATIC) != 0;
@@ -88,10 +105,18 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 
 		descriptor.write(out, context, isStatic, variables);
 
-		if (codeGraph == null) {
-			out.record(';');
-		} else {
+		if (!exceptions.isEmpty()) {
+			out.record(" throws ").record(exceptions, context, ", ");
+		}
+
+		if (defaultValue != null) {
+			out.record(" default ").record(defaultValue.getAnnotationValue(), context, descriptor.returnType());
+		}
+
+		if (codeGraph != null) {
 			out.recordsp().record(codeGraph, context);
+		} else {
+			out.record(';');
 		}
 	}
 
@@ -124,8 +149,8 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 			}
 
 			if ((modifiers & (ACC_ABSTRACT | ACC_STATIC | ACC_PRIVATE)) == 0) out.record(LIT_DEFAULT + " ");
-			if ((modifiers & ACC_STATIC)   != 0) out.record(LIT_STATIC + " ");
-			if ((modifiers & ACC_STRICT)   != 0) out.record(LIT_STRICT + " ");
+			if ((modifiers & ACC_STATIC) != 0) out.record(LIT_STATIC + " ");
+			if ((modifiers & ACC_STRICT) != 0) out.record(LIT_STRICT + " ");
 
 			return;
 		}

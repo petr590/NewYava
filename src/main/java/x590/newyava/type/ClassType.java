@@ -11,6 +11,7 @@ import x590.newyava.io.DecompilationWriter;
 import x590.newyava.io.SignatureReader;
 
 import java.io.Serializable;
+import java.lang.annotation.Annotation;
 import java.util.*;
 
 @Getter
@@ -27,6 +28,7 @@ public class ClassType implements ReferenceType {
 			COMPARABLE   = valueOf(Comparable.class),
 			SERIALIZABLE = valueOf(Serializable.class),
 			THROWABLE    = valueOf(Throwable.class),
+			ANNOTATION   = valueOf(Annotation.class),
 
 			BYTE      = valueOf(Byte.class),
 			SHORT     = valueOf(Short.class),
@@ -59,6 +61,15 @@ public class ClassType implements ReferenceType {
 		this.binSimpleName = index < 0 ? name : name.substring(index + 1);
 		this.simpleName = binSimpleName;
 		this.packageName = index < 0 ? "" : name.substring(0, index);
+	}
+
+	/** Принимает название класса, начинающееся с {@code 'L'}
+	 * @throws DecompilationException если название не начинается с {@code 'L'} */
+	public static ClassType valueOfL(String classBinName) {
+		if (!classBinName.startsWith("L"))
+			throw new DecompilationException("Class bin name must start from 'L'");
+
+		return valueOf(classBinName.substring(1));
 	}
 
 	public static ClassType valueOf(String classBinName) {

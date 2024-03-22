@@ -1,5 +1,8 @@
 package x590.newyava.constant;
 
+import it.unimi.dsi.fastutil.doubles.Double2ObjectMap;
+import it.unimi.dsi.fastutil.doubles.Double2ObjectOpenHashMap;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
@@ -7,12 +10,18 @@ import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
-@RequiredArgsConstructor
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class DoubleConstant extends Constant {
 
+	private static final Double2ObjectMap<DoubleConstant> CACHE = new Double2ObjectOpenHashMap<>();
+
+	public static DoubleConstant valueOf(double value) {
+		return CACHE.computeIfAbsent(value, DoubleConstant::new);
+	}
+
 	public static final DoubleConstant
-			ZERO = new DoubleConstant(0),
-			ONE = new DoubleConstant(1);
+			ZERO = valueOf(0),
+			ONE = valueOf(1);
 
 	private final double value;
 
