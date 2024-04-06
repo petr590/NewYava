@@ -69,11 +69,10 @@ public record InvokeDynamicInsn(String name, String descriptor, Handle bootstrap
 
 		} else if (bootstrapHandle.equals(InvokeDynamicUtils.LAMBDA_BOOTSTRAP)) {
 
-			if (bootstrapArgs.length >= 2 && bootstrapArgs[1] instanceof Handle lambdaMethod) {
+			if (bootstrapArgs.length >= 2 && bootstrapArgs[1] instanceof Handle implementationHandle) {
 				return new LambdaOperation(context,
 						IncompleteMethodDescriptor.of("<invokedynamic>", descriptor),
-						MethodDescriptor.of(lambdaMethod)
-				);
+						MethodDescriptor.of(implementationHandle));
 			}
 
 			throw new DecompilationException(

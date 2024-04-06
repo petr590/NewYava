@@ -18,7 +18,8 @@ public final class IntMultiType implements PrimitiveType {
 			SHORT_FLAG = 0x4,
 			CHAR_FLAG = 0x8,
 			INT_FLAG = 0x10,
-			ALL_FLAGS = INT_FLAG | CHAR_FLAG | SHORT_FLAG | BYTE_FLAG | BOOLEAN_FLAG;
+			NUMERIC_FLAGS = INT_FLAG | CHAR_FLAG | SHORT_FLAG | BYTE_FLAG,
+			ALL_FLAGS = NUMERIC_FLAGS | BOOLEAN_FLAG;
 
 
 	private static final Int2ObjectMap<IntMultiType> TYPE_POOL = new Int2ObjectOpenHashMap<>();
@@ -49,7 +50,16 @@ public final class IntMultiType implements PrimitiveType {
 		if ((flags & SHORT_FLAG)   != 0) return "short";
 		if ((flags & BYTE_FLAG)    != 0) return "byte";
 		if ((flags & BOOLEAN_FLAG) != 0) return "boolean";
+		throw new IllegalStateException("No one flag set");
+	}
 
+	@Override
+	public String getVarName() {
+		if ((flags & INT_FLAG)     != 0) return "n";
+		if ((flags & CHAR_FLAG)    != 0) return "ch";
+		if ((flags & SHORT_FLAG)   != 0) return "s";
+		if ((flags & BYTE_FLAG)    != 0) return "b";
+		if ((flags & BOOLEAN_FLAG) != 0) return "bool";
 		throw new IllegalStateException("No one flag set");
 	}
 
@@ -84,10 +94,5 @@ public final class IntMultiType implements PrimitiveType {
 	public static @Nullable IntMultiType assignQuiet(IntMultiType givenType, IntMultiType requiredType) {
 		int flags = givenType.flags & requiredType.flags;
 		return flags != 0 ? valueOf(flags) : null;
-	}
-
-	@Override
-	public String getVarName() {
-		return getName().substring(0, 1);
 	}
 }

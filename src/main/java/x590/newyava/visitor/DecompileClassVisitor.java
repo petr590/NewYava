@@ -161,6 +161,10 @@ public class DecompileClassVisitor extends ClassVisitor {
 		return Arrays.stream(interfaces).map(ClassType::valueOf).toList();
 	}
 
+	public @Nullable ClassType getOuterClassType() {
+		return outerClassName == null ? null : ClassType.valueOf(outerClassName);
+	}
+
 	public @Unmodifiable List<DecompilingField> getFields(ClassContext context) {
 		return fieldVisitors.stream().map(visitor -> new DecompilingField(visitor, context)).toList();
 	}

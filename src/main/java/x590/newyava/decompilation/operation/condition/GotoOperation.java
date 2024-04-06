@@ -2,7 +2,7 @@ package x590.newyava.decompilation.operation.condition;
 
 import lombok.RequiredArgsConstructor;
 import org.objectweb.asm.Label;
-import x590.newyava.context.WriteContext;
+import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 
 @RequiredArgsConstructor
@@ -21,7 +21,7 @@ public class GotoOperation extends JumpOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		getRole().write(out, context);
 	}
 }

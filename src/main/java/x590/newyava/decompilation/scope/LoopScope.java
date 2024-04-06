@@ -4,8 +4,8 @@ package x590.newyava.decompilation.scope;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.condition.Condition;
@@ -58,7 +58,7 @@ public class LoopScope extends Scope {
 		int last = operations.size() - 1;
 
 		if (last >= 0 && operations.get(last) instanceof JumpOperation jumpOperation &&
-			jumpOperation.getRole().isContinueFor(this)) {
+			jumpOperation.getRole().isContinueOf(this)) {
 
 			operations.remove(last);
 		}
@@ -71,7 +71,7 @@ public class LoopScope extends Scope {
 	}
 
 	@Override
-	protected boolean writeHeader(DecompilationWriter out, WriteContext context) {
+	protected boolean writeHeader(DecompilationWriter out, Context context) {
 		out.record("while (").record(condition, context, Priority.ZERO).record(')');
 		return true;
 	}

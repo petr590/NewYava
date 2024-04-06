@@ -30,6 +30,5 @@ public class Literals {
 			LIT_ENUM = "enum",
 			LIT_MANDATED = "mandated",
 			LIT_MODULE = "module",
-			LIT_RECORD = "record",
-			LIT_DEPRECATED = "deprecated";
+			LIT_RECORD = "record";
 }

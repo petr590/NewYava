@@ -5,6 +5,6 @@ import org.apache.logging.log4j.Logger;
 
 public class Log {
 
-	/** Общий люггер */
+	/** Общий логгер */
 	public static final Logger LOGGER = LogManager.getLogger();
 }

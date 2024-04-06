@@ -2,8 +2,8 @@ package x590.newyava.decompilation.operation.invoke;
 
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.decompilation.operation.Priority;
@@ -42,7 +42,12 @@ public abstract class InvokeOperation implements Operation {
 		return descriptor.returnType();
 	}
 
-	protected void writeNameAndArgs(DecompilationWriter out, WriteContext context) {
+	protected void writeNameAndArgs(DecompilationWriter out, Context context) {
 		out.record(descriptor.name()).record('(').record(arguments, context, Priority.ZERO, ", ").record(')');
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return arguments;
 	}
 }

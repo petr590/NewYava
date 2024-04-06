@@ -3,8 +3,10 @@ package x590.newyava.example;
 import org.junit.Test;
 import x590.newyava.Main;
 
+import java.util.List;
+
 @SuppressWarnings("all")
-public class Outer {
+public class NestedClassExample {
 
 	@Test
 	public void run() {
@@ -17,12 +19,10 @@ public class Outer {
 
 	public static class Middle {
 		public static class Inner {
-			public static Class<?> getAnonClass() {
+			public static Class<?> getAnonClass(List<?> justAList) {
 				return new Object() {}.getClass();
 			}
 		}
-
-//		public record Rec() {}
 	}
 
 	public static Class<?> getNestClassInMethod1() {

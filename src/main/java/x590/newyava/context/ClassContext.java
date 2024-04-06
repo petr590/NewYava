@@ -17,7 +17,9 @@ import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
 
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Представляет контекст класса.
@@ -44,9 +46,24 @@ public class ClassContext implements Context {
 	}
 
 
-	private final Object2IntMap<ClassType> importsCandidates = new Object2IntArrayMap<>();
+	private Object2IntMap<ClassType> importCandidates = new Object2IntArrayMap<>();
 
 	private Set<ClassType> imports;
+
+	private @Nullable ClassContext outer;
+
+	private Object2IntMap<ClassType> getImportCandidates() {
+		return outer != null ? outer.getImportCandidates() : importCandidates;
+	}
+
+	public void setOuterContext(ClassContext outer) {
+		if (this.outer != null) {
+			throw new IllegalStateException("Outer context already has been set");
+		}
+
+		this.outer = outer;
+		this.importCandidates = null;
+	}
 
 	public ClassContext addImport(@Nullable Type type) {
 		if (type != null)
@@ -57,7 +74,7 @@ public class ClassContext implements Context {
 
 	public ClassContext addImport(@Nullable ClassType classType) {
 		if (classType != null)
-			importsCandidates.compute(classType, (clType, count) -> count == null ? 1 : count + 1);
+			getImportCandidates().compute(classType, (clType, count) -> count == null ? 1 : count + 1);
 
 		return this;
 	}
@@ -69,8 +86,10 @@ public class ClassContext implements Context {
 		return this;
 	}
 
-	public ClassContext addImportsFor(Iterable<? extends Importable> importables) {
-		importables.forEach(this::addImportsFor);
+	public ClassContext addImportsFor(@Nullable Iterable<? extends @Nullable Importable> importables) {
+		if (importables != null)
+			importables.forEach(this::addImportsFor);
+
 		return this;
 	}
 
@@ -80,12 +99,15 @@ public class ClassContext implements Context {
 	}
 
 	public void computeImports() {
+		if (outer != null)
+			return;
+
 		if (imports != null)
 			throw new IllegalStateException("Imports already computed");
 
 		imports = new HashSet<>();
 
-		var grouped = importsCandidates.object2IntEntrySet().stream()
+		var grouped = importCandidates.object2IntEntrySet().stream()
 				.collect(Collectors.groupingBy(entry -> entry.getKey().getSimpleName()));
 
 		for (var group : grouped.entrySet()) {
@@ -96,6 +118,9 @@ public class ClassContext implements Context {
 	}
 
 	public @Unmodifiable Set<ClassType> getImports() {
+		if (outer != null)
+			return outer.getImports();
+
 		if (imports == null)
 			throw new IllegalStateException("Imports are not initialized yet");
 
@@ -104,7 +129,7 @@ public class ClassContext implements Context {
 
 	@Override
 	public boolean imported(ClassType classType) {
-		return imports.contains(classType);
+		return getImports().contains(classType);
 	}
 
 
@@ -118,5 +143,10 @@ public class ClassContext implements Context {
 	public Optional<DecompilingMethod> findMethod(MethodDescriptor descriptor) {
 		return decompilingClass.getMethods().stream()
 				.filter(method -> method.getDescriptor().equals(descriptor)).findAny();
+	}
+
+	public Stream<DecompilingMethod> findMethods(Predicate<DecompilingMethod> predicate) {
+		return decompilingClass.getMethods().stream()
+				.filter(predicate);
 	}
 }

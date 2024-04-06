@@ -10,7 +10,7 @@ public class Compare {
 		Main.run(this);
 	}
 
-	public void test(int a, int b, double d, Object o1, Object o2) {
+	public void compare(int a, int b, double d, boolean z, Object o1, Object o2) {
 		if (o1 == o2) System.out.println("o1 == o2");
 		if (o1 != o2) System.out.println("o1 != o2");
 
@@ -34,5 +34,9 @@ public class Compare {
 		if (d >  1) System.out.println("d > 1");
 		if (d <= 1) System.out.println("d <= 1");
 		if (d >= 1) System.out.println("d >= 1");
+
+		if (z) System.out.println("z");
+		if (!z) System.out.println("!z");
+		if (z == true) System.out.println("z == true");
 	}
 }

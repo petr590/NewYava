@@ -7,8 +7,8 @@ import org.jetbrains.annotations.Unmodifiable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.Config;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
@@ -66,6 +66,12 @@ public class Scope implements Operation, Comparable<Scope> {
 	}
 
 
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return operations;
+	}
+
+
 	/** Можно ли к нему применить {@code break} */
 	public boolean isBreakable() {
 		return false;
@@ -118,7 +124,6 @@ public class Scope implements Operation, Comparable<Scope> {
 				this;
 	}
 
-
 	/** Инициализирует {@link #variables} из {@link VariableReference}, которые хранятся в чанках */
 	public void initVariables(@Unmodifiable List<Chunk> chunks) {
 		int startChunkId = startChunk.getId(),
@@ -136,8 +141,12 @@ public class Scope implements Operation, Comparable<Scope> {
 
 				if (ref.isPresent()) {
 					curRef.initVariable(ref.get().getVariable());
+
 				} else {
-					curRef.initVariable(new Variable(curRef.getType(), getNameFor(curRef)));
+					if (curRef.getVariable() == null) {
+						curRef.initVariable(new Variable(curRef.getType(), getNameFor(curRef)));
+					}
+
 					ref = Optional.of(curRef);
 				}
 			}
@@ -162,7 +171,7 @@ public class Scope implements Operation, Comparable<Scope> {
 		name = baseName;
 
 		Optional<Variable> sameNameVar =
-				findVarWithName(baseName).or(() -> findVarWithName(baseName + '1'));
+				findVarByName(baseName).or(() -> findVarByName(baseName + '1'));
 
 		if (sameNameVar.isPresent()) {
 			if (sameNameVar.get().getName().equals(baseName))
@@ -170,7 +179,7 @@ public class Scope implements Operation, Comparable<Scope> {
 
 			name = baseName + '2';
 
-			for (int i = 3; findVarWithName(name).isPresent(); i++) {
+			for (int i = 3; findVarByName(name).isPresent(); i++) {
 				name = baseName + i;
 			}
 		}
@@ -178,9 +187,9 @@ public class Scope implements Operation, Comparable<Scope> {
 		return name;
 	}
 
-	private Optional<Variable> findVarWithName(String name) {
+	protected Optional<Variable> findVarByName(String name) {
 		return variables.stream().filter(var -> var != null && var.getName().equals(name)).findAny()
-				.or(() -> parent != null ? parent.findVarWithName(name) : Optional.empty());
+				.or(() -> parent != null ? parent.findVarByName(name) : Optional.empty());
 	}
 
 
@@ -207,7 +216,7 @@ public class Scope implements Operation, Comparable<Scope> {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		if (canOmitBrackets() && !Config.getConfig().isAlwaysWriteBrackets()) {
 			if (operations.isEmpty()) {
 				writeHeader(out, context);
@@ -225,7 +234,7 @@ public class Scope implements Operation, Comparable<Scope> {
 		}
 
 		if (writeHeader(out, context)) {
-			out.recordsp();
+			out.recordSp();
 		}
 
 		out.record('{').incIndent();
@@ -242,7 +251,7 @@ public class Scope implements Operation, Comparable<Scope> {
 	}
 
 
-	protected void writeBody(DecompilationWriter out, WriteContext context) {
+	protected void writeBody(DecompilationWriter out, Context context) {
 		Operation prev = null;
 
 		for (var operation : operations) {
@@ -250,7 +259,7 @@ public class Scope implements Operation, Comparable<Scope> {
 				if (prev instanceof Scope scope && scope.realOmitBrackets()) {
 					out.ln().indent();
 				} else {
-					out.recordsp();
+					out.recordSp();
 				}
 
 			} else {
@@ -281,25 +290,25 @@ public class Scope implements Operation, Comparable<Scope> {
 	 * @return {@code true}, если заголовок записан.
 	 * После него будет записан пробел, если есть фигурные скобки.
 	 */
-	protected boolean writeHeader(DecompilationWriter out, WriteContext context) {
+	protected boolean writeHeader(DecompilationWriter out, Context context) {
 		return false;
 	}
 
 	/** Можно ли опустить фигурные скобки,
-	 * если scope содержит 0 или 1 операцию */
+	 * если scope содержит ноль или одну операцию */
 	protected boolean canOmitBrackets() {
 		return false;
 	}
 
 	@Override
 	public int compareTo(@NotNull Scope other) {
-		int d = startChunk.getId() - other.startChunk.getId();
-		return d != 0 ? d : other.endChunk.getId() - endChunk.getId();
+		int diff = startChunk.getId() - other.startChunk.getId();
+		return diff != 0 ? diff : other.endChunk.getId() - endChunk.getId();
 	}
 
 	@Override
 	public String toString() {
-		return String.format("%s(%d - %d)",
-				getClass().getSimpleName(), startChunk.getId(), endChunk.getId());
+		return String.format("%s(%d - %d)", getClass().getSimpleName(),
+				startChunk.getId(), endChunk.getId());
 	}
 }

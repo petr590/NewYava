@@ -2,7 +2,7 @@ package x590.newyava.decompilation.operation.condition;
 
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
-import x590.newyava.context.WriteContext;
+import x590.newyava.context.Context;
 import x590.newyava.decompilation.scope.LabelNameGenerator;
 import x590.newyava.decompilation.scope.Scope;
 import x590.newyava.io.DecompilationWriter;
@@ -15,13 +15,13 @@ public interface Role {
 
 	boolean canWrite();
 
-	void write(DecompilationWriter out, WriteContext context);
+	void write(DecompilationWriter out, Context context);
 
-	default boolean isBreakFor(Scope scope) {
+	default boolean isBreakOf(Scope scope) {
 		return false;
 	}
 
-	default boolean isContinueFor(Scope scope) {
+	default boolean isContinueOf(Scope scope) {
 		return false;
 	}
 
@@ -40,49 +40,45 @@ public interface Role {
 		}
 
 		@Override
-		public void write(DecompilationWriter out, WriteContext context) {
+		public void write(DecompilationWriter out, Context context) {
 			throw new UnsupportedOperationException();
 		}
 	}
 
 
 	static Role breakScope(Scope scope) {
-		return new BreakContinue(BreakContinue.Literal.BREAK, scope);
+		return new BreakContinue(BreakContinue.BREAK, Scope::isBreakable, scope);
 	}
 
 	static Role continueScope(Scope scope) {
-		return new BreakContinue(BreakContinue.Literal.CONTINUE, scope);
+		return new BreakContinue(BreakContinue.CONTINUE, Scope::isContinuable, scope);
 	}
 
 	@RequiredArgsConstructor
 	final class BreakContinue implements Role {
-		@RequiredArgsConstructor
-		private enum Literal {
-			BREAK("break", Scope::isBreakable),
-			CONTINUE("continue", Scope::isContinuable);
+		private static final String
+				BREAK = "break",
+				CONTINUE = "continue";
 
-			private final String value;
-			private final Predicate<Scope> isScopeAcceptable;
-		}
-
-		private final Literal literal;
+		private final String literal;
+		private final Predicate<Scope> isScopeAcceptable;
 		private final Scope scope;
 		private @Nullable String labelName;
 
 		@Override
-		public boolean isBreakFor(Scope scope) {
-			return this.scope == scope && literal == Literal.BREAK;
+		public boolean isBreakOf(Scope scope) {
+			return this.scope == scope && literal.equals(BREAK);
 		}
 
 		@Override
-		public boolean isContinueFor(Scope scope) {
-			return this.scope == scope && literal == Literal.CONTINUE;
+		public boolean isContinueOf(Scope scope) {
+			return this.scope == scope && literal.equals(CONTINUE);
 		}
 
 		@Override
 		public void resolveLabelNames(Scope currentScope, LabelNameGenerator generator) {
 			for (Scope c = currentScope; c != null && c != scope; c = c.getParent()) {
-				if (literal.isScopeAcceptable.test(c)) {
+				if (isScopeAcceptable.test(c)) {
 					labelName = scope.getLabelName(generator);
 				}
 			}
@@ -94,11 +90,11 @@ public interface Role {
 		}
 
 		@Override
-		public void write(DecompilationWriter out, WriteContext context) {
-			out.record(literal.value);
+		public void write(DecompilationWriter out, Context context) {
+			out.record(literal);
 
 			if (labelName != null) {
-				out.recordsp().record(labelName);
+				out.recordSp().record(labelName);
 			}
 		}
 	}

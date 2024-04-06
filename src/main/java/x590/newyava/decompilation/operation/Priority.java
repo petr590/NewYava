@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public enum Priority { // Чем выше, тем меньше приоритет
+public enum Priority { // В порядке увеличения приоритета
 	ZERO,
 	LAMBDA(Associativity.RIGHT),
 	ASSIGNMENT(Associativity.RIGHT),

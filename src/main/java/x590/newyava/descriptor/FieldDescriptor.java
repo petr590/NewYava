@@ -23,7 +23,7 @@ public record FieldDescriptor(ReferenceType hostClass, String name, Type type)
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		out.recordsp(type, context).record(name);
+		out.recordSp(type, context).record(name);
 	}
 
 

@@ -5,8 +5,8 @@ import lombok.ToString;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.constant.IntConstant;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
@@ -64,13 +64,13 @@ public class SwitchScope extends Scope {
 
 
 	@Override
-	protected boolean writeHeader(DecompilationWriter out, WriteContext context) {
+	protected boolean writeHeader(DecompilationWriter out, Context context) {
 		out.record("switch (").record(value, context, Priority.ZERO).record(')');
 		return true;
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		writeHeader(out, context);
 
 		out .record(" {").incIndent().ln().indent()
@@ -98,13 +98,13 @@ public class SwitchScope extends Scope {
 
 			if (switchScope.arrowStyle && lastIndex >= 0 &&
 				operations.get(lastIndex) instanceof GotoOperation gotoOperation &&
-				gotoOperation.getRole().isBreakFor(switchScope)) {
+				gotoOperation.getRole().isBreakOf(switchScope)) {
 
 				operations.remove(lastIndex);
 			}
 		}
 
-		public void write(DecompilationWriter out, WriteContext context) {
+		public void write(DecompilationWriter out, Context context) {
 			writeHeader(out, context);
 
 			out.incIndent();
@@ -128,7 +128,7 @@ public class SwitchScope extends Scope {
 		}
 
 		@Override
-		protected boolean writeHeader(DecompilationWriter out, WriteContext context) {
+		protected boolean writeHeader(DecompilationWriter out, Context context) {
 			if (constants == null) {
 				out.record("default").record(switchScope.arrowStyle ? " ->" : ":");
 

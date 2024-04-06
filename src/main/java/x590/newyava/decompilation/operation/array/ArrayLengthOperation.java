@@ -1,13 +1,16 @@
 package x590.newyava.decompilation.operation.array;
 
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 import x590.newyava.type.Types;
+
+import java.util.List;
 
 public class ArrayLengthOperation implements Operation {
 	private final Operation array;
@@ -27,7 +30,12 @@ public class ArrayLengthOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.record(array, context, getPriority()).record(".length");
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(array);
 	}
 }

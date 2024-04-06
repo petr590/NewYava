@@ -1,12 +1,16 @@
 package x590.newyava.decompilation.operation.condition;
 
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.UnmodifiableView;
 import org.objectweb.asm.Label;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
+import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 public class IfOperation extends JumpOperation {
@@ -46,12 +50,17 @@ public class IfOperation extends JumpOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.record("if (").record(condition, context, Priority.ZERO).record(')')
 				.incIndent().ln().indent();
 
 		getRole().write(out, context);
 
 		out.decIndent();
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(condition);
 	}
 }

@@ -2,8 +2,8 @@ package x590.newyava.decompilation.operation;
 
 import lombok.Getter;
 import org.objectweb.asm.Opcodes;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
@@ -37,7 +37,7 @@ public class LoadOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.record(varRef.getName());
 	}
 }

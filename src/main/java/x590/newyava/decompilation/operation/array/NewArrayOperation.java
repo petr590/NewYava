@@ -3,13 +3,14 @@ package x590.newyava.decompilation.operation.array;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.constant.DoubleConstant;
 import x590.newyava.constant.FloatConstant;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.constant.LongConstant;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.ConstNullOperation;
 import x590.newyava.decompilation.operation.LdcOperation;
 import x590.newyava.decompilation.operation.Operation;
@@ -21,10 +22,7 @@ import x590.newyava.type.IntMultiType;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public class NewArrayOperation implements Operation {
 	private final ArrayType arrayType;
@@ -117,17 +115,17 @@ public class NewArrayOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		if (useInitializersList) {
-			out .recordsp("new").record(memberType, context)
-				.recordN("[]", arrayType.getNestLevel()).recordsp();
+			out .recordSp("new").record(memberType, context)
+				.recordN("[]", arrayType.getNestLevel()).recordSp();
 		}
 
 		writeAsArrayInitializer(out, context);
 	}
 
 	@Override
-	public void writeAsArrayInitializer(DecompilationWriter out, WriteContext context) {
+	public void writeAsArrayInitializer(DecompilationWriter out, Context context) {
 		if (useInitializersList) {
 			if (Objects.requireNonNull(initializers).isEmpty()) {
 				out.record("{}");
@@ -138,7 +136,7 @@ public class NewArrayOperation implements Operation {
 			}
 
 		} else {
-			out.recordsp("new").record(memberType, context);
+			out.recordSp("new").record(memberType, context);
 
 			for (Operation index : sizes) {
 				out.record('[').record(index, context, Priority.ZERO).record(']');
@@ -146,5 +144,16 @@ public class NewArrayOperation implements Operation {
 
 			out.recordN("[]", arrayType.getNestLevel() - sizes.size());
 		}
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		if (initializers == null) {
+			return sizes;
+		}
+
+		var operations = new ArrayList<>(sizes);
+		operations.addAll(initializers);
+		return operations;
 	}
 }
