@@ -1,8 +1,8 @@
 package x590.newyava.decompilation.operation.invoke;
 
 import x590.newyava.Modifiers;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.NewOperation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.descriptor.MethodDescriptor;
@@ -74,7 +74,7 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		switch (invokeType) {
 			case PLAIN -> super.write(out, context);
 			case NEW -> out.record(object, context, Priority.ZERO);

@@ -1,11 +1,12 @@
 package x590.newyava.decompilation.operation.invokedynamic;
 
 import org.jetbrains.annotations.Unmodifiable;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.constant.JavaEscapeUtils;
 import x590.newyava.constant.StringConstant;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.LdcOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
@@ -107,7 +108,12 @@ public class StringConcatOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		out.record(operands, context, getPriority(), " + ");
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return operands;
 	}
 }

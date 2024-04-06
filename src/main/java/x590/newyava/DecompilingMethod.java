@@ -2,6 +2,7 @@ package x590.newyava;
 
 import lombok.AccessLevel;
 import lombok.Getter;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.annotation.DecompilingAnnotation;
@@ -21,6 +22,7 @@ import x590.newyava.type.ReferenceType;
 import x590.newyava.visitor.DecompileMethodVisitor;
 
 import java.util.List;
+import java.util.Objects;
 
 import static x590.newyava.Literals.*;
 import static x590.newyava.Modifiers.*;
@@ -49,17 +51,60 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		this.codeGraph    = visitor.getCodeGraph();
 	}
 
-	public ReadonlyCode getCode() {
-		return codeGraph;
+	public @NotNull ReadonlyCode getCode() {
+		return Objects.requireNonNull(codeGraph);
 	}
 
+	public void decompile(ClassContext context) {
+		if (codeGraph != null) {
+			try {
+				codeGraph.decompile(descriptor, context);
+
+			} catch (DecompilationException ex) {
+				ex.setMethodDescriptor(descriptor);
+				throw ex;
+
+			} catch (DisassemblingException ex) {
+				throw new DecompilationException(ex, descriptor);
+			}
+		}
+	}
+
+	public int getVariablesInitPriority() {
+		return codeGraph == null ? 0 : codeGraph.getVariablesInitPriority();
+	}
+
+	public void beforeVariablesInit() {
+		if (codeGraph != null) {
+			codeGraph.beforeVariablesInit();
+		}
+	}
+
+	public void initVariables() {
+		if (codeGraph != null) {
+			codeGraph.initVariables();
+		}
+	}
+
+	/** Можно ли оставить метод в классе.
+	 * Должен вызываться только после {@link #decompile(ClassContext)} */
 	public boolean keep(ClassContext context) {
 		if ((modifiers & ACC_SYNTHETIC) != 0) {
 			return false;
 		}
 
-		if (descriptor.isStaticInitializer() && codeGraph != null && codeGraph.isEmpty()) {
-			return false;
+		if (codeGraph != null && codeGraph.isEmpty()) {
+			// Пустой static {}
+			if (descriptor.isStaticInitializer()) {
+				return false;
+			}
+
+			// Одиночный пустой конструктор
+			if (descriptor.isConstructor() &&
+					context.findMethods(method -> method.getDescriptor().isConstructor()).count() == 1) {
+
+				return false;
+			}
 		}
 
 		if (context.isEnumClass()) {
@@ -76,20 +121,11 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		return true;
 	}
 
-	public void decompile(ClassContext context) {
-		if (codeGraph != null) {
-			try {
-				codeGraph.decompile(descriptor, context);
-			} catch (DecompilationException | DisassemblingException ex) {
-				throw new DecompilationException("In method " + descriptor, ex);
-			}
-		}
-	}
-
 	@Override
 	public void addImports(ClassContext context) {
-		context.addImportsFor(descriptor).addImportsFor(annotations)
-				.addImportsFor(exceptions).addImportsFor(defaultValue).addImportsFor(codeGraph);
+		context .addImportsFor(descriptor).addImportsFor(annotations)
+				.addImportsFor(exceptions).addImportsFor(defaultValue)
+				.addImportsFor(codeGraph);
 	}
 
 	@Override
@@ -114,7 +150,7 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		}
 
 		if (codeGraph != null) {
-			out.recordsp().record(codeGraph, context);
+			out.recordSp().record(codeGraph, context);
 		} else {
 			out.record(';');
 		}

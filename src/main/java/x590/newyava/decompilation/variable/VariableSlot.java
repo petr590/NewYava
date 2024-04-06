@@ -16,7 +16,6 @@ import java.util.List;
 @ToString
 @RequiredArgsConstructor
 public class VariableSlot implements VariableSlotView {
-
 	@Getter
 	private final int id;
 

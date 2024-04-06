@@ -17,15 +17,15 @@ public sealed interface PrimitiveType extends Type
 
 		// Отсортировано примерно по частоте использования этих типов в большом проекте
 		// Just a little optimization
-		if (clazz == int.class)     return PrimitiveType.INT;
-		if (clazz == long.class)    return PrimitiveType.LONG;
-		if (clazz == float.class)   return PrimitiveType.FLOAT;
-		if (clazz == double.class)  return PrimitiveType.DOUBLE;
-		if (clazz == boolean.class) return PrimitiveType.BOOLEAN;
-		if (clazz == void.class)    return PrimitiveType.VOID;
-		if (clazz == byte.class)    return PrimitiveType.BYTE;
-		if (clazz == short.class)   return PrimitiveType.SHORT;
-		if (clazz == char.class)    return PrimitiveType.CHAR;
+		if (clazz == int.class)     return INT;
+		if (clazz == long.class)    return LONG;
+		if (clazz == float.class)   return FLOAT;
+		if (clazz == double.class)  return DOUBLE;
+		if (clazz == boolean.class) return BOOLEAN;
+		if (clazz == void.class)    return VOID;
+		if (clazz == byte.class)    return BYTE;
+		if (clazz == short.class)   return SHORT;
+		if (clazz == char.class)    return CHAR;
 		throw new IllegalArgumentException("Class " + clazz + " is primitive but does not matches any primitive class");
 	}
 
@@ -62,8 +62,12 @@ public sealed interface PrimitiveType extends Type
 			CHAR = IntMultiType.valueOf(CHAR_FLAG),
 			INT = IntMultiType.valueOf(INT_FLAG),
 
+			/** Включает в себя byte, short, char, int */
+			NUMERIC = IntMultiType.valueOf(NUMERIC_FLAGS),
+
 			/** Включает в себя boolean, byte, short, char, int */
 			INTEGRAL = IntMultiType.valueOf(ALL_FLAGS),
+
 			BYTE_OR_BOOLEAN = IntMultiType.valueOf(BYTE_FLAG | BOOLEAN_FLAG);
 
 	NonIntType

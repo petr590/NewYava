@@ -9,8 +9,7 @@ import java.util.List;
 /**
  * Таблица, которая содержит список {@link VariableSlot}.
  */
-public class VariableTable {
-
+public class VariableTable implements VariableTableView {
 	private final List<VariableSlot> slots = new ArrayList<>();
 
 	public void extendTo(int size) {
@@ -26,6 +25,7 @@ public class VariableTable {
 		slots.get(slotId).add(ref);
 	}
 
+	@Override
 	public VariableSlot get(int slotId) {
 		return slots.get(slotId);
 	}
@@ -33,7 +33,8 @@ public class VariableTable {
 
 	private final @UnmodifiableView List<VariableSlot> unmodifiableSlots = Collections.unmodifiableList(slots);
 
-	public @UnmodifiableView List<VariableSlot> listView() {
+	@Override
+	public @UnmodifiableView List<? extends VariableSlotView> listView() {
 		return unmodifiableSlots;
 	}
 }

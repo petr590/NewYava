@@ -2,14 +2,14 @@ package x590.newyava;
 
 import org.objectweb.asm.*;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.type.ClassType;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Main {
 
@@ -30,24 +30,31 @@ public class Main {
 	public static void run(Class<?> exampleClass, Config config) {
 		Config.init(config);
 
-		Class<?>[] classes = exampleClass.getNestMembers();
+		Class<?>[] srcClasses = exampleClass.getNestMembers();
 
-		List<DecompilingClass> decompilingClasses = Arrays.stream(classes)
+		Map<ClassType, DecompilingClass> classMap = Arrays.stream(srcClasses)
 				.map(clazz -> {
 					try {
 						return new DecompilingClass(new ClassReader(getResource(clazz)));
 					} catch (IOException ex) {
 						throw new UncheckedIOException(ex);
 					}
-				}).toList();
+				}).collect(Collectors.toMap(DecompilingClass::getThisType, clazz -> clazz));
 
-		decompilingClasses.forEach(DecompilingClass::decompile);
+		Collection<DecompilingClass> classes = classMap.values();
+
+
+		classes.forEach(clazz -> clazz.initNested(classMap));
+
+		classes.forEach(DecompilingClass::decompile);
+		classes.forEach(DecompilingClass::initVariables);
+
+		classes.forEach(DecompilingClass::addImports);
+		classes.forEach(DecompilingClass::computeImports);
 
 		var writer = new DecompilationWriter(new OutputStreamWriter(System.out));
 
-		decompilingClasses.forEach(DecompilingClass::addImports);
-		decompilingClasses.forEach(DecompilingClass::computeImports);
-		decompilingClasses.forEach(clazz -> {
+		classes.stream().filter(DecompilingClass::keep).forEach(clazz -> {
 			writer.record("\n\n----------------------------------------------------------------\n\n");
 			clazz.write(writer);
 		});

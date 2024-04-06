@@ -98,7 +98,7 @@ public record MethodDescriptor(
 			}
 
 			case INIT -> out.record(hostClass, context);
-			default -> out.recordsp(returnType, context).record(name);
+			default -> out.recordSp(returnType, context).record(name);
 		}
 
 		IntFunction<String> nameGetter = variables != null ?
@@ -108,7 +108,7 @@ public record MethodDescriptor(
 		int start = context.isEnumClass() ? 2 : 0;
 
 		out.record('(').record(arguments, ", ", start,
-				(type, i) -> out.recordsp(type, context).record(nameGetter.apply(i))
+				(type, i) -> out.recordSp(type, context).record(nameGetter.apply(i))
 		).record(')');
 	}
 

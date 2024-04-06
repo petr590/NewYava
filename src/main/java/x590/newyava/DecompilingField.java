@@ -6,7 +6,6 @@ import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
@@ -71,7 +70,7 @@ public class DecompilingField implements ContextualWritable, Importable {
 		out.record(descriptor, context);
 
 		if (initializer != null)
-			out.record(" = ").record(initializer.toString());
+			out.record(" = ").record(initializer, context, Priority.ZERO);
 
 		out.record(';');
 	}
@@ -125,9 +124,7 @@ public class DecompilingField implements ContextualWritable, Importable {
 			List<Operation> args = invokeSpecial.getArguments();
 
 			if (args.size() > 2) {
-				// methodScope здесь установлен в null, так как не планируется, что он понадобится.
-				// Однако это может привести к неправильному поведению. Может, потребуется исправление.
-				out.record('(').record(args.subList(2, args.size()), new WriteContext(context, null), Priority.ZERO, ", ").record(')');
+				out.record('(').record(args.subList(2, args.size()), context, Priority.ZERO, ", ").record(')');
 			}
 		}
 	}

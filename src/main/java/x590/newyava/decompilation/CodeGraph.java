@@ -2,8 +2,8 @@ package x590.newyava.decompilation;
 
 import it.unimi.dsi.fastutil.ints.*;
 import it.unimi.dsi.fastutil.objects.*;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.Label;
@@ -11,7 +11,6 @@ import x590.newyava.constant.IntConstant;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.instruction.FlowControlInsn;
 import x590.newyava.decompilation.instruction.Instruction;
 import x590.newyava.decompilation.operation.condition.ConstCondition;
@@ -20,6 +19,7 @@ import x590.newyava.decompilation.operation.condition.SwitchOperation;
 import x590.newyava.decompilation.scope.*;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.decompilation.variable.VariableTable;
+import x590.newyava.decompilation.variable.VariableTableView;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.io.DecompilationWriter;
@@ -73,6 +73,11 @@ public class CodeGraph implements ReadonlyCode {
 
 	private final VariableTable varTable = new VariableTable();
 
+	@Override
+	public VariableTableView getVarTable() {
+		return varTable;
+	}
+
 	public void setVariable(int slotId, Type type, String name, Label start, Label end) {
 		varTable.add(slotId, new VariableReference(type, name, labels.getInt(start), labels.getInt(end)));
 	}
@@ -98,7 +103,7 @@ public class CodeGraph implements ReadonlyCode {
 			var thisSlot = varTable.get(0);
 
 			if (thisSlot.isEmpty()) {
-				thisSlot.add(new VariableReference(classType, 0, instructions.size()));
+				thisSlot.add(new VariableReference(classType, "this", 0, instructions.size()));
 			}
 		}
 
@@ -122,19 +127,31 @@ public class CodeGraph implements ReadonlyCode {
 
 	private Chunk first, last;
 
-	@Getter
+	private @Unmodifiable List<Chunk> chunks;
+	private MethodContext methodContext;
+
 	private MethodScope methodScope;
+
+	@Override
+	public @NotNull MethodScope getMethodScope() {
+		return Objects.requireNonNull(methodScope);
+	}
 
 	public boolean isEmpty() {
 		return methodScope.isEmpty();
 	}
 
+	/** Главный метод всего приложения. Именно здесь происходит вся магия.
+	 * Инициализирует {@link #methodScope}. */
 	public void decompile(MethodDescriptor descriptor, ClassContext context) {
 		Int2ObjectMap<Chunk> chunkMap = readChunkMap();
 
 		@Unmodifiable List<Chunk> chunks = chunkMap.values().stream().sorted().toList();
 
 		var methodContext = new MethodContext(context, descriptor, visitor.getModifiers());
+
+		this.chunks = chunks;
+		this.methodContext = methodContext;
 
 		chunks.forEach(chunk -> chunk.decompile(methodContext));
 		chunks.forEach(chunk -> chunk.linkChunks(labels, chunkMap));
@@ -164,9 +181,23 @@ public class CodeGraph implements ReadonlyCode {
 
 		Collections.sort(scopes);
 		methodScope = createMethodScope(chunks, scopes);
-
-		methodScope.initVariables(chunks);
 		methodScope.removeRedundantOperations(methodContext);
+	}
+
+	public void beforeVariablesInit() {
+		methodScope.beforeVariablesInit(methodScope);
+		methodScope.checkCyclicReference();
+	}
+
+
+	/** @return приоритет, в котором должен вызываться метод {@link #initVariables()} */
+	public int getVariablesInitPriority() {
+		return methodScope.getVariablesInitPriority();
+	}
+
+	/** Инициализирует переменные в методе */
+	public void initVariables() {
+		methodScope.initVariables(chunks);
 	}
 
 
@@ -230,7 +261,7 @@ public class CodeGraph implements ReadonlyCode {
 	 * все операции и scope-ы, соблюдая их иерархию.
 	 */
 	private MethodScope createMethodScope(@Unmodifiable List<Chunk> chunks, List<Scope> scopes) {
-		var methodScope = new MethodScope(chunks);
+		var methodScope = new MethodScope(chunks, methodContext);
 
 		int endId = last.getId();
 
@@ -410,6 +441,6 @@ public class CodeGraph implements ReadonlyCode {
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		out.record(methodScope, new WriteContext(context, null));
+		out.record(methodScope, context);
 	}
 }

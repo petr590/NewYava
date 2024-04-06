@@ -2,6 +2,7 @@ package x590.newyava.decompilation.variable;
 
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
+import x590.newyava.exception.DecompilationException;
 import x590.newyava.type.Type;
 
 /**
@@ -19,6 +20,8 @@ public class VariableReference {
 	private final int start, end;
 
 	private Variable variable;
+
+	private @Nullable VariableReference binded;
 
 	public VariableReference(Type type, int start, int end) {
 		this(type, null, start, end);
@@ -41,9 +44,25 @@ public class VariableReference {
 		updateType(Type.assign(type, requiredType));
 	}
 
+
+	public void bind(VariableReference ref) {
+		if (binded != null && binded != ref) {
+			throw new DecompilationException("VariableReference " + this + " already binded to " + binded);
+		}
+
+		this.binded = ref;
+	}
+
+	public Variable getVariable() {
+//		if (binded != null)
+//			System.out.println(binded + ", " + this);
+
+		return binded != null ? binded.getVariable() : variable;
+	}
+
 	/** @return Имя переменной. Доступно только после связывания ссылки с самой переменной */
 	public String getName() {
-		return variable.getName();
+		return getVariable().getName();
 	}
 
 	/**
@@ -51,6 +70,11 @@ public class VariableReference {
 	 * @throws IllegalStateException если ссылка уже связана с другой переменной.
 	 */
 	public void initVariable(Variable variable) {
+		if (binded != null) {
+			binded.initVariable(variable);
+			return;
+		}
+
 		if (this.variable != null && this.variable != variable) {
 			throw new IllegalStateException(
 					"Reinitialized variable is not matches: " + this.variable + ", " + variable

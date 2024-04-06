@@ -8,9 +8,9 @@ import x590.newyava.decompilation.scope.Scope;
  * Предоставляет доступ к текущему {@link Scope}.
  * Используется при записи кода.
  */
+@Deprecated
 public class WriteContext extends DelegatingContext {
 	@Getter
-	@Deprecated
 	private Scope currentScope;
 
 	public WriteContext(Context context, MethodScope methodScope) {

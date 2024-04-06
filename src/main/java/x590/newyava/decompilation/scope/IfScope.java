@@ -1,7 +1,7 @@
 package x590.newyava.decompilation.scope;
 
 import org.jetbrains.annotations.Unmodifiable;
-import x590.newyava.context.WriteContext;
+import x590.newyava.context.Context;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.condition.Condition;
@@ -19,7 +19,7 @@ public class IfScope extends Scope {
 	}
 
 	@Override
-	protected boolean writeHeader(DecompilationWriter out, WriteContext context) {
+	protected boolean writeHeader(DecompilationWriter out, Context context) {
 		out.record("if (").record(condition, context, Priority.ZERO).record(')');
 		return true;
 	}

@@ -2,15 +2,18 @@ package x590.newyava.decompilation.operation.condition;
 
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.operation.*;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 import x590.newyava.type.Types;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 public class CompareCondition implements Condition {
@@ -77,7 +80,7 @@ public class CompareCondition implements Condition {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public void write(DecompilationWriter out, Context context) {
 		operand1.updateReturnType(Type.assign(operand1.getReturnType(), operand2.getReturnType()));
 		operand2.updateReturnType(Type.assign(operand2.getReturnType(), operand1.getReturnType()));
 
@@ -96,7 +99,12 @@ public class CompareCondition implements Condition {
 		}
 
 		out .record(operand1, context, compareType.getPriority(), Associativity.LEFT)
-			.recordsp().recordsp(compareType.getOperator())
+			.recordSp().recordSp(compareType.getOperator())
 			.record(operand2, context, compareType.getPriority(), Associativity.RIGHT);
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(operand1, operand2);
 	}
 }

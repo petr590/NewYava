@@ -1,82 +1,82 @@
 package x590.newyava.decompilation.operation.invokedynamic;
 
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.Modifiers;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
-import x590.newyava.context.WriteContext;
 import x590.newyava.decompilation.ReadonlyCode;
 import x590.newyava.decompilation.operation.LoadOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.terminal.ReturnValueOperation;
+import x590.newyava.decompilation.scope.MethodScope;
 import x590.newyava.decompilation.variable.Variable;
 import x590.newyava.descriptor.IncompleteMethodDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
-import x590.newyava.exception.DecompilationException;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 import x590.newyava.type.TypeSize;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 public class LambdaOperation implements Operation {
-	/** Формальный дескриптор инструкции invokedynamic */
+	/** Дескриптор самой инструкции invokedynamic */
 	private final IncompleteMethodDescriptor invokedynamicDescriptor;
 
-	/** Видимый дескриптор */
-	private final MethodDescriptor descriptor;
+	/** Дескриптор метода реализации лямбды */
+	private final MethodDescriptor implementationDescriptor;
+
+	private final List<Operation> indyArgs;
 
 	private final @Nullable ReadonlyCode code;
 
 	public LambdaOperation(MethodContext context, IncompleteMethodDescriptor indyDescriptor,
-	                       MethodDescriptor lambdaDescriptor) {
+	                       MethodDescriptor implDescriptor) {
 
 		this.invokedynamicDescriptor = indyDescriptor;
-
-		var indyArgTypes = indyDescriptor.arguments();
-		var lambdaArgTypes = lambdaDescriptor.arguments();
-
-		if (lambdaArgTypes.size() < indyArgTypes.size() ||
-			!lambdaArgTypes.subList(0, indyArgTypes.size()).equals(indyArgTypes)) {
-
-			throw new DecompilationException(
-					"Lambda args list is not starts with invokedynamic args list: " + lambdaArgTypes + ", " + indyArgTypes
-			);
-		}
-
-		this.descriptor = indyArgTypes.isEmpty() ? lambdaDescriptor :
-				new MethodDescriptor(lambdaDescriptor.hostClass(), lambdaDescriptor.name(), lambdaDescriptor.returnType(),
-						lambdaDescriptor.arguments().subList(indyArgTypes.size(), lambdaDescriptor.arguments().size()));
-
-		List<Operation> indyArgs = OperationUtil.readArgs(context, indyArgTypes);
+		this.implementationDescriptor = implDescriptor;
 
 
-		if (lambdaDescriptor.hostClass().equals(context.getThisType())) {
-			var foundMethod = context.findMethod(lambdaDescriptor);
+		this.indyArgs = OperationUtil.readArgs(context, indyDescriptor.arguments());
+
+		if (implDescriptor.hostClass().equals(context.getThisType())) {
+			var foundMethod = context.findMethod(implDescriptor);
 
 			if (foundMethod.isPresent() && (foundMethod.get().getModifiers() & Modifiers.ACC_SYNTHETIC) != 0) {
 				this.code = foundMethod.get().getCode();
-
-				var variables = code.getMethodScope().getVariables();
-				int index = 0;
-
-				for (Operation arg : indyArgs) {
-					if (arg instanceof LoadOperation load) {
-						variables.get(index).setName(load.getVarRef().getName());
-					}
-
-					index += arg.getReturnType().getSize() == TypeSize.LONG ? 2 : 1;
-				}
-
-				 return;
+				return;
 			}
 		}
 
 		this.code = null;
+	}
+
+	@Override
+	public void beforeVariablesInit(MethodScope methodScope) {
+		Operation.super.beforeVariablesInit(methodScope);
+
+		if (code != null) {
+			code.getMethodScope().setOuterScope(methodScope);
+
+			var varTable = code.getVarTable();
+			int slot = 0;
+
+			for (Operation arg : indyArgs) {
+				if (arg instanceof LoadOperation load) {
+					var ref = varTable.get(slot).get(0);
+
+					if (ref != null) {
+						ref.bind(load.getVarRef());
+					}
+				}
+
+				slot += arg.getReturnType().getSize() == TypeSize.LONG ? 2 : 1;
+			}
+		}
 	}
 
 	@Override
@@ -86,23 +86,36 @@ public class LambdaOperation implements Operation {
 
 	@Override
 	public void addImports(ClassContext context) {
-		context.addImportsFor(code).addImportsFor(descriptor.hostClass());
+		context.addImportsFor(code).addImportsFor(implementationDescriptor.hostClass());
 	}
 
 	@Override
-	public void write(DecompilationWriter out, WriteContext context) {
+	public Priority getPriority() {
+		return Priority.LAMBDA;
+	}
+
+	@Override
+	public void write(DecompilationWriter out, Context context) {
 		if (code != null) {
-			if (OperationUtil.writeArrayLambda(out, context, descriptor, code)) {
+			if (OperationUtil.writeArrayLambda(out, context, implementationDescriptor, code)) {
 				return;
 			}
 
 			var variables = code.getMethodScope().getVariables();
 
-			out.record(variables.stream()
+			List<String> names = variables.stream()
 					.skip(invokedynamicDescriptor.slots())
-					.limit(descriptor.slots())
 					.filter(Objects::nonNull).map(Variable::getName)
-					.collect(Collectors.joining(", ", "(", ") -> ")));
+					.toList();
+
+			if (names.size() == 1) {
+				out.record(names, ", ");
+			} else {
+				out.record('(').record(names, ", ").record(')');
+			}
+
+			out.record(" -> ");
+
 
 			var operations = code.getMethodScope().getOperations();
 
@@ -120,8 +133,18 @@ public class LambdaOperation implements Operation {
 			out.record(code, context);
 
 		} else {
-			out.record(descriptor.hostClass(), context).record("::")
-					.record(descriptor.isConstructor() ? "new" : descriptor.name());
+			if (!indyArgs.isEmpty()) {
+				out.record(indyArgs.get(0), context, Priority.ZERO);
+			} else {
+				out.record(implementationDescriptor.hostClass(), context);
+			}
+
+			out.record("::").record(implementationDescriptor.isConstructor() ? "new" : implementationDescriptor.name());
 		}
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return indyArgs;
 	}
 }
