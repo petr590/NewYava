@@ -52,6 +52,10 @@ public record MethodDescriptor(
 		}
 	}
 
+	public MethodDescriptor(ReferenceType hostClass, String name, Type returnType) {
+		this(hostClass, name, returnType, List.of());
+	}
+
 	public static MethodDescriptor of(ReferenceType hostClass, String name, String argsAndReturnType) {
 		var reader = new SignatureReader(argsAndReturnType);
 
@@ -105,7 +109,7 @@ public record MethodDescriptor(
 				new NameGetter(variables, isStatic) :
 				new NameGenerator();
 
-		int start = context.isEnumClass() ? 2 : 0;
+		int start = context.isEnumClass() && isConstructor() ? 2 : 0;
 
 		out.record('(').record(arguments, ", ", start,
 				(type, i) -> out.recordSp(type, context).record(nameGetter.apply(i))
@@ -158,6 +162,13 @@ public record MethodDescriptor(
 		}
 	}
 
+
+	public boolean equals(ReferenceType hostClass, String name, Type returnType) {
+		return  this.hostClass.equals(hostClass) &&
+				this.name.equals(name) &&
+				this.returnType.equals(returnType) &&
+				this.arguments.isEmpty();
+	}
 
 	public boolean equals(ReferenceType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
 		return  this.hostClass.equals(hostClass) &&

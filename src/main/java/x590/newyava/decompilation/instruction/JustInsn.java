@@ -124,21 +124,25 @@ public record JustInsn(int opcode) implements Instruction {
 			case IXOR -> new BinaryOperation(context, XOR, PrimitiveType.INT);
 			case LXOR -> new BinaryOperation(context, XOR, PrimitiveType.LONG);
 
-			case I2L -> new CastOperation(context, PrimitiveType.INT, PrimitiveType.LONG);
-			case I2F -> new CastOperation(context, PrimitiveType.INT, PrimitiveType.FLOAT);
-			case I2D -> new CastOperation(context, PrimitiveType.INT, PrimitiveType.DOUBLE);
-			case L2I -> new CastOperation(context, PrimitiveType.LONG, PrimitiveType.INT);
-			case L2F -> new CastOperation(context, PrimitiveType.LONG, PrimitiveType.FLOAT);
-			case L2D -> new CastOperation(context, PrimitiveType.LONG, PrimitiveType.DOUBLE);
-			case F2I -> new CastOperation(context, PrimitiveType.FLOAT, PrimitiveType.INT);
-			case F2L -> new CastOperation(context, PrimitiveType.FLOAT, PrimitiveType.LONG);
-			case F2D -> new CastOperation(context, PrimitiveType.FLOAT, PrimitiveType.DOUBLE);
-			case D2I -> new CastOperation(context, PrimitiveType.DOUBLE, PrimitiveType.INT);
-			case D2L -> new CastOperation(context, PrimitiveType.DOUBLE, PrimitiveType.LONG);
-			case D2F -> new CastOperation(context, PrimitiveType.DOUBLE, PrimitiveType.FLOAT);
-			case I2B -> new CastOperation(context, PrimitiveType.INT, PrimitiveType.BYTE);
-			case I2C -> new CastOperation(context, PrimitiveType.INT, PrimitiveType.CHAR);
-			case I2S -> new CastOperation(context, PrimitiveType.INT, PrimitiveType.SHORT);
+			case I2L -> CastOperation.wide(context, PrimitiveType.INT, PrimitiveType.LONG);
+			case I2F -> CastOperation.wide(context, PrimitiveType.INT, PrimitiveType.FLOAT);
+			case I2D -> CastOperation.wide(context, PrimitiveType.INT, PrimitiveType.DOUBLE);
+
+			case L2I -> CastOperation.narrow(context, PrimitiveType.LONG, PrimitiveType.INT);
+			case L2F -> CastOperation.wide(context, PrimitiveType.LONG, PrimitiveType.FLOAT);
+			case L2D -> CastOperation.wide(context, PrimitiveType.LONG, PrimitiveType.DOUBLE);
+
+			case F2I -> CastOperation.narrow(context, PrimitiveType.FLOAT, PrimitiveType.INT);
+			case F2L -> CastOperation.narrow(context, PrimitiveType.FLOAT, PrimitiveType.LONG);
+			case F2D -> CastOperation.wide(context, PrimitiveType.FLOAT, PrimitiveType.DOUBLE);
+
+			case D2I -> CastOperation.narrow(context, PrimitiveType.DOUBLE, PrimitiveType.INT);
+			case D2L -> CastOperation.narrow(context, PrimitiveType.DOUBLE, PrimitiveType.LONG);
+			case D2F -> CastOperation.narrow(context, PrimitiveType.DOUBLE, PrimitiveType.FLOAT);
+
+			case I2B -> CastOperation.narrow(context, PrimitiveType.INT, PrimitiveType.BYTE);
+			case I2C -> CastOperation.narrow(context, PrimitiveType.INT, PrimitiveType.CHAR);
+			case I2S -> CastOperation.narrow(context, PrimitiveType.INT, PrimitiveType.SHORT);
 
 			case LCMP -> new CmpOperation(context, PrimitiveType.LONG);
 			case FCMPL, FCMPG -> new CmpOperation(context, PrimitiveType.FLOAT);

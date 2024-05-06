@@ -56,7 +56,7 @@ public class NewArrayOperation implements Operation {
 		var operations = new Operation[size];
 
 		var operation = defaultOperation(elementType);
-		operation.updateReturnType(elementType);
+//		operation.updateReturnType(elementType); // FIRST_TYPE_ASSIGNMENT
 
 		Arrays.fill(operations, operation);
 		return Arrays.asList(operations);
@@ -81,7 +81,7 @@ public class NewArrayOperation implements Operation {
 
 	boolean addInitializer(int index, Operation value) {
 		if (initializers != null && index < initializers.size()) {
-			value.updateReturnType(arrayType.getElementType());
+//			value.updateReturnType(arrayType.getElementType()); // FIRST_TYPE_ASSIGNMENT
 			initializers.set(index, value);
 
 			useInitializersList = true;
@@ -99,6 +99,25 @@ public class NewArrayOperation implements Operation {
 	@Override
 	public Type getReturnType() {
 		return arrayType;
+	}
+
+	@Override
+	public void inferType(Type ignored) {
+		if (initializers != null) {
+			var type = arrayType.getElementType();
+			initializers.forEach(initializer -> initializer.inferType(type));
+		}
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		if (initializers == null) {
+			return sizes;
+		}
+
+		var operations = new ArrayList<>(sizes);
+		operations.addAll(initializers);
+		return operations;
 	}
 
 	@Override
@@ -147,13 +166,7 @@ public class NewArrayOperation implements Operation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		if (initializers == null) {
-			return sizes;
-		}
-
-		var operations = new ArrayList<>(sizes);
-		operations.addAll(initializers);
-		return operations;
+	public String toString() {
+		return String.format("NewArrayOperation %08x(%s, %s)", hashCode(), arrayType, sizes);
 	}
 }

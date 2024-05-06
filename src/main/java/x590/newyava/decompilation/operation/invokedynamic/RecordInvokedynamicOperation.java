@@ -18,4 +18,10 @@ public enum RecordInvokedynamicOperation implements SpecialOperation {
 	public Type getReturnType() {
 		return returnType;
 	}
+
+
+	@Override
+	public String toString() {
+		return "RecordInvokedynamicOperation." + name();
+	}
 }

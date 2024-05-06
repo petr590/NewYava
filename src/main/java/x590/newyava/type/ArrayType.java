@@ -11,6 +11,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Массив какого-либо другого типа.
+ */
 public class ArrayType implements ReferenceType {
 
 	private static final Map<Type, ArrayType> ARRAYS_POOL = new HashMap<>();
@@ -38,10 +41,20 @@ public class ArrayType implements ReferenceType {
 	}
 
 	public static ArrayType forType(Type type, int nestLevel) {
-		return nestLevel == 1 ? forType(type) : new ArrayType(type, nestLevel);
+		if (type instanceof ArrayType arrayType) {
+			return forType(arrayType.getMemberType(), arrayType.nestLevel + nestLevel);
+		}
+
+		return nestLevel == 1 ? forType0(type) : new ArrayType(type, nestLevel);
 	}
 
 	public static ArrayType forType(Type type) {
+		return type instanceof ArrayType arrayType ?
+				forType(arrayType.getMemberType(), arrayType.nestLevel + 1) :
+				forType0(type);
+	}
+
+	private static ArrayType forType0(Type type) {
 		return ARRAYS_POOL.computeIfAbsent(type, tp -> new ArrayType(tp, 1));
 	}
 
@@ -99,8 +112,8 @@ public class ArrayType implements ReferenceType {
 			return varName;
 
 		return varName = nestLevel > 1 ?
-				type.getVarName() + nestLevel + "dArray" :
-				type.getVarName() + "Array";
+				type.getArrVarName() + nestLevel + "dArray" :
+				type.getArrVarName() + "Array";
 	}
 
 	@Override

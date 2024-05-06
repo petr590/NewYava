@@ -9,6 +9,9 @@ import org.jetbrains.annotations.Unmodifiable;
 import static x590.newyava.Modifiers.*;
 import static x590.newyava.Literals.*;
 
+/**
+ * Тип сущности, у которой есть модификаторы доступа.
+ */
 @Getter
 public enum EntryType {
 	CLASS(new Int2ObjectArrayMap<>(
@@ -49,12 +52,22 @@ public enum EntryType {
 		this.allowedModifiers = Int2ObjectMaps.unmodifiable(allowedModifiers);
 	}
 
+	/** @return строку, содержащую все флаги, установленные в {@code modifiers}.
+	 * Не обрабатывает сочетания флагов.
+	 * <br><br>
+	 * Например, для интерфейса, который задаётся флагами {@code ACC_ABSTRACT} и {@code ACC_INTERFACE},
+	 * метод вернёт {@code "abstract interface"}. */
 	public String modifiersToString(int modifiers) {
 		var str = new StringBuilder();
 
+		boolean first = true;
+
 		for (var entry : allowedModifiers.int2ObjectEntrySet()) {
 			if ((modifiers & entry.getIntKey()) != 0) {
-				str.append(entry.getValue()).append(' ');
+				if (!first) str.append(' ');
+				first = false;
+
+				str.append(entry.getValue());
 			}
 		}
 

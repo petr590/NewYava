@@ -3,8 +3,6 @@ package x590.newyava.example;
 import org.junit.Test;
 import x590.newyava.Main;
 
-import java.lang.annotation.RetentionPolicy;
-
 @SuppressWarnings("all")
 public class SwitchExample {
 	@Test
@@ -44,12 +42,20 @@ public class SwitchExample {
 		}
 	}
 
-	public void switchWithLoop(int x, int y) {
+	public void switchWithLoop1(int x, int y) {
 		switch (x) {
 			case 0 -> {
 				while (y == 0) {
 					System.out.println("Z");
 				}
+			}
+		}
+	}
+
+	public void switchWithLoop2(int x, int y) {
+		while (y == 0) {
+			switch (x) {
+				case 0 -> System.out.println("Z");
 			}
 		}
 	}
@@ -72,19 +78,19 @@ public class SwitchExample {
 		}
 	}
 
-	public void switchEnum(RetentionPolicy policy) { // Тут try/catch в static {}, пока до этого не дошли
-		switch (policy) {
-			case RUNTIME -> System.out.println("runtime");
-			case CLASS -> {
-				System.out.println("class");
-				return;
-			}
-			case SOURCE -> {
-				return;
-			}
-			default -> throw null;
-		}
-	}
+//	public void switchEnum(RetentionPolicy policy) { // Тут try/catch в static {}, пока до этого не дошли
+//		switch (policy) {
+//			case RUNTIME -> System.out.println("runtime");
+//			case CLASS -> {
+//				System.out.println("class");
+//				return;
+//			}
+//			case SOURCE -> {
+//				return;
+//			}
+//			default -> throw null;
+//		}
+//	}
 
 //	public void switchString2(String v1) { // Emulation
 //		String v2 = v1;

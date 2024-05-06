@@ -1,0 +1,20 @@
+usage:
+boolean as boolean
+byte as byte, short, int
+char as char, int
+short as short, int
+int as int
+
+assignDown:
+integral, int -> numeric
+integral, short -> byte, short
+integral, byte -> byte
+integral, char -> char
+integral, boolean -> boolean
+
+assignUp:
+integral, int -> int
+integral, short -> short, int
+integral, byte -> byte, short, int
+integral, char -> char, int
+integral, boolean -> boolean

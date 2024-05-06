@@ -46,10 +46,10 @@ public class MethodScope extends Scope {
 
 	public void setOuterScope(MethodScope newOuterScope) {
 		if (outerScope != null && outerScope != newOuterScope) {
-			throw new DecompilationException(String.format(
+			throw new DecompilationException(
 					"Outer scope already has been set (old: %s, new: %s)",
 					outerScope, newOuterScope
-			));
+			);
 		}
 
 		outerScope = newOuterScope;

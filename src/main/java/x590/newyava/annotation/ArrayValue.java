@@ -1,5 +1,6 @@
 package x590.newyava.annotation;
 
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
 import x590.newyava.context.ClassContext;
@@ -14,17 +15,25 @@ import java.util.List;
 class ArrayValue extends AnnotationVisitor implements AnnotationValue {
 	private final List<AnnotationValue> values;
 
+	private @Nullable Type elementType;
+
 	ArrayValue() {
-		this(new ArrayList<>());
+		super(Opcodes.ASM9);
+		this.values = new ArrayList<>();
 	}
 
-	ArrayValue(List<AnnotationValue> values) {
+	ArrayValue(List<AnnotationValue> values, @Nullable Type elementType) {
 		super(Opcodes.ASM9);
 		this.values = values;
+		this.elementType = elementType;
 	}
 
 	@Override
 	public void visit(String name, Object value) {
+		if (elementType == null) {
+			elementType = AnnotationValue.typeFor(value);
+		}
+
 		values.add(AnnotationValue.of(value));
 	}
 
@@ -53,11 +62,11 @@ class ArrayValue extends AnnotationVisitor implements AnnotationValue {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context, Type type) {
+	public void write(DecompilationWriter out, Context context, @Nullable Type type) {
 		if (values.isEmpty()) {
 			out.record("{}");
 		} else {
-			out.record("{ ").record(values, context, type, ", ").record(" }");
+			out.record("{ ").record(values, context, elementType, ", ").record(" }");
 		}
 	}
 }

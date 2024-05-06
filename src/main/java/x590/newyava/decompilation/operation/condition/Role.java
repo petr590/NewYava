@@ -9,6 +9,9 @@ import x590.newyava.io.DecompilationWriter;
 
 import java.util.function.Predicate;
 
+/**
+ * Роль чанка. Только для чанков, у которых есть переход на другие чанки
+ */
 public interface Role {
 
 	default void resolveLabelNames(Scope currentScope, LabelNameGenerator generator) {}

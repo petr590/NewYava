@@ -27,6 +27,9 @@ import java.util.Objects;
 import static x590.newyava.Literals.*;
 import static x590.newyava.Modifiers.*;
 
+/**
+ * Декомпилируемый метод
+ */
 @Getter
 public class DecompilingMethod implements ContextualWritable, Importable {
 	private final int modifiers;
@@ -86,6 +89,12 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		}
 	}
 
+	public void inferVariableTypesAndNames() {
+		if (codeGraph != null) {
+			codeGraph.inferVariableTypesAndNames();
+		}
+	}
+
 	/** Можно ли оставить метод в классе.
 	 * Должен вызываться только после {@link #decompile(ClassContext)} */
 	public boolean keep(ClassContext context) {
@@ -107,11 +116,15 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 			}
 		}
 
+		if (descriptor.isConstructor() && descriptor.hostClass().isAnonymous()) {
+			return false;
+		}
+
 		if (context.isEnumClass()) {
 			var enumType = context.getThisType();
 
 			return  !descriptor.equals(enumType, "valueOf", enumType, List.of(ClassType.STRING)) &&
-					!descriptor.equals(enumType, "values", ArrayType.forType(enumType), List.of());
+					!descriptor.equals(enumType, "values", ArrayType.forType(enumType));
 		}
 
 		if ((context.getClassModifiers() & ACC_RECORD) != 0) {
@@ -206,12 +219,12 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 			});
 		}
 
-		if ((modifiers & ACC_ABSTRACT)      != 0) out.record(LIT_ABSTRACT + " ");
-		if ((modifiers & ACC_STATIC)        != 0) out.record(LIT_STATIC + " ");
-		if ((modifiers & ACC_STRICT)        != 0) out.record(LIT_STRICT + " ");
+		if ((modifiers & ACC_ABSTRACT)     != 0) out.record(LIT_ABSTRACT + " ");
+		if ((modifiers & ACC_STATIC)       != 0) out.record(LIT_STATIC + " ");
+		if ((modifiers & ACC_STRICT)       != 0) out.record(LIT_STRICT + " ");
 
-		if ((modifiers & ACC_FINAL)         != 0) out.record(LIT_FINAL + " ");
-		if ((modifiers & ACC_SYNCHRONIZED)  != 0) out.record(LIT_SYNCHRONIZED + " ");
-		if ((modifiers & ACC_NATIVE)        != 0) out.record(LIT_NATIVE + " ");
+		if ((modifiers & ACC_FINAL)        != 0) out.record(LIT_FINAL + " ");
+		if ((modifiers & ACC_SYNCHRONIZED) != 0) out.record(LIT_SYNCHRONIZED + " ");
+		if ((modifiers & ACC_NATIVE)       != 0) out.record(LIT_NATIVE + " ");
 	}
 }

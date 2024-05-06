@@ -1,4 +1,4 @@
-package x590.newyava.example;
+package x590.newyava.example.variable;
 
 import org.junit.Test;
 import x590.newyava.Config;
@@ -6,7 +6,6 @@ import x590.newyava.Main;
 
 @SuppressWarnings("all")
 public class Variables {
-
 	@Test
 	public void run() {
 		Main.run(this, Config.builder().ignoreVariableTable(false).build());

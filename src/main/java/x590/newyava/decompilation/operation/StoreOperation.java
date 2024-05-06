@@ -12,21 +12,45 @@ import x590.newyava.type.Type;
 import java.util.List;
 
 public class StoreOperation implements Operation {
-
 	private final VariableReference varRef;
 
 	private final Operation value;
 
+	private boolean definition;
+
 	public StoreOperation(MethodContext context, int index, Type requiredType) {
 		this.varRef = context.getVarRef(index);
-		varRef.assignType(requiredType);
-
 		this.value = context.popAs(requiredType);
 	}
 
 	@Override
 	public Type getReturnType() {
 		return PrimitiveType.VOID;
+	}
+
+	@Override
+	public boolean usesAnyVariable() {
+		return true;
+	}
+
+	@Override
+	public void inferType(Type ignored) {
+		varRef.assignUp(value.getReturnType());
+		value.inferType(varRef.getType());
+	}
+
+	@Override
+	public void defineVariableOnStore() {
+		if (varRef.attemptDefine()) {
+			definition = true;
+		}
+
+		Operation.super.defineVariableOnStore();
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(value);
 	}
 
 	@Override
@@ -41,11 +65,22 @@ public class StoreOperation implements Operation {
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		out.record(varRef.getName()).record(" = ").record(value, context, getPriority());
+		if (definition) {
+			out.record(varRef.getType(), context).recordSp();
+		}
+
+		out.record(varRef.getName()).record(" = ");
+
+		out.record(
+				value, context, getPriority(),
+				definition && Type.isArray(varRef.getType()) ?
+						Operation::writeAsArrayInitializer :
+						Operation::write
+		);
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(value);
+	public String toString() {
+		return String.format("StoreOperation %08x(%s = %s)", hashCode(), varRef, value);
 	}
 }

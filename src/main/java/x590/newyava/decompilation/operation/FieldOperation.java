@@ -41,7 +41,8 @@ public class FieldOperation implements Operation {
 	}
 
 	public static Operation putStatic(MethodContext context, FieldDescriptor descriptor, Operation value) {
-		if (context.getDescriptor().isStaticInitializer() &&
+		if (!value.usesAnyVariable() &&
+			context.getDescriptor().isStaticInitializer() &&
 			descriptor.hostClass().equals(context.getDescriptor().hostClass())) {
 
 			var foundField = context.findField(descriptor);
@@ -61,6 +62,22 @@ public class FieldOperation implements Operation {
 	@Override
 	public Type getReturnType() {
 		return value == null ? descriptor.type() : PrimitiveType.VOID;
+	}
+
+	@Override
+	public void inferType(Type ignored) {
+		if (value != null) value.inferType(descriptor.type());
+		if (instance != null) instance.inferType(descriptor.hostClass());
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		List<Operation> operations = new ArrayList<>();
+
+		if (value != null) operations.add(value);
+		if (instance != null) operations.add(instance);
+
+		return operations;
 	}
 
 	@Override
@@ -93,12 +110,11 @@ public class FieldOperation implements Operation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		List<Operation> operations = new ArrayList<>();
+	public String toString() {
+		var target = instance != null ? instance : descriptor.hostClass();
 
-		if (value != null) operations.add(value);
-		if (instance != null) operations.add(instance);
-
-		return operations;
+		return value == null ?
+				String.format("FieldOperation %08x(%s.%s)", hashCode(), target, descriptor.name()) :
+				String.format("FieldOperation %08x(%s.%s = %s)", hashCode(), target, descriptor.name(), value);
 	}
 }

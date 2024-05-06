@@ -12,6 +12,7 @@ import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.exception.IllegalModifiersException;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.type.Type;
 import x590.newyava.visitor.DecompileFieldVisitor;
 
 import java.util.List;
@@ -19,6 +20,9 @@ import java.util.List;
 import static x590.newyava.Modifiers.*;
 import static x590.newyava.Literals.*;
 
+/**
+ * Декомпилируемое поле
+ */
 @Getter
 public class DecompilingField implements ContextualWritable, Importable {
 	private final int modifiers;
@@ -54,6 +58,12 @@ public class DecompilingField implements ContextualWritable, Importable {
 		return false;
 	}
 
+	public void inferVariableTypes() {
+		if (initializer != null) {
+			initializer.inferType(descriptor.type());
+		}
+	}
+
 	@Override
 	public void addImports(ClassContext context) {
 		context.addImportsFor(descriptor).addImportsFor(annotations).addImportsFor(initializer);
@@ -69,8 +79,12 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 		out.record(descriptor, context);
 
-		if (initializer != null)
-			out.record(" = ").record(initializer, context, Priority.ZERO);
+		if (initializer != null) {
+			out.record(" = ").record(
+					initializer, context, Priority.ZERO,
+					Type.isArray(descriptor.type()) ? Operation::writeAsArrayInitializer : Operation::write
+			);
+		}
 
 		out.record(';');
 	}
@@ -117,15 +131,20 @@ public class DecompilingField implements ContextualWritable, Importable {
 		if ((modifiers & ACC_TRANSIENT) != 0) out.record(LIT_TRANSIENT + " ");
 	}
 
-	public void writeAsEnumConstant(DecompilationWriter out, Context context) {
+	public boolean canInlineEnumConstant() {
+		return isEnum() &&
+				initializer instanceof InvokeSpecialOperation invokeSpecial &&
+				invokeSpecial.canInlineEnumConstant();
+	}
+
+	public void writeAsEnumConstant(DecompilationWriter out, Context context, int minWidth) {
 		out.record(descriptor.name());
 
-		if (initializer instanceof InvokeSpecialOperation invokeSpecial && invokeSpecial.isNew()) {
-			List<Operation> args = invokeSpecial.getArguments();
+		if (initializer instanceof InvokeSpecialOperation invokeSpecial &&
+			!invokeSpecial.canInlineEnumConstant()) {
 
-			if (args.size() > 2) {
-				out.record('(').record(args.subList(2, args.size()), context, Priority.ZERO, ", ").record(')');
-			}
+			out.record(" ".repeat(Math.max(0, minWidth - descriptor.name().length())));
+			invokeSpecial.writeNew(out, context, true);
 		}
 	}
 }

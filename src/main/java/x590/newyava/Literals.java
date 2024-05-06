@@ -1,5 +1,8 @@
 package x590.newyava;
 
+/**
+ * Список литералов Java (неполный)
+ */
 public class Literals {
 
 	private Literals() {}

@@ -43,23 +43,23 @@ public class ClassTypeTest {
 	@Test
 	public void test2() {
 		//x590/newyava/Main
-		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle", "x590/newyava/Main");
-		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle$Inner", "x590/newyava/Main$Middle");
-		ClassType.checkOrUpdateNested("x590/newyava/Main$1InMethod", null);
-		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle$Inner$1", null);
+		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle",              "x590/newyava/Main");
+		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle$Inner",        "x590/newyava/Main$Middle");
+		ClassType.checkOrUpdateNested("x590/newyava/Main$1InMethod",           "x590/newyava/Main", true);
+		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle$Inner$1",      "x590/newyava/Main$Middle$Inner", true);
 		ClassType.checkOrUpdateNested("java/lang/invoke/MethodHandles$Lookup", "java/lang/invoke/MethodHandles");
 
 		//x590/newyava/Main$1InMethod
-		ClassType.checkOrUpdateNested("x590/newyava/Main$1InMethod", null);
+		ClassType.checkOrUpdateNested("x590/newyava/Main$1InMethod", "x590/newyava/Main", true);
 
 		//x590/newyava/Main$Middle
-		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle", "x590/newyava/Main");
+		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle",       "x590/newyava/Main");
 		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle$Inner", "x590/newyava/Main$Middle");
 
 			//x590/newyava/Main$Middle$Inner
-		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle", "x590/newyava/Main");
-		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle$Inner", "x590/newyava/Main$Middle");
-		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle$Inner$1", null);
+		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle",         "x590/newyava/Main");
+		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle$Inner",   "x590/newyava/Main$Middle");
+		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle$Inner$1", "x590/newyava/Main$Middle$Inner", true);
 
 		//x590/newyava/Main$Middle$Inner$1
 		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle", "x590/newyava/Main");

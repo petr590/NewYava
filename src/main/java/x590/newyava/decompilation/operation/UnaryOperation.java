@@ -10,20 +10,31 @@ import x590.newyava.type.Type;
 import java.util.List;
 
 public class UnaryOperation implements Operation {
-
 	private final Operation operand;
 	private final String operator;
-	private final Type returnType;
+
+	private final Type requiredType, returnType;
 
 	public UnaryOperation(MethodContext context, String operator, Type requiredType) {
 		this.operand = context.popAs(requiredType);
 		this.operator = operator;
+		this.requiredType = requiredType;
 		this.returnType = requiredType;
 	}
 
 	@Override
 	public Type getReturnType() {
 		return returnType;
+	}
+
+	@Override
+	public void inferType(Type ignored) {
+		operand.inferType(requiredType);
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(operand);
 	}
 
 	@Override
@@ -38,11 +49,16 @@ public class UnaryOperation implements Operation {
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		out.record(operator).record(operand, context, getPriority());
+		out.record(operator);
+
+		if (operand instanceof UnaryOperation unary && unary.operator.equals(operator))
+			out.recordSp();
+
+		out.record(operand, context, getPriority());
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(operand);
+	public String toString() {
+		return String.format("UnaryOperation %08x(%s%s)", hashCode(), operator, operand);
 	}
 }

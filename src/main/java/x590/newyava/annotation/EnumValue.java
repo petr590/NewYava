@@ -1,5 +1,6 @@
 package x590.newyava.annotation;
 
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
@@ -13,7 +14,7 @@ record EnumValue(ClassType enumType, String name) implements AnnotationValue {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context, Type type) {
+	public void write(DecompilationWriter out, Context context, @Nullable Type type) {
 		out.record(enumType, context).record('.').record(name);
 	}
 }

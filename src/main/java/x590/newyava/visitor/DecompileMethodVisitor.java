@@ -4,7 +4,7 @@ import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.*;
-import x590.newyava.Config;
+import x590.newyava.Decompiler;
 import x590.newyava.Modifiers;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.annotation.DefaultValue;
@@ -26,6 +26,8 @@ import static org.objectweb.asm.Opcodes.*;
 @Getter
 public class DecompileMethodVisitor extends MethodVisitor {
 
+	private final Decompiler decompiler;
+
 	private final String className;
 	private final int modifiers;
 	private final String name, descriptor;
@@ -38,10 +40,12 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	// Является @Nullable, но это не указывается из-за кучи предупреждений
 	private CodeGraph codeGraph;
 
-	public DecompileMethodVisitor(String className, int modifiers, String name, String descriptor,
+	public DecompileMethodVisitor(Decompiler decompiler, String className, int modifiers, String name, String descriptor,
 	                              @Nullable String signature, String @Nullable[] exceptions) {
 
 		super(Opcodes.ASM9);
+
+		this.decompiler = decompiler;
 
 		this.className = className;
 		this.modifiers = modifiers;
@@ -90,7 +94,7 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	public void visitLocalVariable(String name, String descriptor, @Nullable String signature,
 	                               Label start, Label end, int slotId) {
 
-		if (!Config.getConfig().isIgnoreVariableTable()) {
+		if (!decompiler.getConfig().isIgnoreVariableTable()) {
 			codeGraph.setVariable(slotId, Type.valueOf(descriptor), name, start, end);
 		}
 	}
@@ -139,7 +143,7 @@ public class DecompileMethodVisitor extends MethodVisitor {
 
 	@Override
 	public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-		codeGraph.addInstruction(new MethodInsn(opcode, owner, name, descriptor, isInterface));
+		codeGraph.addInstruction(new MethodInsn(opcode, owner, name, descriptor));
 	}
 
 	@Override

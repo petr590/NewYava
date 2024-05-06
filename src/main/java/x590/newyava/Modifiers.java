@@ -2,6 +2,9 @@ package x590.newyava;
 
 import org.objectweb.asm.Opcodes;
 
+/**
+ * Список модификаторов
+ */
 public class Modifiers {
 
 	private Modifiers() {}

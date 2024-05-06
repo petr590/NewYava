@@ -70,6 +70,8 @@ public class Chunk implements Comparable<Chunk> {
 	@Setter(AccessLevel.PACKAGE)
 	private @Nullable Chunk directChunk;
 
+	/* ------------------------------------------------- Conditions ------------------------------------------------- */
+
 	/** Условие перехода на {@link #conditionalChunk}.
 	 * Должен быть {@code null} или не {@code null}, когда {@link #jumpOperation}
 	 * имеет значение {@code null} или не {@code null} соответственно.
@@ -95,6 +97,20 @@ public class Chunk implements Comparable<Chunk> {
 		return Objects.requireNonNull(conditionalChunk);
 	}
 
+	/**
+	 * @throws IllegalStateException если поле {@link #condition} не установлено
+	 * @throws NullPointerException если параметр равен {@code null}
+	 */
+	public void changeCondition(Condition condition) {
+		if (this.condition == null) {
+			throw new IllegalStateException("Cannot change condition cause it's not set");
+		}
+
+		this.condition = Objects.requireNonNull(condition);
+	}
+
+
+	/* ---------------------------------------------------- Main ---------------------------------------------------- */
 
 	public VariableReference getVarRef(int slotId) {
 		return varSlots.get(slotId).getOrCreate(startIndex, endIndex);
@@ -142,7 +158,7 @@ public class Chunk implements Comparable<Chunk> {
 		methodContext.setCurrentChunk(null);
 	}
 
-	/** Инициализирует {@code condition} и {@code conditionalChunk} */
+	/** Инициализирует {@link #condition} и {@link #conditionalChunk} */
 	void linkChunks(@UnmodifiableView Object2IntMap<Label> labels,
 	                @UnmodifiableView Int2ObjectMap<Chunk> chunks) {
 
@@ -152,6 +168,8 @@ public class Chunk implements Comparable<Chunk> {
 		}
 	}
 
+
+	/* ---------------------------------------------------- Role ---------------------------------------------------- */
 
 	private boolean jumpOperationAdded = false;
 
@@ -186,6 +204,9 @@ public class Chunk implements Comparable<Chunk> {
 	public boolean hasRole() {
 		return jumpOperation != null && jumpOperation.roleInitialized();
 	}
+
+
+	/* ---------------------------------------------------- Other ---------------------------------------------------- */
 
 	/** @return {@code true}, если чанк оканчивается терминальной операцией */
 	public boolean isTerminal() {

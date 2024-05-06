@@ -18,7 +18,17 @@ public record SwitchOperation(Operation value, Int2ObjectMap<Label> table, Label
 	}
 
 	@Override
+	public void inferType(Type ignored) {
+		value.inferType(PrimitiveType.INT);
+	}
+
+	@Override
 	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
 		return List.of(value);
+	}
+
+	@Override
+	public String toString() {
+		return String.format("SwitchOperation %08x(table: %s, default: %s)", hashCode(), table, defaultLabel);
 	}
 }

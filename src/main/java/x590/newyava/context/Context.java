@@ -1,8 +1,6 @@
 package x590.newyava.context;
 
-import x590.newyava.DecompilingField;
-import x590.newyava.DecompilingMethod;
-import x590.newyava.Modifiers;
+import x590.newyava.*;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
@@ -14,6 +12,8 @@ import java.util.Optional;
  * Предоставляет доступ к основным свойствам класса
  */
 public interface Context {
+	Config getConfig();
+
 	int getClassModifiers();
 
 	default boolean isEnumClass() {
@@ -29,4 +29,6 @@ public interface Context {
 	Optional<DecompilingField> findField(FieldDescriptor descriptor);
 
 	Optional<DecompilingMethod> findMethod(MethodDescriptor descriptor);
+
+	Optional<DecompilingClass> findClass(ClassType classType);
 }

@@ -101,6 +101,11 @@ public sealed interface PrimitiveType extends Type
 			return name.substring(0, 1);
 		}
 
+		@Override
+		public String getArrVarName() {
+			return name;
+		}
+
 
 		@Override
 		public String toString() {

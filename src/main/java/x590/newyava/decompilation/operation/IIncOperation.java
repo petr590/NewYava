@@ -40,4 +40,10 @@ public class IIncOperation implements Operation {
 			out.recordSp().recordSp(value > 0 ? "+=" : "-=").record(String.valueOf(Math.abs(value)));
 		}
 	}
+
+	@Override
+	public String toString() {
+		return String.format("IIncOperation %08x(%s %c= %s)",
+				hashCode(), varRef, value > 0 ? '+' : '-', Math.abs(value));
+	}
 }

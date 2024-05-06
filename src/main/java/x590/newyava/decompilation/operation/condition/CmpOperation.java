@@ -14,10 +14,12 @@ import java.util.List;
 public class CmpOperation implements SpecialOperation {
 
 	private final Operation operand1, operand2;
+	private final Type requiredType;
 
 	public CmpOperation(MethodContext context, Type requiredType) {
 		this.operand2 = context.popAs(requiredType);
 		this.operand1 = context.popAs(requiredType);
+		this.requiredType = requiredType;
 	}
 
 	@Override
@@ -26,7 +28,18 @@ public class CmpOperation implements SpecialOperation {
 	}
 
 	@Override
+	public void inferType(Type ignored) {
+		operand1.inferType(this.requiredType);
+		operand2.inferType(this.requiredType);
+	}
+
+	@Override
 	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
 		return List.of(operand1, operand2);
+	}
+
+	@Override
+	public String toString() {
+		return String.format("CmpOperation %08x(%s %s %s)", hashCode(), operand1, operand2, requiredType);
 	}
 }

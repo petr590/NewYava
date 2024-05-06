@@ -2,6 +2,7 @@ package x590.newyava.constant;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
@@ -40,7 +41,7 @@ public final class ClassConstant extends Constant {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context, Type type) {
+	public void write(DecompilationWriter out, Context context, @Nullable Type type) {
 		out.record(this.type, context).record(".class");
 	}
 }

@@ -26,7 +26,7 @@ public class SwitchScope extends Scope {
 	private final boolean arrowStyle;
 
 	public SwitchScope(Operation value, List<CaseScope> cases, @Unmodifiable List<Chunk> chunks) {
-		super(chunks);
+		super(chunks, -1);
 
 		this.value = value;
 
@@ -82,6 +82,7 @@ public class SwitchScope extends Scope {
 	public static class CaseScope extends Scope {
 		private final @Nullable Collection<IntConstant> constants;
 
+		@Getter
 		@ToString.Exclude
 		private SwitchScope switchScope;
 

@@ -41,8 +41,8 @@ public record InvokeDynamicInsn(String name, String descriptor, Handle bootstrap
 				}
 
 				throw new DecompilationException(
-						"Wrong bootstrapArgs for \"" + InvokeDynamicUtils.STRING_CONCAT_METHOD + "\"" +
-						" method: " + Arrays.toString(bootstrapArgs)
+						"Wrong bootstrapArgs for \"%s\" method: %s",
+						InvokeDynamicUtils.STRING_CONCAT_METHOD, Arrays.toString(bootstrapArgs)
 				);
 			}
 
@@ -80,10 +80,10 @@ public record InvokeDynamicInsn(String name, String descriptor, Handle bootstrap
 			);
 		}
 
-		throw new DecompilationException(String.format(
+		throw new DecompilationException(
 				"Cannot resolve invokedynamic: name = \"%s\", descriptor = \"%s\", " +
 						"bootstrapHandle = \"%s\", bootstrapArgs = \"%s\"",
 				name, descriptor, bootstrapHandle, Arrays.toString(bootstrapArgs)
-		));
+		);
 	}
 }

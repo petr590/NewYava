@@ -8,6 +8,10 @@ import x590.newyava.decompilation.operation.Operation;
 
 import java.util.List;
 
+/**
+ * Инструкция, которая может менять поток выполнения кода,
+ * такая как {@code if}, {@code goto}, {@code return} или {@code throw}.
+ */
 public interface FlowControlInsn extends Instruction {
 	@Unmodifiable List<Label> getLabels();
 

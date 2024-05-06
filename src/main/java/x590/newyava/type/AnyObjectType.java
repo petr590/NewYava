@@ -7,6 +7,10 @@ import x590.newyava.io.DecompilationWriter;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Любой ссылочный тип. Этот тип имеет, например, {@code null}
+ * ({@link x590.newyava.decompilation.operation.ConstNullOperation}).
+ */
 public enum AnyObjectType implements ReferenceType {
 	INSTANCE;
 
@@ -28,6 +32,6 @@ public enum AnyObjectType implements ReferenceType {
 
 	@Override
 	public String toString() {
-		return "AnyObjectType";
+		return "<any-object-type>";
 	}
 }

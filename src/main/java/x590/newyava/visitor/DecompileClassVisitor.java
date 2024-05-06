@@ -4,12 +4,13 @@ import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.*;
+import x590.newyava.Decompiler;
 import x590.newyava.DecompilingField;
 import x590.newyava.DecompilingMethod;
 import x590.newyava.EntryType;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.context.ClassContext;
-import x590.newyava.exception.DecompilationException;
+import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
 
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.List;
 import static x590.newyava.Modifiers.*;
 
 public class DecompileClassVisitor extends ClassVisitor {
+	private final Decompiler decompiler;
 
 	@Getter
 	private int version;
@@ -27,15 +29,15 @@ public class DecompileClassVisitor extends ClassVisitor {
 	@Getter
 	private int modifiers;
 
-	private String name, superName;
+	private String name;
+
+	private @Nullable String superName;
+
 	private String[] interfaces;
 	private @Nullable String signature;
 
 
 	private @Nullable String outerClassName;
-
-
-	private @Nullable String enclosingClassName;
 	private @Nullable String enclosingMethodName;
 	private @Nullable String enclosingMethodDesc;
 
@@ -43,13 +45,14 @@ public class DecompileClassVisitor extends ClassVisitor {
 	private final List<DecompileMethodVisitor> methodVisitors = new ArrayList<>();
 	private final List<DecompilingAnnotation> annotations = new ArrayList<>();
 
-	public DecompileClassVisitor() {
+	public DecompileClassVisitor(Decompiler decompiler) {
 		super(Opcodes.ASM9);
+		this.decompiler = decompiler;
 	}
 
 	@Override
-	public void visit(int version, int modifiers, String name,
-	                  @Nullable String signature, String superName, String[] interfaces) {
+	public void visit(int version, int modifiers, String name, @Nullable String signature,
+	                  @Nullable String superName, String[] interfaces) {
 
 		this.version = version;
 		this.modifiers = modifiers;
@@ -63,18 +66,21 @@ public class DecompileClassVisitor extends ClassVisitor {
 
 	@Override
 	public void visitOuterClass(String owner, String methodName, String methodDesc) {
-		this.enclosingClassName = owner;
+		super.visitOuterClass(owner, methodName, methodDesc);
+
+		ClassType.checkOrUpdateNested(name, owner, true);
+
+		assert !owner.equals(name) : owner;
+		this.outerClassName = owner;
 		this.enclosingMethodName = methodName;
 		this.enclosingMethodDesc = methodDesc;
-
-		super.visitOuterClass(owner, methodName, methodDesc);
 	}
 
 	@Override
 	public void visitInnerClass(String innerName, String outerName, String innerSimpleName, int modifiers) {
-		if (innerName.equals(this.name)) {
-			this.outerClassName = outerName;
+		super.visitInnerClass(innerName, outerName, innerSimpleName, modifiers);
 
+		if (innerName.equals(this.name)) {
 			modifiers |= (this.modifiers & ACC_RECORD);
 
 			if ((this.modifiers & ~ACC_SUPER) != (modifiers & ~(ACC_PRIVATE | ACC_PROTECTED | ACC_STATIC))) {
@@ -84,30 +90,13 @@ public class DecompileClassVisitor extends ClassVisitor {
 			}
 
 			this.modifiers = modifiers;
-		}
 
-		if (outerName == null) {
-			outerName = innerName;
-
-			if (innerSimpleName != null && outerName.endsWith(innerSimpleName)) {
-				outerName = outerName.substring(0, outerName.length() - innerSimpleName.length());
+			if (outerName != null) {
+				assert !outerName.equals(name) : outerName;
+				this.outerClassName = outerName;
+				ClassType.checkOrUpdateNested(innerName, outerName);
 			}
-
-			int i = outerName.length() - 1;
-			for (; i > 0; i--) {
-				if (outerName.charAt(i) == '$') {
-					break;
-				} else if (!Character.isDigit(outerName.charAt(i))) {
-					throw new DecompilationException("Invalid inner name of anonymous class " + innerName);
-				}
-			}
-
-			outerName = outerName.substring(0, i);
 		}
-
-		ClassType.checkOrUpdateNested(innerName, outerName);
-
-		super.visitInnerClass(innerName, outerName, innerSimpleName, modifiers);
 	}
 
 	@Override
@@ -127,7 +116,7 @@ public class DecompileClassVisitor extends ClassVisitor {
 
 		super.visitMethod(modifiers, name, descriptor, signature, exceptions);
 
-		var methodVisitor = new DecompileMethodVisitor(this.name, modifiers, name, descriptor, signature, exceptions);
+		var methodVisitor = new DecompileMethodVisitor(decompiler, this.name, modifiers, name, descriptor, signature, exceptions);
 		methodVisitors.add(methodVisitor);
 		return methodVisitor;
 	}
@@ -153,8 +142,10 @@ public class DecompileClassVisitor extends ClassVisitor {
 		return ClassType.valueOf(name);
 	}
 
+	/** @return суперкласс. Для {@code java.lang.Object} возвращает себя же.
+	 * Это нужно для избегания проверок на {@code null} */
 	public ClassType getSuperType() {
-		return ClassType.valueOf(superName);
+		return superName == null ? ClassType.OBJECT : ClassType.valueOf(superName);
 	}
 
 	public @Unmodifiable List<ClassType> getInterfaces() {
@@ -163,6 +154,11 @@ public class DecompileClassVisitor extends ClassVisitor {
 
 	public @Nullable ClassType getOuterClassType() {
 		return outerClassName == null ? null : ClassType.valueOf(outerClassName);
+	}
+
+	public @Nullable MethodDescriptor getEnclosingMethod() {
+		return outerClassName == null || enclosingMethodName == null || enclosingMethodDesc == null ? null :
+				MethodDescriptor.of(ClassType.valueOf(outerClassName), enclosingMethodName, enclosingMethodDesc);
 	}
 
 	public @Unmodifiable List<DecompilingField> getFields(ClassContext context) {

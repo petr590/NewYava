@@ -5,7 +5,6 @@ import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
-import x590.newyava.type.Type;
 
 @RequiredArgsConstructor
 public class NewOperation implements Operation {
@@ -13,7 +12,7 @@ public class NewOperation implements Operation {
 	private final ClassType type;
 
 	@Override
-	public Type getReturnType() {
+	public ClassType getReturnType() {
 		return type;
 	}
 
@@ -30,5 +29,10 @@ public class NewOperation implements Operation {
 	@Override
 	public void write(DecompilationWriter out, Context context) {
 		out.recordSp("new").record(type, context);
+	}
+
+	@Override
+	public String toString() {
+		return String.format("NewOperation %08x(%s)", hashCode(), type);
 	}
 }

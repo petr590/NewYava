@@ -1,6 +1,6 @@
 package x590.newyava.example.annotation;
 
-import x590.newyava.example.ExampleEnum;
+import x590.newyava.example.enums.ExampleEnum;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

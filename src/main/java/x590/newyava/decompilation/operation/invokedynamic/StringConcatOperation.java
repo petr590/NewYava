@@ -18,6 +18,7 @@ import x590.newyava.type.Type;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class StringConcatOperation implements Operation {
 
@@ -55,8 +56,10 @@ public class StringConcatOperation implements Operation {
 			switch (pattern.charAt(i)) {
 				case '\1' -> {
 					if (args.isEmpty()) {
-						throw new DecompilationException("pattern = \"" + JavaEscapeUtils.escapeString(pattern) + "\"" +
-										"; argTypes = " + argTypes);
+						throw new DecompilationException(
+								"pattern = \"%s\"; argTypes = %s",
+								JavaEscapeUtils.escapeString(pattern), argTypes
+						);
 					}
 
 					operands.add(args.pop());
@@ -64,8 +67,10 @@ public class StringConcatOperation implements Operation {
 
 				case '\2' -> {
 					if (!bootstrapArgIter.hasNext()) {
-						throw new DecompilationException("pattern = \"" + JavaEscapeUtils.escapeString(pattern) + "\"" +
-										"; bootstrapArgs = " + bootstrapArgs);
+						throw new DecompilationException(
+								"pattern = \"%s\"; bootstrapArgs = %s",
+								JavaEscapeUtils.escapeString(pattern), bootstrapArgs
+						);
 					}
 
 					operands.add(new LdcOperation(StringConstant.valueOf(bootstrapArgIter.next())));
@@ -75,13 +80,17 @@ public class StringConcatOperation implements Operation {
 
 
 		if (!args.isEmpty()) {
-			throw new DecompilationException("pattern = \"" + JavaEscapeUtils.escapeString(pattern) + "\"" +
-					"; argTypes = " + argTypes);
+			throw new DecompilationException(
+					"pattern = \"%s\"; argTypes = %s",
+					JavaEscapeUtils.escapeString(pattern), argTypes
+			);
 		}
 
 		if (bootstrapArgIter.hasNext()) {
-			throw new DecompilationException("pattern = \"" + JavaEscapeUtils.escapeString(pattern) + "\"" +
-					"; bootstrapArgs = " + bootstrapArgs);
+			throw new DecompilationException(
+					"pattern = \"%s\"; bootstrapArgs = %s",
+					JavaEscapeUtils.escapeString(pattern), bootstrapArgs
+			);
 		}
 
 
@@ -95,6 +104,11 @@ public class StringConcatOperation implements Operation {
 	@Override
 	public Type getReturnType() {
 		return ClassType.STRING;
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return operands;
 	}
 
 	@Override
@@ -113,7 +127,8 @@ public class StringConcatOperation implements Operation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return operands;
+	public String toString() {
+		return String.format("StringConcatOperation %08x(%s)", hashCode(),
+				operands.stream().map(Object::toString).collect(Collectors.joining(" + ")));
 	}
 }

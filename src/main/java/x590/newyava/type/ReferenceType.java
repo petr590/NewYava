@@ -12,6 +12,10 @@ public interface ReferenceType extends Type {
 
 	List<? extends ReferenceType> getInterfaces();
 
+	default boolean isAnonymous() {
+		return false;
+	}
+
 	static boolean isAssignable(ReferenceType givenType, ReferenceType requiredType) {
 		if (requiredType.equals(givenType) ||
 			requiredType.equals(Types.ANY_OBJECT_TYPE) ||
@@ -40,7 +44,7 @@ public interface ReferenceType extends Type {
 		}
 
 		if (givenType instanceof ArrayType type1 &&
-				requiredType instanceof ArrayType type2) {
+			requiredType instanceof ArrayType type2) {
 
 			int nest = Math.min(type1.getNestLevel(), type2.getNestLevel());
 			return ArrayType.forType(

@@ -3,6 +3,7 @@ package x590.newyava.decompilation.operation;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+/** Приоритет операций в коде */
 @RequiredArgsConstructor
 public enum Priority { // В порядке увеличения приоритета
 	ZERO,

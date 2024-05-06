@@ -24,6 +24,15 @@ public class ArrayLengthOperation implements Operation {
 		return PrimitiveType.INT;
 	}
 
+	public void inferType(Type ignored) {
+		array.inferType(Types.ANY_ARRAY_TYPE);
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(array);
+	}
+
 	@Override
 	public void addImports(ClassContext context) {
 		context.addImportsFor(array);
@@ -35,7 +44,7 @@ public class ArrayLengthOperation implements Operation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(array);
+	public String toString() {
+		return String.format("ArrayLengthOperation %08x(%s)", hashCode(), array);
 	}
 }

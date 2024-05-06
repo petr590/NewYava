@@ -17,17 +17,29 @@ public class ArrayLoadOperation implements Operation {
 
 	private final Operation array, index;
 
-	private final Type returnType;
+	private final Type requiredType, returnType;
 
 	public ArrayLoadOperation(MethodContext context, Type requiredType) {
 		this.index = context.popAs(PrimitiveType.INT);
 		this.array = context.popAs(ArrayType.forType(requiredType));
+		this.requiredType = requiredType;
 		this.returnType = ((ArrayType)array.getReturnType()).getElementType();
 	}
 
 	@Override
 	public Type getReturnType() {
 		return returnType;
+	}
+
+	@Override
+	public void inferType(Type ignored) {
+		index.inferType(PrimitiveType.INT);
+		array.inferType(requiredType);
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(array, index);
 	}
 
 	@Override
@@ -42,7 +54,7 @@ public class ArrayLoadOperation implements Operation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(array, index);
+	public String toString() {
+		return String.format("ArrayLoadOperation %08x(%s[%s])", hashCode(), array, index);
 	}
 }

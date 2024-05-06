@@ -27,6 +27,16 @@ public class ThrowOperation implements TerminalOperation {
 	}
 
 	@Override
+	public void inferType(Type ignored) {
+		exception.inferType(ClassType.THROWABLE);
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(exception);
+	}
+
+	@Override
 	public void addImports(ClassContext context) {
 		context.addImportsFor(exception);
 	}
@@ -37,7 +47,7 @@ public class ThrowOperation implements TerminalOperation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(exception);
+	public String toString() {
+		return String.format("ThrowOperation %08x(%s)", hashCode(), exception);
 	}
 }
