@@ -6,6 +6,9 @@ import x590.newyava.Main;
 @SuppressWarnings("all")
 public class Arrays {
 
+	private static final Object notArrField = new Object[] { "", 1, true };
+	private static final Object[] arrField = { "", 1, true };
+
 	@Test
 	public void run() {
 		Main.run(this);
@@ -32,7 +35,7 @@ public class Arrays {
 	}
 
 	public void charArr() {
-		var arr = new char[] { 'a', 'b', 'c', '\0', '\'', '\"' };
+		var arr = new char[] { 'a', 'b', 'c', '\0', '\'', '"' };
 	}
 
 	public void stringArr() {

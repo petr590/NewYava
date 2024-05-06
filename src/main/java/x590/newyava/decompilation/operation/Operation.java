@@ -22,10 +22,7 @@ public interface Operation extends Importable {
 	/** При инициализации {@link Scope} */
 	default void resolveLabelNames(Scope currentScope, LabelNameGenerator generator) {}
 
-	@Override
-	default void addImports(ClassContext context) {}
-
-	default void updateReturnType(Type newType) {}
+	/* ------------------------------------------------- Properties ------------------------------------------------- */
 
 	default boolean isThisRef() {
 		return false;
@@ -52,18 +49,40 @@ public interface Operation extends Importable {
 	}
 
 
-	/**
-	 * @return все вложенные операции для рекурсивного вызова любого метода у всех операций
-	 */
-	default @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of();
-	}
+	/* --------------------------------------------- Recursive methods --------------------------------------------- */
 
+	/** @return {@code true} если операция или одна из вложенных операций использует
+	 * какие-либо локальные переменные (читает/записывает) */
+	default boolean usesAnyVariable() {
+		return getNestedOperations().stream().anyMatch(Operation::usesAnyVariable);
+	}
 
 	@MustBeInvokedByOverriders
 	default void beforeVariablesInit(MethodScope methodScope) {
 		getNestedOperations().forEach(operation -> operation.beforeVariablesInit(methodScope));
 	}
+
+	/** Выводит типы переменных. Должен вызываться рекурсивно для всех дочерних операций.
+	 * Обновляет возвращаемый тип операции, если он изменяем. */
+	default void inferType(Type ignored) {}
+
+	/** Объявляет переменную в операции {@link StoreOperation}, если она ещё не объявлена. */
+	@MustBeInvokedByOverriders
+	default void defineVariableOnStore() {
+		getNestedOperations().forEach(Operation::defineVariableOnStore);
+	}
+
+
+	/** @return все вложенные операции для рекурсивного вызова любого метода у всех операций */
+	default @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of();
+	}
+
+
+	/* --------------------------------------------- addImports, write --------------------------------------------- */
+
+	@Override
+	default void addImports(ClassContext context) {}
 
 	default Priority getPriority() {
 		return Priority.DEFAULT;

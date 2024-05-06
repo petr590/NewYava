@@ -1,7 +1,14 @@
 package x590.newyava.example.annotation;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.List;
 
+import static java.lang.annotation.ElementType.*;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target({TYPE, FIELD, METHOD, PARAMETER, CONSTRUCTOR, LOCAL_VARIABLE, ANNOTATION_TYPE, PACKAGE, TYPE_PARAMETER, TYPE_USE, MODULE, RECORD_COMPONENT})
 public @interface AnnotationExample {
 	int i();
 

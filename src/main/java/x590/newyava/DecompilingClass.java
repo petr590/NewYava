@@ -19,10 +19,13 @@ import java.util.Map;
 import static x590.newyava.Modifiers.*;
 import static x590.newyava.Literals.*;
 
+/**
+ * Декомпилируемый класс
+ */
 @Getter
 public class DecompilingClass implements Writable {
 
-	private final ClassContext classContext = new ClassContext(this);
+	private final ClassContext classContext;
 
 	private final int version;
 	private final int modifiers;
@@ -44,8 +47,10 @@ public class DecompilingClass implements Writable {
 
 	private final @Nullable @Unmodifiable List<DecompilingField> enumConstants;
 
-	public DecompilingClass(ClassReader classReader) {
-		var visitor = new DecompileClassVisitor();
+	public DecompilingClass(Decompiler decompiler, ClassReader classReader) {
+		this.classContext = new ClassContext(decompiler, this);
+
+		var visitor = new DecompileClassVisitor(decompiler);
 		classReader.accept(visitor, 0);
 
 		this.version    = visitor.getVersion();
@@ -66,12 +71,15 @@ public class DecompilingClass implements Writable {
 		this.methods     = visitor.getMethods(classContext);
 		this.annotations = visitor.getAnnotations();
 
-		this.visibleFields = fields.stream().filter(field -> field.keep() && !field.isEnum()).toList();
-
-		if ((modifiers & ACC_ENUM) != 0) {
+		// Анонимные enum-классы тоже имеют влаг ACC_ENUM, но не содержат enum-констант.
+		// Для такого случая нужна проверка суперкласса
+		if ((modifiers & ACC_ENUM) != 0 && superType.equals(ClassType.ENUM)) {
 			this.enumConstants = fields.stream().filter(DecompilingField::isEnum).toList();
+			this.visibleFields = fields.stream().filter(field -> field.keep() && !field.isEnum()).toList();
+
 		} else {
 			this.enumConstants = null;
+			this.visibleFields = fields.stream().filter(DecompilingField::keep).toList();
 		}
 	}
 
@@ -98,7 +106,10 @@ public class DecompilingClass implements Writable {
 			var outerClass = this.outerClass = classMap.get(outerClassType);
 
 			if (outerClass != null) {
-				outerClass.nestedClasses.add(this);
+				if (!thisType.isEnclosedInMethod()) {
+					outerClass.nestedClasses.add(this);
+				}
+
 				this.upperLevel = false;
 				this.classContext.setOuterContext(outerClass.classContext);
 			}
@@ -110,17 +121,21 @@ public class DecompilingClass implements Writable {
 	}
 
 
+	/* ----------------------------------------------- decompilation ----------------------------------------------- */
+
 	public void decompile() {
 		methods.forEach(method -> method.decompile(classContext));
 		visibleMethods = methods.stream().filter(method -> method.keep(classContext)).toList();
 	}
 
-	public void initVariables() {
+	public void processVariables() {
 		methods.forEach(DecompilingMethod::beforeVariablesInit);
 
-		methods.stream()
-				.sorted(Comparator.comparingInt(DecompilingMethod::getVariablesInitPriority).reversed())
-				.forEach(DecompilingMethod::initVariables);
+		var comparator = Comparator.comparingInt(DecompilingMethod::getVariablesInitPriority).reversed();
+
+		methods.stream().sorted(comparator).forEach(DecompilingMethod::initVariables);
+		methods.stream().sorted(comparator).forEach(DecompilingMethod::inferVariableTypesAndNames);
+		fields.forEach(DecompilingField::inferVariableTypes);
 	}
 
 	public void addImports() {
@@ -133,6 +148,8 @@ public class DecompilingClass implements Writable {
 		classContext.computeImports();
 	}
 
+
+	/* --------------------------------------------------- write --------------------------------------------------- */
 	@Override
 	public void write(DecompilationWriter out) {
 		if (upperLevel) {
@@ -141,10 +158,11 @@ public class DecompilingClass implements Writable {
 			out.ln().ln();
 		}
 
-		DecompilingAnnotation.writeAnnotations(out.indent(), classContext, annotations);
+		out.indent();
+
+		DecompilingAnnotation.writeAnnotations(out, classContext, annotations);
 
 		writeModifiers(out);
-
 		out.recordSp(thisType.getSimpleName());
 
 		if (visibleSuperType != null) {
@@ -152,15 +170,17 @@ public class DecompilingClass implements Writable {
 		}
 
 		if (!visibleInterfaces.isEmpty()) {
-			out.recordSp((modifiers & ACC_INTERFACE) != 0 ? "extends" : "implements")
+			out .recordSp((modifiers & ACC_INTERFACE) != 0 ? "extends" : "implements")
 				.record(visibleInterfaces, classContext, ", ").recordSp();
 		}
 
+		writeBody(out);
+	}
+
+	public void writeBody(DecompilationWriter out) {
 		out.record('{').incIndent();
 
-		boolean wrote = writeFields(out);
-		wrote |= writeMethods(out);
-		wrote |= writeNestedClasses(out);
+		boolean wrote = writeFields(out) | writeMethods(out) | writeNestedClasses(out);
 
 		out.decIndent();
 
@@ -173,7 +193,8 @@ public class DecompilingClass implements Writable {
 
 	private boolean importRequiredFor(ClassType classType) {
 		var packageName = classType.getPackageName();
-		return !packageName.isEmpty() && !packageName.equals("java.lang") && !packageName.equals(thisType.getPackageName());
+		return !packageName.isEmpty() && !packageName.equals("java.lang") &&
+				!packageName.equals(thisType.getPackageName());
 	}
 
 
@@ -188,9 +209,7 @@ public class DecompilingClass implements Writable {
 				.peek(classType -> out.recordSp("import").record(classType.getName()).record(';').ln())
 				.count(); // Не используйте здесь findAny().isPresent(), иначе peek обрабатывает только 1-й элемент
 
-		if (count != 0) {
-			out.ln(); // Дополнительный перенос строки, если есть импорты
-		}
+		out.lnIf(count != 0);
 	}
 
 	private boolean writeFields(DecompilationWriter out) {
@@ -200,7 +219,19 @@ public class DecompilingClass implements Writable {
 			boolean allEmpty = visibleFields.isEmpty() && visibleMethods.isEmpty() && nestedClasses.isEmpty();
 
 			if (!(allEmpty && enumConstants.isEmpty())) {
-				out.ln().indent().record(enumConstants, ", ", (field, i) -> field.writeAsEnumConstant(out, classContext));
+				boolean inline = enumConstants.stream().allMatch(DecompilingField::canInlineEnumConstant);
+
+				if (inline) {
+					out.ln().indent().record(enumConstants, ", ",
+							(field, i) -> field.writeAsEnumConstant(out, classContext, 0));
+
+				} else {
+					int minWidth = enumConstants.stream()
+							.mapToInt(field -> field.getDescriptor().name().length()).max().orElse(-1) + 1;
+
+					out.ln().indent().record(enumConstants, ",\n" + out.getIndent(),
+							(field, i) -> field.writeAsEnumConstant(out, classContext, minWidth));
+				}
 
 				if (!allEmpty)
 					out.record(';');
@@ -242,14 +273,19 @@ public class DecompilingClass implements Writable {
 		}
 
 		out.record(switch (modifiers & (ACC_FINAL | ACC_ENUM | ACC_RECORD | ACC_ABSTRACT | ACC_INTERFACE | ACC_ANNOTATION)) {
-			case ACC_NONE                                      -> LIT_CLASS;
-			case ACC_ENUM, ACC_FINAL | ACC_ENUM                -> LIT_ENUM;
-			case ACC_FINAL | ACC_RECORD                        -> LIT_RECORD;
-			case ACC_FINAL                                     -> LIT_FINAL + " " + LIT_CLASS;
-			case ACC_ABSTRACT                                  -> LIT_ABSTRACT + " " + LIT_CLASS;
-			case ACC_ABSTRACT | ACC_INTERFACE                  -> LIT_INTERFACE;
-			case ACC_ABSTRACT | ACC_INTERFACE | ACC_ANNOTATION -> LIT_ANNOTATION;
+			case ACC_NONE                                                -> LIT_CLASS;
+			case ACC_FINAL                                               -> LIT_FINAL + " " + LIT_CLASS;
+			case ACC_FINAL | ACC_RECORD                                  -> LIT_RECORD;
+			case ACC_ENUM, ACC_FINAL | ACC_ENUM, ACC_ABSTRACT | ACC_ENUM -> LIT_ENUM;
+			case ACC_ABSTRACT                                            -> LIT_ABSTRACT + " " + LIT_CLASS;
+			case ACC_ABSTRACT | ACC_INTERFACE                            -> LIT_INTERFACE;
+			case ACC_ABSTRACT | ACC_INTERFACE | ACC_ANNOTATION           -> LIT_ANNOTATION;
 			default -> throw new IllegalModifiersException(modifiers, EntryType.CLASS);
 		}).record(' ');
+	}
+
+	@Override
+	public String toString() {
+		return EntryType.CLASS.modifiersToString(modifiers) + " " + thisType;
 	}
 }

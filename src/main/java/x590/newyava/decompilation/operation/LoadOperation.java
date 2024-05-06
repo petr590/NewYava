@@ -12,11 +12,14 @@ public class LoadOperation implements Operation {
 
 	@Getter
 	private final VariableReference varRef;
+
+	private final Type requiredType;
+
 	private final boolean isThisRef;
 
 	public LoadOperation(MethodContext context, int slotId, Type requiredType) {
 		this.varRef = context.getVarRef(slotId);
-		varRef.assignType(requiredType);
+		this.requiredType = requiredType;
 
 		this.isThisRef = (context.getModifiers() & Opcodes.ACC_STATIC) == 0 && slotId == 0;
 	}
@@ -32,12 +35,22 @@ public class LoadOperation implements Operation {
 	}
 
 	@Override
-	public void updateReturnType(Type newType) {
-		varRef.updateType(newType);
+	public boolean usesAnyVariable() {
+		return true;
+	}
+
+	@Override
+	public void inferType(Type requiredType) {
+		varRef.assignDown(Type.assignDown(this.requiredType, requiredType));
 	}
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
 		out.record(varRef.getName());
+	}
+
+	@Override
+	public String toString() {
+		return String.format("LoadOperation %08x(%s)", hashCode(), varRef);
 	}
 }

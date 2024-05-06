@@ -1,5 +1,6 @@
 package x590.newyava.exception;
 
+import org.intellij.lang.annotations.PrintFormat;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.descriptor.MethodDescriptor;
 
@@ -11,6 +12,10 @@ public class DecompilationException extends RuntimeException {
 
 	public DecompilationException(String message) {
 		super(message);
+	}
+
+	public DecompilationException(@PrintFormat String format, Object... args) {
+		super(String.format(format, args));
 	}
 
 	public DecompilationException(Throwable cause) {

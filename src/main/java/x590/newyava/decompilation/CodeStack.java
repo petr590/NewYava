@@ -31,7 +31,7 @@ public class CodeStack implements Stack<Operation> {
 
 	public Operation popAs(Type requiredType) {
 		var operation = pop();
-		operation.updateReturnType(Type.assign(operation.getReturnType(), requiredType));
+		Type.assignDown(operation.getReturnType(), requiredType); // FIRST_TYPE_ASSIGNMENT
 		return operation;
 	}
 

@@ -16,7 +16,7 @@ import x590.newyava.type.TypeSize;
  * Используется при декомпиляции кода.
  */
 @Getter
-public class MethodContext extends DelegatingContext {
+public class MethodContext extends ContextProxy {
 
 	private final MethodDescriptor descriptor;
 
@@ -60,7 +60,7 @@ public class MethodContext extends DelegatingContext {
 
 	/** Если операция на вершине стека равна {@code operation},
 	 * то убирает её со стека и возвращает {@code true}.
-	 * Иначе возвращает {@code false} */
+	 * Иначе возвращает {@code false}. */
 	public boolean popIfSame(Operation operation) {
 		if (!stack.isEmpty() && stack.peek() == operation) {
 			stack.pop();

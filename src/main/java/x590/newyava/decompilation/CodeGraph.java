@@ -14,6 +14,7 @@ import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.instruction.FlowControlInsn;
 import x590.newyava.decompilation.instruction.Instruction;
 import x590.newyava.decompilation.operation.condition.ConstCondition;
+import x590.newyava.decompilation.operation.condition.OperatorCondition;
 import x590.newyava.decompilation.operation.condition.Role;
 import x590.newyava.decompilation.operation.condition.SwitchOperation;
 import x590.newyava.decompilation.scope.*;
@@ -23,6 +24,7 @@ import x590.newyava.decompilation.variable.VariableTableView;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 import x590.newyava.type.TypeSize;
 import x590.newyava.visitor.DecompileMethodVisitor;
@@ -87,12 +89,11 @@ public class CodeGraph implements ReadonlyCode {
 	 * которые соответствуют {@code this} и параметрам метода.
 	 */
 	public void initVariables(int maxVariables, List<Type> argTypes, boolean isStatic, Type classType) {
-
 		if (maxVariables < argTypes.size()) {
-			throw new DecompilationException(String.format(
+			throw new DecompilationException(
 					"maxVariables < argTypes.size(): maxVariables = %d, argTypes.size() = %d",
 					maxVariables, argTypes.size()
-			));
+			);
 		}
 
 		var varTable = this.varTable;
@@ -121,6 +122,16 @@ public class CodeGraph implements ReadonlyCode {
 				offset++;
 			}
 		}
+	}
+
+
+	public void inferVariableTypesAndNames() {
+		// Запускаем два раза для правильного вычисления типа констант
+		methodScope.inferType(PrimitiveType.VOID);
+		methodScope.inferType(PrimitiveType.VOID);
+
+		methodScope.defineVariableOnStore();
+		methodScope.initVariableNames();
 	}
 
 	/* ----------------------------------------------- Decompilation ----------------------------------------------- */
@@ -170,7 +181,7 @@ public class CodeGraph implements ReadonlyCode {
 		Int2IntMap ifChunkIds = findIfs(chunks);
 		addScopes(scopes, chunks, ifChunkIds,
 				(ifChunks) -> {
-					var condition = Objects.requireNonNull(chunks.get(ifChunks.get(0).getId() - 1).getCondition()).opposite();
+					var condition = chunks.get(ifChunks.get(0).getId() - 1).requireCondition().opposite();
 					return new IfScope(condition, ifChunks);
 				}
 		);
@@ -384,7 +395,7 @@ public class CodeGraph implements ReadonlyCode {
 	/**
 	 * Ищет все if-ы и сохраняет их индексы.
 	 * @param chunks все чанки в методе.
-	 * @return Карту: ключ - id начального чанка, значение - id чанка после if-а
+	 * @return Карту: ключ - id первого чанка, не включающего условие, значение - id чанка после if-а
 	 */
 	private Int2IntMap findIfs(@Unmodifiable List<Chunk> chunks) {
 		Int2IntMap ifChunkIds = new Int2IntOpenHashMap();
@@ -392,18 +403,38 @@ public class CodeGraph implements ReadonlyCode {
 		for (Chunk chunk : chunks) {
 			Chunk jumpChunk = chunk.getConditionalChunk();
 
-			if (jumpChunk != null) {
-				if (chunk.canTakeRole()) {
-					int jumpId = jumpChunk.getId();
+			if (jumpChunk != null && chunk.canTakeRole()) {
+				int jumpId = jumpChunk.getId();
 
-					if (jumpId > chunk.getId() && chunk.getCondition() != ConstCondition.TRUE) {
+				if (jumpId > chunk.getId() && chunk.getCondition() != ConstCondition.TRUE) {
 
-						// Не берём чанк с самим условием, так как
-						// в нём может быть код, не относящийся к if
-						ifChunkIds.put(chunk.getId() + 1, jumpId);
+					// Не берём чанк с самим условием, так как
+					// в нём может быть код, не относящийся к if
+					int startChunkId = chunk.getId() + 1;
 
-						chunk.initRole(Role.IF_BRANCH);
+					var anotherEntry = ifChunkIds.int2IntEntrySet().stream()
+							.filter(entry -> entry.getIntValue() == jumpId).findFirst();
+
+					// Проверяем что нашли "and"
+					if (anotherEntry.isPresent() &&
+						anotherEntry.get().getIntKey() == chunk.getId() &&
+						chunk.getOperations().isEmpty()) {
+
+						var anotherChunk = chunks.get(chunk.getId() - 1);
+
+						// При получении условия IfScope оно инвертируется, так что "or" станет "and"
+						anotherChunk.changeCondition(
+								OperatorCondition.or(anotherChunk.requireCondition(), chunk.requireCondition())
+						);
+
+
+						chunk.changeCondition(ConstCondition.FALSE);
+
+					} else {
+						ifChunkIds.put(startChunkId, jumpId);
 					}
+
+					chunk.initRole(Role.IF_BRANCH);
 				}
 			}
 		}

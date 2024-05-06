@@ -14,7 +14,7 @@ public class IfScope extends Scope {
 	private final Condition condition;
 
 	public IfScope(Condition condition, @Unmodifiable List<Chunk> chunks) {
-		super(chunks);
+		super(chunks, -1);
 		this.condition = condition;
 	}
 

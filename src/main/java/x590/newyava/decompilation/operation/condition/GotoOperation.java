@@ -24,4 +24,9 @@ public class GotoOperation extends JumpOperation {
 	public void write(DecompilationWriter out, Context context) {
 		getRole().write(out, context);
 	}
+
+	@Override
+	public String toString() {
+		return String.format("GotoOperation %08x(%s)", hashCode(), label);
+	}
 }

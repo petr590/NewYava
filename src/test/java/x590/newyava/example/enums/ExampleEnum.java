@@ -1,10 +1,12 @@
-package x590.newyava.example;
+package x590.newyava.example.enums;
 
 import x590.newyava.Main;
 
 @SuppressWarnings("all")
 public enum ExampleEnum {
-	A, B(1), C(2);
+	A,
+	B(1),
+	C(2);
 
 	ExampleEnum() {}
 

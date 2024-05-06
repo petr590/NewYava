@@ -28,6 +28,16 @@ public class InstanceofOperation implements Operation {
 	}
 
 	@Override
+	public void inferType(Type ignored) {
+		value.inferType(Types.ANY_OBJECT_TYPE);
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(value);
+	}
+
+	@Override
 	public Priority getPriority() {
 		return Priority.INSTANCEOF;
 	}
@@ -43,7 +53,7 @@ public class InstanceofOperation implements Operation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(value);
+	public String toString() {
+		return String.format("InstanceofOperation %08x(%s instanceof %s)", hashCode(), value, type);
 	}
 }

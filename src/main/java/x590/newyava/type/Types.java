@@ -10,6 +10,4 @@ public final class Types {
 	public static final Type ANY_OBJECT_TYPE = AnyObjectType.INSTANCE;
 
 	private Types() {}
-
-
 }

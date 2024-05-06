@@ -11,6 +11,9 @@ import x590.newyava.io.SignatureReader;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Представляет тип данных Java
+ */
 public interface Type extends ContextualWritable, Importable {
 
 	default TypeSize getSize() {
@@ -20,8 +23,60 @@ public interface Type extends ContextualWritable, Importable {
 	@Override
 	default void addImports(ClassContext context) {}
 
+	/** @return имя переменной данного типа */
 	default String getVarName() {
 		return "var";
+	}
+
+	/** @return имя переменной данного типа для массива */
+	default String getArrVarName() {
+		return getVarName();
+	}
+
+
+	/** @return суперпозицию типов, описывающую все типы, в которые может быть
+	 * преобразован данный тип */
+	default Type wideUp() {
+		return this;
+	}
+
+	static boolean isAssignableUp(Type givenType, Type requiredType) {
+		return isAssignable(givenType, requiredType.wideUp());
+	}
+
+	/** @return тип, соответствующий {@code givenType} и всем супертипам {@code requiredType}.
+	 * @throws TypeCastException если такого типа нет. */
+	static Type assignUp(Type givenType, Type requiredType) {
+		return assign(givenType, requiredType.wideUp());
+	}
+
+	/** @return тип, соответствующий {@code givenType} и всем супертипам {@code requiredType}
+	 * или {@code null}, если такого типа нет. */
+	static @Nullable Type assignUpQuiet(Type givenType, Type requiredType) {
+		return assignQuiet(givenType, requiredType.wideUp());
+	}
+
+
+	/** @return суперпозицию типов, описывающую все типы, которые могут быть
+	 * преобразованы в данный тип */
+	default Type wideDown() {
+		return this;
+	}
+
+	static boolean isAssignableDown(Type givenType, Type requiredType) {
+		return isAssignable(givenType, requiredType.wideDown());
+	}
+
+	/** @return тип, соответствующий {@code givenType} и всем подтипам {@code requiredType}.
+	 * @throws TypeCastException если такого типа нет. */
+	static Type assignDown(Type givenType, Type requiredType) {
+		return assign(givenType, requiredType.wideDown());
+	}
+
+	/** @return тип, соответствующий {@code givenType} и всем подтипам {@code requiredType}
+	 * или {@code null}, если такого типа нет. */
+	static @Nullable Type assignDownQuiet(Type givenType, Type requiredType) {
+		return assignQuiet(givenType, requiredType.wideDown());
 	}
 
 	static boolean isAssignable(Type givenType, Type requiredType) {
@@ -42,13 +97,6 @@ public interface Type extends ContextualWritable, Importable {
 		}
 
 		return false;
-	}
-
-	@Deprecated
-	static void checkAssignable(Type givenType, Type requiredType) {
-		if (!isAssignable(givenType, requiredType)) {
-			throw new TypeCastException("Cannot cast " + givenType + " to " + requiredType);
-		}
 	}
 
 
@@ -81,6 +129,12 @@ public interface Type extends ContextualWritable, Importable {
 		return null;
 	}
 
+	/**
+	 * Парсит список аргументов метода, который должен начинаться с {@code '('},
+	 * заканчиваться {@code ')'} и содержать полные бинарные имена типов, записанные подряд.
+	 * @apiNote {@code reader} также может содержать другие данные, следующие за аргументами.
+	 * @return список аргументов.
+	 */
 	static List<Type> parseMethodArguments(SignatureReader reader) {
 		if (reader.next() != '(') {
 			throw new InvalidTypeException(reader.dec());
@@ -95,10 +149,22 @@ public interface Type extends ContextualWritable, Importable {
 		return result;
 	}
 
+	/**
+	 * Парсит полное бинарное имя типа.
+	 * @return тип, соответствующий этому имени.
+	 * @apiNote {@code reader} также может содержать другие данные, следующие за именем типа.
+	 */
 	static Type parseReturnType(SignatureReader reader) {
 		return reader.next() == 'V' ? PrimitiveType.VOID : parse(reader.dec());
 	}
 
+	/**
+	 * Парсит полное бинарное имя типа.
+	 * @return тип, соответствующий этому имени.
+	 * @apiNote {@code reader} также может содержать другие данные, следующие за именем типа.
+	 * @throws IllegalArgumentException если тип является {@link PrimitiveType#VOID}.
+	 * Для парсинга этого типа используйте {@link #parseReturnType(SignatureReader)}.
+	 */
 	static Type parse(SignatureReader reader) {
 		return switch (reader.next()) {
 			case 'B' -> PrimitiveType.BYTE;
@@ -116,6 +182,10 @@ public interface Type extends ContextualWritable, Importable {
 		};
 	}
 
+	/**
+	 * @param typeName полное бинарное имя типа.
+	 * @return тип, соответствующий этому имени.
+	 */
 	static Type valueOf(String typeName) {
 		return switch (typeName) {
 			case "B" -> PrimitiveType.BYTE;
@@ -138,6 +208,11 @@ public interface Type extends ContextualWritable, Importable {
 		};
 	}
 
+	/**
+	 * @param clazz класс, представляющий тип.
+	 * @return тип, соответствующий этому классу:
+	 * {@link PrimitiveType}, {@link ClassType} или {@link ArrayType}
+	 */
 	static Type valueOf(Class<?> clazz) {
 		if (clazz.isPrimitive())
 			return PrimitiveType.valueOf(clazz);
@@ -146,5 +221,9 @@ public interface Type extends ContextualWritable, Importable {
 			return ArrayType.forType(valueOf(clazz.componentType()));
 
 		return ClassType.valueOf(clazz);
+	}
+
+	static boolean isArray(Type type) {
+		return type instanceof ArrayType;
 	}
 }

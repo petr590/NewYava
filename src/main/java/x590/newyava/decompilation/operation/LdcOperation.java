@@ -23,13 +23,13 @@ public class LdcOperation implements Operation {
 	}
 
 	@Override
-	public void updateReturnType(Type newType) {
-		returnType = newType;
+	public void addImports(ClassContext context) {
+		context.addImportsFor(value);
 	}
 
 	@Override
-	public void addImports(ClassContext context) {
-		context.addImportsFor(value);
+	public void inferType(Type requiredType) {
+		returnType = Type.assignDown(returnType, requiredType);
 	}
 
 	@Override
@@ -44,5 +44,10 @@ public class LdcOperation implements Operation {
 		return  operation instanceof LdcOperation ldc &&
 				ldc.getValue() instanceof IntConstant intConstant ?
 				intConstant : null;
+	}
+
+	@Override
+	public String toString() {
+		return String.format("LdcOperation %08x(%s)", hashCode(), value);
 	}
 }

@@ -17,13 +17,26 @@ public class ReturnValueOperation implements ReturnOperation {
 	@Getter
 	private final Operation value;
 
+	private final Type requiredType;
+
 	public ReturnValueOperation(MethodContext context, Type requiredType) {
 		this.value = context.popAs(requiredType);
+		this.requiredType = requiredType;
 	}
 
 	@Override
 	public Type getReturnType() {
 		return PrimitiveType.VOID;
+	}
+
+	@Override
+	public void inferType(Type ignored) {
+		value.inferType(requiredType);
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(value);
 	}
 
 	@Override
@@ -37,7 +50,7 @@ public class ReturnValueOperation implements ReturnOperation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(value);
+	public String toString() {
+		return String.format("ReturnValueOperation %08x(%s)", hashCode(), value);
 	}
 }

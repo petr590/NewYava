@@ -20,7 +20,7 @@ public record TypeInsn(int opcode, String typeName) implements Instruction {
 		return switch (opcode) {
 			case NEW -> new NewOperation(ClassType.valueOf(typeName));
 			case ANEWARRAY -> new NewArrayOperation(context, ArrayType.forType(ReferenceType.valueOf(typeName)));
-			case CHECKCAST -> new CastOperation(context, Types.ANY_OBJECT_TYPE, ReferenceType.valueOf(typeName));
+			case CHECKCAST -> CastOperation.narrow(context, Types.ANY_OBJECT_TYPE, ReferenceType.valueOf(typeName));
 			case INSTANCEOF -> new InstanceofOperation(context, ReferenceType.valueOf(typeName));
 			default -> throw new UnknownOpcodeException(opcode);
 		};

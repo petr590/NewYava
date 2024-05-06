@@ -9,6 +9,10 @@ import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 
+/**
+ * Суперпозиция типов, которые обрабатываются как int:
+ * boolean, byte, short, char, int
+ */
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class IntMultiType implements PrimitiveType {
 
@@ -35,8 +39,11 @@ public final class IntMultiType implements PrimitiveType {
 	}
 
 
+
+
+	@MagicConstant(flagsFromClass = IntMultiType.class)
 	private final int flags;
-	private String name;
+	private @Nullable String name;
 
 
 	@Override
@@ -64,6 +71,11 @@ public final class IntMultiType implements PrimitiveType {
 	}
 
 	@Override
+	public String getArrVarName() {
+		return getName();
+	}
+
+	@Override
 	public String toString() {
 		if (name != null)
 			return name;
@@ -86,6 +98,36 @@ public final class IntMultiType implements PrimitiveType {
 			}
 		};
 	}
+
+	private @Nullable IntMultiType widenedUp, widenedDown;
+
+	@Override
+	public IntMultiType wideUp() {
+		if (widenedUp != null)
+			return widenedUp;
+
+		int flags = this.flags;
+
+		if ((flags & BYTE_FLAG)  != 0) flags |= INT_FLAG | SHORT_FLAG;
+		if ((flags & SHORT_FLAG) != 0) flags |= INT_FLAG;
+		if ((flags & CHAR_FLAG)  != 0) flags |= INT_FLAG;
+
+		return widenedUp = valueOf(flags);
+	}
+
+	@Override
+	public IntMultiType wideDown() {
+		if (widenedDown != null)
+			return widenedDown;
+
+		int flags = this.flags;
+
+		if ((flags & INT_FLAG)   != 0) flags |= BYTE_FLAG | SHORT_FLAG | CHAR_FLAG;
+		if ((flags & SHORT_FLAG) != 0) flags |= BYTE_FLAG;
+
+		return widenedDown = valueOf(flags);
+	}
+
 
 	public static boolean isAssignable(IntMultiType givenType, IntMultiType requiredType) {
 		return (givenType.flags & requiredType.flags) != 0;

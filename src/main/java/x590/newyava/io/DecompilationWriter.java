@@ -2,8 +2,9 @@ package x590.newyava.io;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.util.TriConsumer;
+import org.apache.commons.lang3.function.TriConsumer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.ContextualTypeWritable;
 import x590.newyava.ContextualWritable;
 import x590.newyava.Writable;
@@ -160,13 +161,13 @@ public class DecompilationWriter extends Writer {
 	}
 
 	/* ------------------------------------------- ContextualTypeWritable ------------------------------------------- */
-	public DecompilationWriter record(ContextualTypeWritable writable, Context context, Type type) {
+	public DecompilationWriter record(ContextualTypeWritable writable, Context context, @Nullable Type type) {
 		writable.write(this, context, type);
 		return this;
 	}
 
 	public DecompilationWriter record(Collection<? extends ContextualTypeWritable> writables,
-	                                  Context context, Type type, String separator) {
+	                                  Context context, @Nullable Type type, String separator) {
 		return record(writables, separator, (writable, index) -> writable.write(this, context, type));
 	}
 

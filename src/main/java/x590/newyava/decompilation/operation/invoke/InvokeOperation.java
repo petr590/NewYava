@@ -33,6 +33,16 @@ public abstract class InvokeOperation implements Operation {
 	}
 
 	@Override
+	public void inferType(Type ignored) {
+		OperationUtil.inferArgTypes(arguments, descriptor.arguments());
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return argumentsView;
+	}
+
+	@Override
 	public void addImports(ClassContext context) {
 		context.addImportsFor(arguments);
 	}
@@ -44,10 +54,5 @@ public abstract class InvokeOperation implements Operation {
 
 	protected void writeNameAndArgs(DecompilationWriter out, Context context) {
 		out.record(descriptor.name()).record('(').record(arguments, context, Priority.ZERO, ", ").record(')');
-	}
-
-	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return arguments;
 	}
 }

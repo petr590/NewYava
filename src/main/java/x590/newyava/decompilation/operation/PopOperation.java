@@ -24,6 +24,12 @@ public class PopOperation implements Operation {
 		return PrimitiveType.VOID;
 	}
 
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(value);
+	}
+
 	@Override
 	public void addImports(ClassContext context) {
 		context.addImportsFor(value);
@@ -35,7 +41,7 @@ public class PopOperation implements Operation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(value);
+	public String toString() {
+		return String.format("PopOperation %08x(%s)", hashCode(), value);
 	}
 }

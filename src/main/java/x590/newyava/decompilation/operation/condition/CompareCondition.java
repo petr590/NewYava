@@ -70,6 +70,17 @@ public class CompareCondition implements Condition {
 	}
 
 	@Override
+	public void inferType(Type ignored) {
+		operand1.inferType(operand2.getReturnType());
+		operand2.inferType(operand1.getReturnType());
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(operand1, operand2);
+	}
+
+	@Override
 	public void addImports(ClassContext context) {
 		context.addImportsFor(operand1).addImportsFor(operand2);
 	}
@@ -81,11 +92,7 @@ public class CompareCondition implements Condition {
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		operand1.updateReturnType(Type.assign(operand1.getReturnType(), operand2.getReturnType()));
-		operand2.updateReturnType(Type.assign(operand2.getReturnType(), operand1.getReturnType()));
-
 		if (operand1.getReturnType() == PrimitiveType.BOOLEAN) {
-			operand2.updateReturnType(PrimitiveType.BOOLEAN);
 
 			if ((compareType == CompareType.EQUALS || compareType == CompareType.NOT_EQUALS) &&
 				operand2 instanceof LdcOperation ldc && ldc.getValue() == IntConstant.ZERO) {
@@ -104,7 +111,8 @@ public class CompareCondition implements Condition {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(operand1, operand2);
+	public String toString() {
+		return String.format("CompareOperation %08x(%s %s %s)",
+				hashCode(), operand1, compareType.getOperator(), operand2);
 	}
 }

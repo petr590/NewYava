@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.array;
 
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -16,10 +17,12 @@ import x590.newyava.type.Type;
 
 import java.util.List;
 
-@RequiredArgsConstructor
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class ArrayStoreOperation implements Operation {
 
 	private final Operation array, index, value;
+
+	private final Type requiredType;
 
 	public static @Nullable ArrayStoreOperation valueOf(MethodContext context, Type requiredType) {
 		var value = context.popAs(requiredType);
@@ -36,12 +39,24 @@ public class ArrayStoreOperation implements Operation {
 			}
 		}
 
-		return new ArrayStoreOperation(array, index, value);
+		return new ArrayStoreOperation(array, index, value, requiredType);
 	}
 
 	@Override
 	public Type getReturnType() {
 		return PrimitiveType.VOID;
+	}
+
+	@Override
+	public void inferType(Type ignored) {
+		value.inferType(requiredType);
+		index.inferType(PrimitiveType.INT);
+		array.inferType(ArrayType.forType(requiredType));
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(array, index, value);
 	}
 
 	@Override
@@ -57,7 +72,7 @@ public class ArrayStoreOperation implements Operation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(array, index, value);
+	public String toString() {
+		return String.format("Operation %08x(%s[%s] = %s)", hashCode(), array, index, value);
 	}
 }

@@ -19,8 +19,11 @@ public class NestedClassExample {
 
 	public static class Middle {
 		public static class Inner {
+
+			public Inner(String arg1, int arg2) {}
+
 			public static Class<?> getAnonClass(List<?> justAList) {
-				return new Object() {}.getClass();
+				return new Inner("abc", 5) {}.getClass();
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package x590.newyava.decompilation.operation;
 
 import com.google.common.collect.Lists;
+import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.ReadonlyCode;
@@ -23,7 +24,7 @@ public class OperationUtil {
 	 * @param argTypes требуемые типы аргументов.
 	 * @return список аргументов в обычном порядке.
 	 */
-	public static List<Operation> readArgs(MethodContext context, List<Type> argTypes) {
+	public static List<Operation> readArgs(MethodContext context, @Unmodifiable List<Type> argTypes) {
 		List<Operation> args = new ArrayList<>(argTypes.size());
 
 		for (Type argType : Lists.reverse(argTypes)) {
@@ -32,6 +33,21 @@ public class OperationUtil {
 
 		Collections.reverse(args);
 		return args;
+	}
+
+	public static void inferArgTypes(@Unmodifiable List<Operation> arguments, @Unmodifiable List<Type> argTypes) {
+		int s = arguments.size();
+
+		if (s != argTypes.size()) {
+			throw new IllegalArgumentException(String.format(
+					"arguments.size() != argTypes.size(): %d != %d",
+					s, argTypes.size()
+			));
+		}
+
+		for (int i = 0; i < s; i++) {
+			arguments.get(i).inferType(argTypes.get(i));
+		}
 	}
 
 	/**

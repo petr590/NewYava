@@ -15,4 +15,19 @@ public class FieldExample {
 
 	@Getter @Setter
 	private static int y;
+
+	private static final boolean BOOL1 = true;
+	private static final char CHAR1 = '\0';
+
+
+	private static boolean BOOL2;
+	private static char CHAR2;
+
+	static {
+		boolean b = true;
+		char c = '\0';
+
+		BOOL2 = b;
+		CHAR2 = c;
+	}
 }

@@ -3,6 +3,9 @@ package x590.newyava.type;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 
+/**
+ * Любой тип. Используется переменной, когда её тип ещё неизвестен.
+ */
 public enum AnyType implements Type {
 	INSTANCE;
 
@@ -14,6 +17,6 @@ public enum AnyType implements Type {
 
 	@Override
 	public String toString() {
-		return "AnyType";
+		return "<any-type>";
 	}
 }

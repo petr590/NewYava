@@ -1,5 +1,7 @@
 package x590.newyava.decompilation.operation.condition;
 
+import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.UnmodifiableView;
 import org.objectweb.asm.Label;
@@ -12,7 +14,8 @@ import x590.newyava.io.DecompilationWriter;
 
 import java.util.List;
 
-@RequiredArgsConstructor
+@Getter
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class IfOperation extends JumpOperation {
 
 	private final Label label;
@@ -35,13 +38,8 @@ public class IfOperation extends JumpOperation {
 	}
 
 	@Override
-	public Condition getCondition() {
-		return condition;
-	}
-
-	@Override
-	public Label getLabel() {
-		return label;
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(condition);
 	}
 
 	@Override
@@ -60,7 +58,7 @@ public class IfOperation extends JumpOperation {
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(condition);
+	public String toString() {
+		return String.format("IfOperation %08x(%s %s)", hashCode(), condition, label);
 	}
 }

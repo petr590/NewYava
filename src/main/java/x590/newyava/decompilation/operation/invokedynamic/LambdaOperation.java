@@ -25,10 +25,10 @@ import java.util.Objects;
 
 public class LambdaOperation implements Operation {
 	/** Дескриптор самой инструкции invokedynamic */
-	private final IncompleteMethodDescriptor invokedynamicDescriptor;
+	private final IncompleteMethodDescriptor indyDescriptor;
 
 	/** Дескриптор метода реализации лямбды */
-	private final MethodDescriptor implementationDescriptor;
+	private final MethodDescriptor implDescriptor;
 
 	private final List<Operation> indyArgs;
 
@@ -37,8 +37,8 @@ public class LambdaOperation implements Operation {
 	public LambdaOperation(MethodContext context, IncompleteMethodDescriptor indyDescriptor,
 	                       MethodDescriptor implDescriptor) {
 
-		this.invokedynamicDescriptor = indyDescriptor;
-		this.implementationDescriptor = implDescriptor;
+		this.indyDescriptor = indyDescriptor;
+		this.implDescriptor = implDescriptor;
 
 
 		this.indyArgs = OperationUtil.readArgs(context, indyDescriptor.arguments());
@@ -53,6 +53,16 @@ public class LambdaOperation implements Operation {
 		}
 
 		this.code = null;
+	}
+
+	@Override
+	public Type getReturnType() {
+		return indyDescriptor.returnType();
+	}
+
+	@Override
+	public void inferType(Type ignored) {
+		OperationUtil.inferArgTypes(indyArgs, indyDescriptor.arguments());
 	}
 
 	@Override
@@ -80,13 +90,13 @@ public class LambdaOperation implements Operation {
 	}
 
 	@Override
-	public Type getReturnType() {
-		return invokedynamicDescriptor.returnType();
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return indyArgs;
 	}
 
 	@Override
 	public void addImports(ClassContext context) {
-		context.addImportsFor(code).addImportsFor(implementationDescriptor.hostClass());
+		context.addImportsFor(code).addImportsFor(implDescriptor.hostClass());
 	}
 
 	@Override
@@ -97,14 +107,14 @@ public class LambdaOperation implements Operation {
 	@Override
 	public void write(DecompilationWriter out, Context context) {
 		if (code != null) {
-			if (OperationUtil.writeArrayLambda(out, context, implementationDescriptor, code)) {
+			if (OperationUtil.writeArrayLambda(out, context, implDescriptor, code)) {
 				return;
 			}
 
 			var variables = code.getMethodScope().getVariables();
 
 			List<String> names = variables.stream()
-					.skip(invokedynamicDescriptor.slots())
+					.skip(indyDescriptor.slots())
 					.filter(Objects::nonNull).map(Variable::getName)
 					.toList();
 
@@ -136,15 +146,16 @@ public class LambdaOperation implements Operation {
 			if (!indyArgs.isEmpty()) {
 				out.record(indyArgs.get(0), context, Priority.ZERO);
 			} else {
-				out.record(implementationDescriptor.hostClass(), context);
+				out.record(implDescriptor.hostClass(), context);
 			}
 
-			out.record("::").record(implementationDescriptor.isConstructor() ? "new" : implementationDescriptor.name());
+			out.record("::").record(implDescriptor.isConstructor() ? "new" : implDescriptor.name());
 		}
 	}
 
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return indyArgs;
+	public String toString() {
+		return String.format("LambdaOperation %08x(indyDescriptor: %s, implDescriptor: %s, indyArgs: %s, code: %s)",
+				hashCode(), indyDescriptor, implDescriptor, indyArgs, code);
 	}
 }

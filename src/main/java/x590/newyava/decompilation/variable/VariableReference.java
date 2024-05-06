@@ -1,6 +1,7 @@
 package x590.newyava.decompilation.variable;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.type.Type;
@@ -11,9 +12,11 @@ import x590.newyava.type.Type;
  * Изменяемый класс.
  */
 @Getter
+@RequiredArgsConstructor
 public class VariableReference {
 
-	private Type type;
+	/** Изначальный тип переменной. Может отличаться от итогового типа. */
+	private final Type initialType;
 
 	private final @Nullable String initialName;
 
@@ -23,25 +26,8 @@ public class VariableReference {
 
 	private @Nullable VariableReference binded;
 
-	public VariableReference(Type type, int start, int end) {
-		this(type, null, start, end);
-	}
-
-	public VariableReference(Type type, @Nullable String initialName, int start, int end) {
-		this.type = type;
-		this.initialName = initialName;
-		this.start = start;
-		this.end = end;
-	}
-
-	/** Обновляет тип переменной */
-	public void updateType(Type newType) {
-		type = newType;
-	}
-
-	/** Преобразует тип переменной к требуемому с проверкой совместимости */
-	public void assignType(Type requiredType) {
-		updateType(Type.assign(type, requiredType));
+	public VariableReference(Type initialType, int start, int end) {
+		this(initialType, null, start, end);
 	}
 
 
@@ -54,13 +40,34 @@ public class VariableReference {
 	}
 
 	public Variable getVariable() {
-//		if (binded != null)
-//			System.out.println(binded + ", " + this);
-
 		return binded != null ? binded.getVariable() : variable;
 	}
 
-	/** @return Имя переменной. Доступно только после связывания ссылки с самой переменной */
+	/** Преобразует тип переменной к требуемому с расширением вниз.
+	 * Доступно только после связывания ссылки переменной. */
+	public void assignUp(Type requiredType) {
+		getVariable().assignUp(requiredType);
+	}
+
+	/** Преобразует тип переменной к требуемому с расширением вверх.
+	 * Доступно только после связывания ссылки переменной. */
+	public void assignDown(Type requiredType) {
+		getVariable().assignDown(requiredType);
+	}
+
+	/** Объявляет переменную. Доступно только после связывания ссылки с самой переменной.
+	 * @return {@code true}, если переменная была не объявлена */
+	public boolean attemptDefine() {
+		return getVariable().attemptDefine();
+	}
+
+	/** @return тип переменной. До связывания ссылки с переменной возвращает {@link #initialType}. */
+	public Type getType() {
+		var variable = getVariable();
+		return variable == null ? initialType : variable.getType();
+	}
+
+	/** @return имя переменной. Доступно только после связывания ссылки с самой переменной. */
 	public String getName() {
 		return getVariable().getName();
 	}
@@ -86,6 +93,6 @@ public class VariableReference {
 
 	@Override
 	public String toString() {
-		return String.format("VariableReference(%d - %d, %s %s)", start, end, type, initialName);
+		return String.format("VariableReference(%d - %d, %s %s)", start, end, initialType, initialName);
 	}
 }

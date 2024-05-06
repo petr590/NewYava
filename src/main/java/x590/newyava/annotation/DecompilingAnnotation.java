@@ -1,5 +1,6 @@
 package x590.newyava.annotation;
 
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
@@ -8,6 +9,7 @@ import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
+import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
 
@@ -24,18 +26,43 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Contextu
 		this.annotationType = ClassType.valueOfL(descriptor);
 	}
 
-	/** Записывает список аннотаций. Каждая аннотация
-	 * записывается с новой строки с учётом отступа. */
 	public static void writeAnnotations(DecompilationWriter out, Context context,
 	                                    @Unmodifiable List<DecompilingAnnotation> annotations) {
 
-		out.record(annotations, (annotation, index) -> out.record(annotation, context).ln().indent());
+		writeAnnotations(out, context, annotations, false);
+	}
+
+	/**
+	 * Записывает аннотации.
+	 * @param inline если {@code true}, то все аннотации записываются через пробел.
+	 * Иначе каждая аннотация записывается с новой строки с учётом отступа.
+	 */
+	public static void writeAnnotations(DecompilationWriter out, Context context,
+	                                    @Unmodifiable List<DecompilingAnnotation> annotations,
+	                                    boolean inline) {
+
+		out.record(annotations, inline ?
+				(annotation, index) -> out.recordSp(annotation, context) :
+				(annotation, index) -> out.record(annotation, context).ln().indent()
+		);
 	}
 
 
 	@Override
 	public void visit(String name, Object value) {
-		parameters.add(Parameter.of(name, value));
+		Type type = switch (value) {
+			case Boolean   ignored -> PrimitiveType.BOOLEAN;
+			case Byte      ignored -> PrimitiveType.BYTE;
+			case Short     ignored -> PrimitiveType.SHORT;
+			case Character ignored -> PrimitiveType.CHAR;
+			case Integer   ignored -> PrimitiveType.INT;
+			case Long      ignored -> PrimitiveType.LONG;
+			case Float     ignored -> PrimitiveType.FLOAT;
+			case Double    ignored -> PrimitiveType.DOUBLE;
+			default -> Type.valueOf(value.getClass());
+		};
+
+		parameters.add(new Parameter(name, type, AnnotationValue.of(value)));
 	}
 
 	@Override
@@ -54,7 +81,7 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Contextu
 	@Override
 	public AnnotationVisitor visitArray(String name) {
 		var value = new ArrayValue();
-		parameters.add(new Parameter(name, null, value)); // Всё равно ему пофиг на тип
+		parameters.add(new Parameter(name, null, value));
 		return value;
 	}
 
@@ -73,7 +100,7 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Contextu
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context, Type type) {
+	public void write(DecompilationWriter out, Context context, @Nullable Type type) {
 		write(out, context);
 	}
 }

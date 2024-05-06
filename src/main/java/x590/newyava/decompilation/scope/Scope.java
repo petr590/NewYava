@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jetbrains.annotations.UnmodifiableView;
-import x590.newyava.Config;
+import x590.newyava.Log;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
@@ -25,11 +25,17 @@ import java.util.*;
  * Область видимости, ограниченная, как правило, фигурными скобками
  */
 public class Scope implements Operation, Comparable<Scope> {
+
 	@Getter
 	private final Chunk startChunk;
 
 	@Getter
 	private Chunk endChunk;
+
+	/** Необходим для правильной сортировки, так как иногда scope-ы могут
+	 * совпадать по чанкам, но при этом они не должны совпадать по индексам операций. */
+	private final int startIndex;
+
 
 	@Getter
 	private @Nullable Scope parent;
@@ -53,8 +59,18 @@ public class Scope implements Operation, Comparable<Scope> {
 	}
 
 	public Scope(@Unmodifiable List<Chunk> chunks) {
+		this(chunks, 0);
+	}
+
+	/**
+	 * @param chunks список чанков, которые захватил этот scope
+	 * @param startIndexOffset смещение, которое прибавляется к начальному индексу первого чанка,
+	 *                         чтобы получить значение {@link #startIndex}. Как правило, равно 0 или -1.
+	 */
+	public Scope(@Unmodifiable List<Chunk> chunks, int startIndexOffset) {
 		this.startChunk = chunks.get(0);
 		this.endChunk = chunks.get(chunks.size() - 1);
+		this.startIndex = startChunk.getStartIndex() + startIndexOffset;
 	}
 
 	public void addOperations(Collection<Operation> operations) {
@@ -65,6 +81,11 @@ public class Scope implements Operation, Comparable<Scope> {
 		return operations.isEmpty();
 	}
 
+
+	@Override
+	public void inferType(Type ignored) {
+		operations.forEach(operation -> operation.inferType(PrimitiveType.VOID));
+	}
 
 	@Override
 	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
@@ -124,7 +145,7 @@ public class Scope implements Operation, Comparable<Scope> {
 				this;
 	}
 
-	/** Инициализирует {@link #variables} из {@link VariableReference}, которые хранятся в чанках */
+	/** Связывает с каждым {@link VariableReference} определённый {@link Variable} */
 	public void initVariables(@Unmodifiable List<Chunk> chunks) {
 		int startChunkId = startChunk.getId(),
 			endChunkId = endChunk.getId();
@@ -144,7 +165,7 @@ public class Scope implements Operation, Comparable<Scope> {
 
 				} else {
 					if (curRef.getVariable() == null) {
-						curRef.initVariable(new Variable(curRef.getType(), getNameFor(curRef)));
+						curRef.initVariable(new Variable(curRef));
 					}
 
 					ref = Optional.of(curRef);
@@ -162,20 +183,36 @@ public class Scope implements Operation, Comparable<Scope> {
 				.or(() -> parent == null ? Optional.empty() : parent.findVariable(slotId));
 	}
 
-	private String getNameFor(VariableReference ref) {
-		String name = ref.getInitialName();
+	public void initVariableNames() {
+		for (Variable variable : variables) {
+			if (variable != null && variable.getName() == null) {
+				variable.setName(getNameFor(variable));
+			}
+		}
 
-		if (name != null) return name;
+		scopes.forEach(Scope::initVariableNames);
+	}
 
-		String baseName = ref.getType().getVarName();
-		name = baseName;
+	private String getNameFor(Variable variable) {
+		{
+			Set<String> names = variable.getNames();
+
+			if (names.size() == 1)
+				return names.iterator().next();
+		}
+
+		String baseName = variable.getType().getVarName();
+		String name = baseName;
 
 		Optional<Variable> sameNameVar =
 				findVarByName(baseName).or(() -> findVarByName(baseName + '1'));
 
 		if (sameNameVar.isPresent()) {
-			if (sameNameVar.get().getName().equals(baseName))
+			var var = sameNameVar.get();
+
+			if (baseName.equals(var.getName()) && !var.isNameFixed()) {
 				sameNameVar.get().setName(baseName + '1');
+			}
 
 			name = baseName + '2';
 
@@ -188,7 +225,7 @@ public class Scope implements Operation, Comparable<Scope> {
 	}
 
 	protected Optional<Variable> findVarByName(String name) {
-		return variables.stream().filter(var -> var != null && var.getName().equals(name)).findAny()
+		return variables.stream().filter(var -> var != null && name.equals(var.getName())).findAny()
 				.or(() -> parent != null ? parent.findVarByName(name) : Optional.empty());
 	}
 
@@ -217,7 +254,7 @@ public class Scope implements Operation, Comparable<Scope> {
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		if (canOmitBrackets() && !Config.getConfig().isAlwaysWriteBrackets()) {
+		if (canOmitBrackets() && !context.getConfig().isAlwaysWriteBrackets()) {
 			if (operations.isEmpty()) {
 				writeHeader(out, context);
 				out.record(';');
@@ -256,7 +293,7 @@ public class Scope implements Operation, Comparable<Scope> {
 
 		for (var operation : operations) {
 			if (operation instanceof ElseScope) {
-				if (prev instanceof Scope scope && scope.realOmitBrackets()) {
+				if (prev instanceof Scope scope && scope.realOmitBrackets(context)) {
 					out.ln().indent();
 				} else {
 					out.recordSp();
@@ -280,15 +317,15 @@ public class Scope implements Operation, Comparable<Scope> {
 	}
 
 
-	private boolean realOmitBrackets() { // Oh, rly?
-		return canOmitBrackets() && !Config.getConfig().isAlwaysWriteBrackets() &&
+	private boolean realOmitBrackets(Context context) { // Oh, rly?
+		return canOmitBrackets() && !context.getConfig().isAlwaysWriteBrackets() &&
 				(operations.isEmpty() || operations.size() == 1 && !operations.get(0).isScopeLike());
 	}
 
 	/**
 	 * Записывает заголовок scope.
 	 * @return {@code true}, если заголовок записан.
-	 * После него будет записан пробел, если есть фигурные скобки.
+	 * После него будет записан пробел при наличии фигурных скобок.
 	 */
 	protected boolean writeHeader(DecompilationWriter out, Context context) {
 		return false;
@@ -302,8 +339,28 @@ public class Scope implements Operation, Comparable<Scope> {
 
 	@Override
 	public int compareTo(@NotNull Scope other) {
-		int diff = startChunk.getId() - other.startChunk.getId();
-		return diff != 0 ? diff : other.endChunk.getId() - endChunk.getId();
+		int diff = startIndex - other.startIndex;
+
+		if (diff == 0) {
+			diff = other.endChunk.getId() - endChunk.getId();
+		}
+
+		// CaseScope всегда должен быть внутри switchScope, к которому он принадлежит
+		// и снаружи любого другого scope
+		if (diff == 0) {
+			if (this instanceof SwitchScope.CaseScope caseScope) {
+				diff = caseScope.getSwitchScope() == other ? 1 : -1;
+
+			} else if (other instanceof SwitchScope.CaseScope caseScope) {
+				diff = caseScope.getSwitchScope() == this ? -1 : 1;
+			}
+		}
+
+		if (diff == 0) {
+			Log.warn("Undefined sorting order for scopes %s and %s", this, other);
+		}
+
+		return diff;
 	}
 
 	@Override
