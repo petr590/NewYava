@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum Priority { // В порядке увеличения приоритета
 	ZERO,
-	LAMBDA(Associativity.RIGHT),
 	ASSIGNMENT(Associativity.RIGHT),
 	TERNARY(Associativity.RIGHT),
 	LOGICAL_OR,
@@ -26,6 +25,7 @@ public enum Priority { // В порядке увеличения приорит�
 	DEFAULT;
 
 	public static final Priority
+			LAMBDA = ASSIGNMENT,
 			INSTANCEOF = GREATER_LESS_CMP,
 			NEW = CAST,
 			UNARY = PRE_INC_DEC;

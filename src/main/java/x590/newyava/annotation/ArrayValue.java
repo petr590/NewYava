@@ -4,7 +4,7 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
+import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.Type;
@@ -62,11 +62,11 @@ class ArrayValue extends AnnotationVisitor implements AnnotationValue {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context, @Nullable Type type) {
+	public void write(DecompilationWriter out, ConstantWriteContext context) {
 		if (values.isEmpty()) {
 			out.record("{}");
 		} else {
-			out.record("{ ").record(values, context, elementType, ", ").record(" }");
+			out.record("{ ").record(values, new ConstantWriteContext(context, elementType), ", ").record(" }");
 		}
 	}
 }

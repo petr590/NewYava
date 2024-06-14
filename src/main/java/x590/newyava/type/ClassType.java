@@ -1,6 +1,5 @@
 package x590.newyava.type;
 
-import com.google.common.base.CaseFormat;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
@@ -57,6 +56,10 @@ public class ClassType implements ReferenceType {
 	private @Nullable List<ClassType> interfaces;
 
 	private ClassType(String binName) {
+		if (!isValidName(binName)) {
+			throw new IllegalArgumentException(binName);
+		}
+
 		this.binName = binName;
 
 		String name = binName.replace('/', '.');
@@ -66,6 +69,30 @@ public class ClassType implements ReferenceType {
 		this.binSimpleName = index < 0 ? name : name.substring(index + 1);
 		this.simpleName = binSimpleName;
 		this.packageName = index < 0 ? "" : name.substring(0, index);
+	}
+
+	private static boolean isValidName(String name) {
+		int len = name.length();
+
+		if (len == 0 ||
+				!Character.isJavaIdentifierStart(name.charAt(0)) ||
+				!Character.isJavaIdentifierPart(name.charAt(len - 1))) {
+			return false;
+		}
+
+		for (int i = 1, l = name.length(); i < l; ++i) {
+			char c = name.charAt(i);
+
+			if (c == '/') {
+				if (name.charAt(i - 1) == '/')
+					return false;
+
+			} else if (!Character.isJavaIdentifierPart(c)) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -83,7 +110,7 @@ public class ClassType implements ReferenceType {
 	}
 
 	/**
-	 * Принимает бинарное название класса, не начинающееся с {@code 'L'}
+	 * Принимает бинарное название класса, <b>не</b> начинающееся с {@code 'L'}
 	 * (такое, как {@code "java/lang/Object;"}).
 	 * @apiNote Точка с запятой в конце необязательна.
 	 * @return класс, соответствующий этому названию.
@@ -143,6 +170,12 @@ public class ClassType implements ReferenceType {
 	}
 
 
+	@Override
+	public boolean isNested() {
+		return outer != null;
+	}
+
+	@Override
 	public boolean isAnonymous() {
 		return isEnclosedInMethod && simpleName.isEmpty();
 	}
@@ -273,7 +306,7 @@ public class ClassType implements ReferenceType {
 
 	private String computeVarName() {
 		assert simpleName != null;
-		String name = CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, simpleName);
+		String name = toLowerCamelCase(simpleName);
 
 		return switch (name) {
 			case "boolean"    -> PrimitiveType.BOOLEAN.getVarName();
@@ -332,6 +365,25 @@ public class ClassType implements ReferenceType {
 			case "_"          -> "__"; // Шта?
 			default           -> name;
 		};
+	}
+
+	private static String toLowerCamelCase(String str) {
+		int index = 0,
+			len = str.length();
+
+		while (index < len && Character.isUpperCase(str.charAt(index))) {
+			index++;
+		}
+
+		if (index == len) {
+			return str.toLowerCase();
+		}
+
+		if (index > 1) { // Не уменьшать последний заглавный символ, если их больше одного
+			index -= 1;
+		}
+
+		return str.substring(0, index).toLowerCase() + str.substring(index, len);
 	}
 
 

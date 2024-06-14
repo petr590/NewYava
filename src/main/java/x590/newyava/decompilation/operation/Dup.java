@@ -7,18 +7,18 @@ public class Dup {
 	private Dup() {}
 
 	public static void dup(CodeStack stack, TypeSize size) {
-		var value = stack.popAs(size);
-		stack.push(value);
-		stack.push(value);
+		var value = stack.popOneOrTwo(size);
+		stack.pushOneOrTwo(value);
+		stack.pushOneOrTwo(value);
 	}
 
 	public static void dupX1(CodeStack stack, TypeSize size1, TypeSize size2) {
-		var value1 = stack.popAs(size1);
-		var value2 = stack.popAs(size2);
+		var value1 = stack.popOneOrTwo(size1);
+		var value2 = stack.popOneOrTwo(size2);
 
-		stack.push(value1);
-		stack.push(value2);
-		stack.push(value1);
+		stack.pushOneOrTwo(value1);
+		stack.pushOneOrTwo(value2);
+		stack.pushOneOrTwo(value1);
 	}
 
 	public static void dupX2(CodeStack stack) {

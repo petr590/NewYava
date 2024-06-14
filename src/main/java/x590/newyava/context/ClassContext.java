@@ -10,7 +10,6 @@ import x590.newyava.*;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
-import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
 
 import java.util.*;
@@ -40,7 +39,7 @@ public class ClassContext implements Context {
 	}
 
 	@Override
-	public ReferenceType getThisType() {
+	public ClassType getThisType() {
 		return decompilingClass.getThisType();
 	}
 
@@ -155,7 +154,6 @@ public class ClassContext implements Context {
 		return Collections.unmodifiableSet(imports);
 	}
 
-	/** @return {@code true} если данный класс импортирован, иначе {@code false}. */
 	@Override
 	public boolean imported(ClassType classType) {
 		return getImports().contains(classType);

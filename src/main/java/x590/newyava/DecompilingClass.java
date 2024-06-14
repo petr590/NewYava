@@ -27,24 +27,46 @@ public class DecompilingClass implements Writable {
 
 	private final ClassContext classContext;
 
+	/** Мажорная версия {@code class}-файла */
 	private final int version;
+
+	/** Набор модификаторов класса */
 	private final int modifiers;
 
-	private final ClassType thisType, superType;
+	/** Тип этого класса */
+	private final ClassType thisType;
+
+	/** Тип суперкласса. Для {@link Object} равен самому себе. */
+	private final ClassType superType;
+
+	/** Реализуемые интерфейсы. */
 	private final @Unmodifiable List<ClassType> interfaces;
 
+	/** Видимый суперкласс. Если суперкласса нет или он не видим, это поле равно {@code null} */
 	private final @Nullable ClassType visibleSuperType;
+
+	/** Видимые интерфейсы - все, кроме {@link java.lang.annotation.Annotation Annotation}. */
 	private final @Unmodifiable List<ClassType> visibleInterfaces;
 
 	private final @Nullable ClassType outerClassType;
 
+	/** Все поля класса */
 	private final @Unmodifiable List<DecompilingField> fields;
+
+	/** Все методы класса */
 	private final @Unmodifiable List<DecompilingMethod> methods;
+
+	/** Аннотации */
 	private final @Unmodifiable List<DecompilingAnnotation> annotations;
 
+	/** Видимые поля класса кроме {@code enum}-констант */
 	private final @Unmodifiable List<DecompilingField> visibleFields;
+
+	/** Видимые методы. Инициализируется только после декомпиляции всех методов */
 	private @Unmodifiable List<DecompilingMethod> visibleMethods;
 
+	/** Список {@code enum}-констант класса или {@code null},
+	 * если класс не может содержать {@code enum}-констант */
 	private final @Nullable @Unmodifiable List<DecompilingField> enumConstants;
 
 	public DecompilingClass(Decompiler decompiler, ClassReader classReader) {
@@ -53,9 +75,9 @@ public class DecompilingClass implements Writable {
 		var visitor = new DecompileClassVisitor(decompiler);
 		classReader.accept(visitor, 0);
 
-		this.version    = visitor.getVersion();
-		this.modifiers  = visitor.getModifiers();
-		this.thisType   = visitor.getThisType();
+		this.version   = visitor.getVersion();
+		this.modifiers = visitor.getModifiers();
+		this.thisType  = visitor.getThisType();
 
 		this.superType        = visitor.getSuperType();
 		this.visibleSuperType = realSuperType(modifiers, superType);
@@ -67,8 +89,8 @@ public class DecompilingClass implements Writable {
 
 		this.outerClassType = visitor.getOuterClassType();
 
-		this.fields      = visitor.getFields(classContext);
-		this.methods     = visitor.getMethods(classContext);
+		this.fields      = visitor.getFields();
+		this.methods     = visitor.getMethods();
 		this.annotations = visitor.getAnnotations();
 
 		// Анонимные enum-классы тоже имеют влаг ACC_ENUM, но не содержат enum-констант.
@@ -170,13 +192,14 @@ public class DecompilingClass implements Writable {
 		}
 
 		if (!visibleInterfaces.isEmpty()) {
-			out .recordSp((modifiers & ACC_INTERFACE) != 0 ? "extends" : "implements")
-				.record(visibleInterfaces, classContext, ", ").recordSp();
+			out .record((modifiers & ACC_INTERFACE) != 0 ? "extends" : "implements").space()
+				.record(visibleInterfaces, classContext, ", ").space();
 		}
 
 		writeBody(out);
 	}
 
+	/** Записывает тело класса, т.е. всё, что между фигурными скобками */
 	public void writeBody(DecompilationWriter out) {
 		out.record('{').incIndent();
 
@@ -198,6 +221,7 @@ public class DecompilingClass implements Writable {
 	}
 
 
+	/** Записывает {@code package} и {@code import}-ы */
 	private void writeHeader(DecompilationWriter out) {
 		if (!thisType.getPackageName().isEmpty()) {
 			out.recordSp("package").record(thisType.getPackageName()).record(';').ln().ln();
@@ -257,6 +281,7 @@ public class DecompilingClass implements Writable {
 		return outerClass != null && (outerClass.getModifiers() & ACC_INTERFACE) != 0;
 	}
 
+	/** Записывает модификаторы класса, в том числе {@code interface}, {@code enum} и др. */
 	private void writeModifiers(DecompilationWriter out) {
 		out.record(switch (modifiers & ACC_ACCESS) {
 			case ACC_VISIBLE   -> "";
@@ -272,7 +297,7 @@ public class DecompilingClass implements Writable {
 			out.record(LIT_STATIC + " ");
 		}
 
-		out.record(switch (modifiers & (ACC_FINAL | ACC_ENUM | ACC_RECORD | ACC_ABSTRACT | ACC_INTERFACE | ACC_ANNOTATION)) {
+		out.recordSp(switch (modifiers & (ACC_FINAL | ACC_ENUM | ACC_RECORD | ACC_ABSTRACT | ACC_INTERFACE | ACC_ANNOTATION)) {
 			case ACC_NONE                                                -> LIT_CLASS;
 			case ACC_FINAL                                               -> LIT_FINAL + " " + LIT_CLASS;
 			case ACC_FINAL | ACC_RECORD                                  -> LIT_RECORD;
@@ -281,7 +306,7 @@ public class DecompilingClass implements Writable {
 			case ACC_ABSTRACT | ACC_INTERFACE                            -> LIT_INTERFACE;
 			case ACC_ABSTRACT | ACC_INTERFACE | ACC_ANNOTATION           -> LIT_ANNOTATION;
 			default -> throw new IllegalModifiersException(modifiers, EntryType.CLASS);
-		}).record(' ');
+		});
 	}
 
 	@Override

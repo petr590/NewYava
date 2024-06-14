@@ -4,8 +4,8 @@ package x590.newyava.decompilation.scope;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.condition.Condition;
@@ -13,6 +13,8 @@ import x590.newyava.decompilation.operation.condition.ConstCondition;
 import x590.newyava.decompilation.operation.condition.JumpOperation;
 import x590.newyava.decompilation.operation.condition.Role;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.type.PrimitiveType;
+import x590.newyava.type.Type;
 
 import java.util.List;
 import java.util.Objects;
@@ -51,6 +53,12 @@ public class LoopScope extends Scope {
 	}
 
 	@Override
+	public void inferType(Type ignored) {
+		super.inferType(ignored);
+		condition.inferType(PrimitiveType.BOOLEAN);
+	}
+
+	@Override
 	public void removeRedundantOperations(MethodContext context) {
 		super.removeRedundantOperations(context);
 
@@ -71,7 +79,7 @@ public class LoopScope extends Scope {
 	}
 
 	@Override
-	protected boolean writeHeader(DecompilationWriter out, Context context) {
+	protected boolean writeHeader(DecompilationWriter out, MethodWriteContext context) {
 		out.record("while (").record(condition, context, Priority.ZERO).record(')');
 		return true;
 	}

@@ -1,12 +1,11 @@
 package x590.newyava.decompilation.operation.array;
 
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
+import x590.newyava.decompilation.operation.AssignOperation;
 import x590.newyava.decompilation.operation.LdcOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
@@ -17,12 +16,7 @@ import x590.newyava.type.Type;
 
 import java.util.List;
 
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public class ArrayStoreOperation implements Operation {
-
-	private final Operation array, index, value;
-
-	private final Type requiredType;
+public class ArrayStoreOperation extends AssignOperation {
 
 	public static @Nullable ArrayStoreOperation valueOf(MethodContext context, Type requiredType) {
 		var value = context.popAs(requiredType);
@@ -39,16 +33,32 @@ public class ArrayStoreOperation implements Operation {
 			}
 		}
 
-		return new ArrayStoreOperation(array, index, value, requiredType);
+		return new ArrayStoreOperation(context, array, index, value, requiredType);
 	}
 
-	@Override
-	public Type getReturnType() {
-		return PrimitiveType.VOID;
+	private final Operation array, index;
+
+	private final Type requiredType;
+
+
+	private ArrayStoreOperation(MethodContext context, Operation array, Operation index, Operation value, Type requiredType) {
+		super(
+				context, value, null,
+				operation -> operation instanceof ArrayLoadOperation aload &&
+						aload.getArray() == array &&
+						aload.getIndex() == index
+		);
+
+		this.array = array;
+		this.index = index;
+		this.requiredType = requiredType;
 	}
 
 	@Override
 	public void inferType(Type ignored) {
+		super.inferType(ignored);
+
+		assert value != null;
 		value.inferType(requiredType);
 		index.inferType(PrimitiveType.INT);
 		array.inferType(ArrayType.forType(requiredType));
@@ -56,6 +66,7 @@ public class ArrayStoreOperation implements Operation {
 
 	@Override
 	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		assert value != null;
 		return List.of(array, index, value);
 	}
 
@@ -65,10 +76,9 @@ public class ArrayStoreOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	protected void writeTarget(DecompilationWriter out, MethodWriteContext context) {
 		out.record(array, context, getPriority())
-			.record('[').record(index, context, Priority.ZERO).record("] = ")
-			.record(value, context, Priority.ASSIGNMENT);
+			.record('[').record(index, context, Priority.ZERO).record(']');
 	}
 
 	@Override

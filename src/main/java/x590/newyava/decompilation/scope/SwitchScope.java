@@ -5,8 +5,10 @@ import lombok.ToString;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.constant.IntConstant;
-import x590.newyava.context.Context;
+import x590.newyava.context.ClassContext;
+import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
@@ -14,6 +16,7 @@ import x590.newyava.decompilation.operation.condition.GotoOperation;
 import x590.newyava.decompilation.operation.condition.Role;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
+import x590.newyava.type.Type;
 
 import java.util.*;
 
@@ -64,13 +67,25 @@ public class SwitchScope extends Scope {
 
 
 	@Override
-	protected boolean writeHeader(DecompilationWriter out, Context context) {
+	public void inferType(Type ignored) {
+		super.inferType(ignored);
+		value.inferType(PrimitiveType.INT);
+	}
+
+	@Override
+	public void addImports(ClassContext context) {
+		super.addImports(context);
+		context.addImportsFor(value);
+	}
+
+	@Override
+	protected boolean writeHeader(DecompilationWriter out, MethodWriteContext context) {
 		out.record("switch (").record(value, context, Priority.ZERO).record(')');
 		return true;
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		writeHeader(out, context);
 
 		out .record(" {").incIndent().ln().indent()
@@ -105,7 +120,7 @@ public class SwitchScope extends Scope {
 			}
 		}
 
-		public void write(DecompilationWriter out, Context context) {
+		public void write(DecompilationWriter out, MethodWriteContext context) {
 			writeHeader(out, context);
 
 			out.incIndent();
@@ -129,20 +144,22 @@ public class SwitchScope extends Scope {
 		}
 
 		@Override
-		protected boolean writeHeader(DecompilationWriter out, Context context) {
+		protected boolean writeHeader(DecompilationWriter out, MethodWriteContext context) {
 			if (constants == null) {
 				out.record("default").record(switchScope.arrowStyle ? " ->" : ":");
 
 			} else {
+				var constantWriteContext = new ConstantWriteContext(context, PrimitiveType.INT, false);
+
 				if (switchScope.arrowStyle) {
 					out .record("case ")
-						.record(constants, ", ", (constant, index) -> constant.write(out, context, PrimitiveType.INT))
+						.record(constants, ", ", (constant, index) -> constant.write(out, constantWriteContext))
 						.record(" ->");
 
 				} else {
 					out.record(constants, " ", (constant, index) -> {
 						out.record("case ");
-						constant.write(out, context, PrimitiveType.INT);
+						constant.write(out, constantWriteContext);
 						out.record(':');
 					});
 				}

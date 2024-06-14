@@ -1,11 +1,10 @@
 package x590.newyava.annotation;
 
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
-import x590.newyava.ContextualWritable;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
@@ -15,8 +14,9 @@ import x590.newyava.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.ObjIntConsumer;
 
-public class DecompilingAnnotation extends AnnotationVisitor implements ContextualWritable, AnnotationValue {
+public class DecompilingAnnotation extends AnnotationVisitor implements AnnotationValue {
 	private final ReferenceType annotationType;
 
 	private final List<Parameter> parameters = new ArrayList<>();
@@ -41,10 +41,13 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Contextu
 	                                    @Unmodifiable List<DecompilingAnnotation> annotations,
 	                                    boolean inline) {
 
-		out.record(annotations, inline ?
-				(annotation, index) -> out.recordSp(annotation, context) :
-				(annotation, index) -> out.record(annotation, context).ln().indent()
-		);
+		var constantWriteContext = new ConstantWriteContext(context);
+
+		ObjIntConsumer<DecompilingAnnotation> writer = inline ?
+				(annotation, index) -> out.record(annotation, constantWriteContext).space() :
+				(annotation, index) -> out.record(annotation, constantWriteContext).ln().indent();
+
+		out.record(annotations, writer);
 	}
 
 
@@ -91,16 +94,11 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Contextu
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, ConstantWriteContext context) {
 		out.record('@').record(annotationType, context);
 
 		if (!parameters.isEmpty()) {
 			out.record('(').record(parameters, context, ", ").record(')');
 		}
-	}
-
-	@Override
-	public void write(DecompilationWriter out, Context context, @Nullable Type type) {
-		write(out, context);
 	}
 }

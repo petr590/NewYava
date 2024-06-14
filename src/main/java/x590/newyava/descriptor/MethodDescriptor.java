@@ -28,7 +28,8 @@ public record MethodDescriptor(
 		ReferenceType hostClass,
 		String name,
 		Type returnType,
-		@Unmodifiable List<Type> arguments
+		@Unmodifiable List<Type> arguments,
+		int fromSlot
 ) implements Importable {
 
 	public static final String
@@ -52,6 +53,10 @@ public record MethodDescriptor(
 		}
 	}
 
+	public MethodDescriptor(ReferenceType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
+		this(hostClass, name, returnType, arguments, 0);
+	}
+
 	public MethodDescriptor(ReferenceType hostClass, String name, Type returnType) {
 		this(hostClass, name, returnType, List.of());
 	}
@@ -70,14 +75,26 @@ public record MethodDescriptor(
 		return of(ReferenceType.valueOf(handle.getOwner()), handle.getName(), handle.getDesc());
 	}
 
-	public long slots() {
+	public static int slots(@Unmodifiable List<Type> arguments) {
+		return arguments.stream().mapToInt(type -> type.getSize().slots()).sum();
+	}
+
+	public int slots() {
 		return slots(arguments);
 	}
 
-	public static long slots(List<Type> arguments) {
-		return arguments.size() +
-				arguments.stream().filter(type -> type.getSize() == TypeSize.LONG).count();
+	/** @return Новый дескриптор с аргументами начиная с {@code from} до конца */
+	public MethodDescriptor slice(int from) {
+		return slice(from, arguments.size());
 	}
+
+	/** @return Новый дескриптор с аргументами начиная с {@code from} до {@code to} не включительно.
+	 * Если {@code from} равен 0, а {@code to} равен количеству аргументов, возвращает {@code this} */
+	public MethodDescriptor slice(int from, int to) {
+		return from == 0 && to == arguments.size() ? this :
+				new MethodDescriptor(hostClass, name, returnType, arguments.subList(from, to), fromSlot + from);
+	}
+
 
 	public boolean isConstructor() {
 		return name.equals(INIT);
@@ -106,12 +123,10 @@ public record MethodDescriptor(
 		}
 
 		IntFunction<String> nameGetter = variables != null ?
-				new NameGetter(variables, isStatic) :
+				new NameGetter(variables.subList(fromSlot, variables.size()), isStatic) :
 				new NameGenerator();
 
-		int start = context.isEnumClass() && isConstructor() ? 2 : 0;
-
-		out.record('(').record(arguments, ", ", start,
+		out.record('(').record(arguments, ", ",
 				(type, i) -> out.recordSp(type, context).record(nameGetter.apply(i))
 		).record(')');
 	}

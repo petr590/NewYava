@@ -4,8 +4,8 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.Modifiers;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.ReadonlyCode;
 import x590.newyava.decompilation.operation.LoadOperation;
 import x590.newyava.decompilation.operation.Operation;
@@ -18,7 +18,6 @@ import x590.newyava.descriptor.IncompleteMethodDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
-import x590.newyava.type.TypeSize;
 
 import java.util.List;
 import java.util.Objects;
@@ -28,32 +27,33 @@ public class LambdaOperation implements Operation {
 	private final IncompleteMethodDescriptor indyDescriptor;
 
 	/** Дескриптор метода реализации лямбды */
-	private final MethodDescriptor implDescriptor;
+	private MethodDescriptor implDescriptor;
 
 	private final List<Operation> indyArgs;
 
-	private final @Nullable ReadonlyCode code;
+	private @Nullable ReadonlyCode code;
 
 	public LambdaOperation(MethodContext context, IncompleteMethodDescriptor indyDescriptor,
 	                       MethodDescriptor implDescriptor) {
 
 		this.indyDescriptor = indyDescriptor;
 		this.implDescriptor = implDescriptor;
-
-
 		this.indyArgs = OperationUtil.readArgs(context, indyDescriptor.arguments());
+		this.code = findCode(context, implDescriptor);
+	}
 
+	private static @Nullable ReadonlyCode findCode(MethodContext context, MethodDescriptor implDescriptor) {
 		if (implDescriptor.hostClass().equals(context.getThisType())) {
 			var foundMethod = context.findMethod(implDescriptor);
 
 			if (foundMethod.isPresent() && (foundMethod.get().getModifiers() & Modifiers.ACC_SYNTHETIC) != 0) {
-				this.code = foundMethod.get().getCode();
-				return;
+				return foundMethod.get().getCode();
 			}
 		}
 
-		this.code = null;
+		return null;
 	}
+
 
 	@Override
 	public Type getReturnType() {
@@ -84,7 +84,7 @@ public class LambdaOperation implements Operation {
 					}
 				}
 
-				slot += arg.getReturnType().getSize() == TypeSize.LONG ? 2 : 1;
+				slot += arg.getReturnType().getSize().slots();
 			}
 		}
 	}
@@ -99,18 +99,35 @@ public class LambdaOperation implements Operation {
 		context.addImportsFor(code).addImportsFor(implDescriptor.hostClass());
 	}
 
+
+	private boolean arrayLambdaChecked;
+
+	private void checkArrayLambda() {
+		if (arrayLambdaChecked) return;
+		arrayLambdaChecked = true;
+
+		if (code != null) {
+			var arrayDescriptor = OperationUtil.recognizeArrayLambda(implDescriptor, code);
+
+			if (arrayDescriptor != null) {
+				implDescriptor = arrayDescriptor;
+				code = null;
+			}
+		}
+	}
+
+
 	@Override
 	public Priority getPriority() {
-		return Priority.LAMBDA;
+		checkArrayLambda();
+		return code == null ? Priority.DEFAULT : Priority.LAMBDA;
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
-		if (code != null) {
-			if (OperationUtil.writeArrayLambda(out, context, implDescriptor, code)) {
-				return;
-			}
+	public void write(DecompilationWriter out, MethodWriteContext context) {
+		checkArrayLambda();
 
+		if (code != null) {
 			var variables = code.getMethodScope().getVariables();
 
 			List<String> names = variables.stream()

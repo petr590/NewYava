@@ -6,9 +6,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
+import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
@@ -40,13 +39,18 @@ public final class IntConstant extends Constant implements Comparable<IntConstan
 	}
 
 	@Override
+	public boolean valueEquals(int value) {
+		return this.value == value;
+	}
+
+	@Override
 	public void addImports(ClassContext context) {}
 
 	@Override
-	public void write(DecompilationWriter out, Context context, @Nullable Type type) {
+	public void write(DecompilationWriter out, ConstantWriteContext context) {
 		out.record(
-				type == PrimitiveType.BOOLEAN ? String.valueOf(value != 0) :
-				type == PrimitiveType.CHAR ? "'" + JavaEscapeUtils.escapeChar((char)value) + "'" :
+				context.getType() == PrimitiveType.BOOLEAN ? String.valueOf(value != 0) :
+				context.getType() == PrimitiveType.CHAR ? "'" + JavaEscapeUtils.escapeChar((char)value) + "'" :
 						String.valueOf(value)
 		);
 	}

@@ -8,7 +8,6 @@ import x590.newyava.DecompilingMethod;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
-import x590.newyava.type.ReferenceType;
 
 import java.util.Optional;
 
@@ -30,7 +29,7 @@ public class ContextProxy implements Context {
 	}
 
 	@Override
-	public ReferenceType getThisType() {
+	public ClassType getThisType() {
 		return context.getThisType();
 	}
 

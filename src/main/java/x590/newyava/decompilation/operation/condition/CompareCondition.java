@@ -5,8 +5,8 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.*;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
@@ -91,7 +91,7 @@ public class CompareCondition implements Condition {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		if (operand1.getReturnType() == PrimitiveType.BOOLEAN) {
 
 			if ((compareType == CompareType.EQUALS || compareType == CompareType.NOT_EQUALS) &&
@@ -106,7 +106,7 @@ public class CompareCondition implements Condition {
 		}
 
 		out .record(operand1, context, compareType.getPriority(), Associativity.LEFT)
-			.recordSp().recordSp(compareType.getOperator())
+			.wrapSpaces(compareType.getOperator())
 			.record(operand2, context, compareType.getPriority(), Associativity.RIGHT);
 	}
 

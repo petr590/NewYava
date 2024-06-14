@@ -17,4 +17,9 @@ public record LdcInsn(Object value) implements Instruction {
 	public Operation toOperation(MethodContext context) {
 		return new LdcOperation(Constant.fromObject(value));
 	}
+
+	@Override
+	public String toString() {
+		return String.format("LdcInsn(%s)", value);
+	}
 }

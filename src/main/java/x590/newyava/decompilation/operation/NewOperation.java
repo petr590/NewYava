@@ -2,7 +2,7 @@ package x590.newyava.decompilation.operation;
 
 import lombok.RequiredArgsConstructor;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
 
@@ -27,7 +27,7 @@ public class NewOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		out.recordSp("new").record(type, context);
 	}
 

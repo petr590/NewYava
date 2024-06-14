@@ -39,10 +39,11 @@ public abstract class JumpOperation implements SpecialOperation {
 	 * @throws IllegalStateException если роль уже инициализирована другим значением
 	 */
 	public void initRole(Role role) {
-		if (this.role != Role.UNKNOWN && this.role != role)
+		if (this.role != Role.UNKNOWN && this.role != role) {
 			throw new IllegalStateException(
 					"Reinitialized role is not matches: " + this.role + ", " + role
 			);
+		}
 
 		this.role = role;
 	}

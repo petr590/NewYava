@@ -6,10 +6,9 @@ import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
-import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
 
-public record FieldDescriptor(ReferenceType hostClass, String name, Type type)
+public record FieldDescriptor(ClassType hostClass, String name, Type type)
 		implements ContextualWritable, Importable {
 
 	public static FieldDescriptor of(String className, String name, String typeName) {

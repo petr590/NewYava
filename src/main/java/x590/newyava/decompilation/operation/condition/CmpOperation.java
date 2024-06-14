@@ -29,8 +29,8 @@ public class CmpOperation implements SpecialOperation {
 
 	@Override
 	public void inferType(Type ignored) {
-		operand1.inferType(this.requiredType);
-		operand2.inferType(this.requiredType);
+		operand1.inferType(requiredType);
+		operand2.inferType(requiredType);
 	}
 
 	@Override

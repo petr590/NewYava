@@ -4,7 +4,6 @@ import x590.newyava.*;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
-import x590.newyava.type.ReferenceType;
 
 import java.util.Optional;
 
@@ -20,15 +19,21 @@ public interface Context {
 		return (getClassModifiers() & Modifiers.ACC_ENUM) != 0;
 	}
 
-	ReferenceType getThisType();
+	ClassType getThisType();
 
 	ClassType getSuperType();
 
+
+	/** @return {@code true} если данный класс импортирован, иначе {@code false}. */
 	boolean imported(ClassType classType);
 
+	/** @return поле, найденное в классе или пустой Optional */
 	Optional<DecompilingField> findField(FieldDescriptor descriptor);
 
+	/** @return метод, найденный в классе или пустой Optional */
 	Optional<DecompilingMethod> findMethod(MethodDescriptor descriptor);
 
+	/** @return класс, найденный среди всех декомпилируемых данным декомпилятором классов
+	 * или пустой Optional */
 	Optional<DecompilingClass> findClass(ClassType classType);
 }

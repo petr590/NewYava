@@ -2,8 +2,8 @@ package x590.newyava.decompilation.operation.invoke;
 
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.io.DecompilationWriter;
@@ -42,9 +42,18 @@ public abstract class InvokeNonstaticOperation extends InvokeOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
-		out.record(object, context, getPriority()).record('.');
+	public void write(DecompilationWriter out, MethodWriteContext context) {
+		if (!canOmitThis(context)) {
+			out.record(object, context, getPriority()).record('.');
+		}
+
+
 		writeNameAndArgs(out, context);
+	}
+
+	private boolean canOmitThis(MethodWriteContext context) {
+		return context.getConfig().canOmitThisAndClass() &&
+				object.isThisRef();
 	}
 
 	@Override

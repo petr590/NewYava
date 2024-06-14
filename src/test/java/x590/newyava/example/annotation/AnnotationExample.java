@@ -1,20 +1,12 @@
 package x590.newyava.example.annotation;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import java.util.List;
+import org.junit.Test;
+import x590.newyava.example.Main;
 
-import static java.lang.annotation.ElementType.*;
-
-@Retention(RetentionPolicy.RUNTIME)
-@Target({TYPE, FIELD, METHOD, PARAMETER, CONSTRUCTOR, LOCAL_VARIABLE, ANNOTATION_TYPE, PACKAGE, TYPE_PARAMETER, TYPE_USE, MODULE, RECORD_COMPONENT})
-public @interface AnnotationExample {
-	int i();
-
-	long l() default -1;
-
-	String[] strings() default { "gg", "bb" };
-
-	Class<?> cls() default List.class;
+@SuppressWarnings("all")
+public class AnnotationExample {
+	@Test
+	public void run() {
+		Main.run(ExampleAnnotation.class);
+	}
 }

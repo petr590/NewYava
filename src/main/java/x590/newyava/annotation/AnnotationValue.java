@@ -1,9 +1,9 @@
 package x590.newyava.annotation;
 
-import x590.newyava.ContextualTypeWritable;
+import x590.newyava.GenericWritable;
 import x590.newyava.Importable;
 import x590.newyava.constant.*;
-import x590.newyava.type.ArrayType;
+import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
@@ -14,7 +14,7 @@ import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public interface AnnotationValue extends ContextualTypeWritable, Importable {
+public interface AnnotationValue extends GenericWritable<ConstantWriteContext>, Importable {
 	static AnnotationValue of(Object value) {
 		return value.getClass().isArray() ?
 				new ArrayValue(asConstantList(value), elementTypeFor(value)) :

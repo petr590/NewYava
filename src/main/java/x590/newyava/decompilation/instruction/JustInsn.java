@@ -1,5 +1,10 @@
 package x590.newyava.decompilation.instruction;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.constant.DoubleConstant;
 import x590.newyava.constant.FloatConstant;
@@ -13,19 +18,23 @@ import x590.newyava.decompilation.operation.array.ArrayLoadOperation;
 import x590.newyava.decompilation.operation.array.ArrayStoreOperation;
 import x590.newyava.decompilation.operation.condition.CmpOperation;
 import x590.newyava.exception.UnknownOpcodeException;
-import x590.newyava.type.AnyObjectType;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.TypeSize;
+import x590.newyava.type.Types;
 
-import static x590.newyava.decompilation.operation.BinaryOperation.Operator.*;
+import static x590.newyava.decompilation.operation.Operator.*;
 import static org.objectweb.asm.Opcodes.*;
 
-public record JustInsn(int opcode) implements Instruction {
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+public class JustInsn implements Instruction {
+	private static final Int2ObjectMap<JustInsn> CACHE = new Int2ObjectOpenHashMap<>();
 
-	@Override
-	public int getOpcode() {
-		return opcode;
+	public static JustInsn of(int opcode) {
+		return CACHE.computeIfAbsent(opcode, JustInsn::new);
 	}
+
+	@Getter
+	private final int opcode;
 
 	@Override
 	public @Nullable Operation toOperation(MethodContext context) {
@@ -52,7 +61,7 @@ public record JustInsn(int opcode) implements Instruction {
 			case LALOAD -> new ArrayLoadOperation(context, PrimitiveType.LONG);
 			case FALOAD -> new ArrayLoadOperation(context, PrimitiveType.FLOAT);
 			case DALOAD -> new ArrayLoadOperation(context, PrimitiveType.DOUBLE);
-			case AALOAD -> new ArrayLoadOperation(context, AnyObjectType.INSTANCE);
+			case AALOAD -> new ArrayLoadOperation(context, Types.ANY_OBJECT_TYPE);
 			case BALOAD -> new ArrayLoadOperation(context, PrimitiveType.BYTE_OR_BOOLEAN);
 			case CALOAD -> new ArrayLoadOperation(context, PrimitiveType.CHAR);
 			case SALOAD -> new ArrayLoadOperation(context, PrimitiveType.SHORT);
@@ -61,7 +70,7 @@ public record JustInsn(int opcode) implements Instruction {
 			case LASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.LONG);
 			case FASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.FLOAT);
 			case DASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.DOUBLE);
-			case AASTORE -> ArrayStoreOperation.valueOf(context, AnyObjectType.INSTANCE);
+			case AASTORE -> ArrayStoreOperation.valueOf(context, Types.ANY_OBJECT_TYPE);
 			case BASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.BYTE_OR_BOOLEAN);
 			case CASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.CHAR);
 			case SASTORE -> ArrayStoreOperation.valueOf(context, PrimitiveType.SHORT);
@@ -152,5 +161,10 @@ public record JustInsn(int opcode) implements Instruction {
 
 			default -> throw new UnknownOpcodeException(opcode);
 		};
+	}
+
+	@Override
+	public String toString() {
+		return String.format("JustInsn(%s)", InsnUtil.opcodeToString(opcode));
 	}
 }

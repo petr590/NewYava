@@ -1,6 +1,8 @@
 package x590.newyava.decompilation.instruction;
 
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.MethodContext;
+import x590.newyava.decompilation.operation.IIncOperation;
 import x590.newyava.decompilation.operation.LoadOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.StoreOperation;
@@ -15,6 +17,15 @@ public record VarInsn(int opcode, int slotId) implements Instruction {
 	@Override
 	public int getOpcode() {
 		return opcode;
+	}
+
+	@Override
+	public @Nullable Operation toOperation(MethodContext context, Instruction next) {
+		if (opcode == ILOAD && next instanceof IIncInsn iinc && iinc.slotId() == slotId) {
+			return IIncOperation.postInc(context, iinc.slotId(), iinc.increment());
+		}
+
+		return null;
 	}
 
 	@Override
@@ -34,5 +45,10 @@ public record VarInsn(int opcode, int slotId) implements Instruction {
 
 			default -> throw new UnknownOpcodeException(opcode);
 		};
+	}
+
+	@Override
+	public String toString() {
+		return String.format("VarInsn(%s, slot=%d)", InsnUtil.opcodeToString(opcode), slotId);
 	}
 }

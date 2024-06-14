@@ -25,4 +25,9 @@ public record TypeInsn(int opcode, String typeName) implements Instruction {
 			default -> throw new UnknownOpcodeException(opcode);
 		};
 	}
+
+	@Override
+	public String toString() {
+		return String.format("TypeInsn(%s, %s)", InsnUtil.opcodeToString(opcode), typeName);
+	}
 }

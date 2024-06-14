@@ -1,6 +1,6 @@
 package x590.newyava.decompilation.operation.terminal;
 
-import x590.newyava.context.Context;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
@@ -14,7 +14,7 @@ public enum ReturnVoidOperation implements ReturnOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		out.record("return");
 	}
 

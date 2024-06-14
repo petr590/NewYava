@@ -6,7 +6,7 @@
 
     <groupId>org.example</groupId>
     <artifactId>NewYava</artifactId>
-    <version>0.5.11</version>
+    <version>0.6.16</version>
 
     <properties>
         <maven.compiler.source>19</maven.compiler.source>

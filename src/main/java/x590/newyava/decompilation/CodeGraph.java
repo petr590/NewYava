@@ -2,7 +2,9 @@ package x590.newyava.decompilation;
 
 import it.unimi.dsi.fastutil.ints.*;
 import it.unimi.dsi.fastutil.objects.*;
+import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
@@ -11,6 +13,7 @@ import x590.newyava.constant.IntConstant;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.instruction.FlowControlInsn;
 import x590.newyava.decompilation.instruction.Instruction;
 import x590.newyava.decompilation.operation.condition.ConstCondition;
@@ -88,7 +91,9 @@ public class CodeGraph implements ReadonlyCode {
 	 * Инициализирует все {@link VariableReference} в таблице переменных,
 	 * которые соответствуют {@code this} и параметрам метода.
 	 */
-	public void initVariables(int maxVariables, List<Type> argTypes, boolean isStatic, Type classType) {
+	public void initVariables(int maxVariables, MethodDescriptor descriptor, boolean isStatic) {
+		var argTypes = descriptor.arguments();
+
 		if (maxVariables < argTypes.size()) {
 			throw new DecompilationException(
 					"maxVariables < argTypes.size(): maxVariables = %d, argTypes.size() = %d",
@@ -104,7 +109,7 @@ public class CodeGraph implements ReadonlyCode {
 			var thisSlot = varTable.get(0);
 
 			if (thisSlot.isEmpty()) {
-				thisSlot.add(new VariableReference(classType, "this", 0, instructions.size()));
+				thisSlot.add(new VariableReference(descriptor.hostClass(), "this", 0, instructions.size()));
 			}
 		}
 
@@ -130,13 +135,13 @@ public class CodeGraph implements ReadonlyCode {
 		methodScope.inferType(PrimitiveType.VOID);
 		methodScope.inferType(PrimitiveType.VOID);
 
-		methodScope.defineVariableOnStore();
+		methodScope.declareVariableOnStore();
 		methodScope.initVariableNames();
 	}
 
 	/* ----------------------------------------------- Decompilation ----------------------------------------------- */
 
-	private Chunk first, last;
+	private Chunk last;
 
 	private @Unmodifiable List<Chunk> chunks;
 	private MethodContext methodContext;
@@ -152,8 +157,11 @@ public class CodeGraph implements ReadonlyCode {
 		return methodScope.isEmpty();
 	}
 
+
+	// ------------------------------------------------- Decompilation -------------------------------------------------
+
 	/** Главный метод всего приложения. Именно здесь происходит вся магия.
-	 * Инициализирует {@link #methodScope}. */
+	 * Декомпилирует все {@link Scope}-ы и инициализирует {@link #methodScope}. */
 	public void decompile(MethodDescriptor descriptor, ClassContext context) {
 		Int2ObjectMap<Chunk> chunkMap = readChunkMap();
 
@@ -187,7 +195,7 @@ public class CodeGraph implements ReadonlyCode {
 		);
 
 		// После if-ов ищем связанные с ними else-ы
-		Int2IntMap elseChunkIds = findElses(chunks, ifChunkIds, new Int2IntOpenHashMap());
+		Int2IntMap elseChunkIds = findElses(chunks, ifChunkIds);
 		addScopes(scopes, chunks, elseChunkIds, ElseScope::new);
 
 		Collections.sort(scopes);
@@ -195,26 +203,10 @@ public class CodeGraph implements ReadonlyCode {
 		methodScope.removeRedundantOperations(methodContext);
 	}
 
-	public void beforeVariablesInit() {
-		methodScope.beforeVariablesInit(methodScope);
-		methodScope.checkCyclicReference();
-	}
-
-
-	/** @return приоритет, в котором должен вызываться метод {@link #initVariables()} */
-	public int getVariablesInitPriority() {
-		return methodScope.getVariablesInitPriority();
-	}
-
-	/** Инициализирует переменные в методе */
-	public void initVariables() {
-		methodScope.initVariables(chunks);
-	}
-
 
 	/** Преобразует список инструкций в карту чанков.
 	 * Ключ - индекс инструкции, значение - чанк, начинающийся на этом индексе.
-	 * Инициализирует {@link #first} и {@link #last} */
+	 * Инициализирует поле {@link #last}. */
 	private Int2ObjectMap<Chunk> readChunkMap() {
 		for (var label : breakpointLabels) {
 			breakpoints.add(labels.getInt(label));
@@ -222,7 +214,7 @@ public class CodeGraph implements ReadonlyCode {
 
 		breakpoints.remove(0); // На индексе 0 всегда начинается первый чанк
 
-		Chunk current = first = new Chunk(0, 0, varTable.listView());
+		Chunk current = new Chunk(0, 0, varTable.listView());
 
 		var chunkMap = new Int2ObjectOpenHashMap<Chunk>();
 		chunkMap.put(0, current);
@@ -296,6 +288,9 @@ public class CodeGraph implements ReadonlyCode {
 
 		return methodScope;
 	}
+
+
+	// --------------------------------------- Find loops, switches, ifs, elses ----------------------------------------
 
 	/**
 	 * Ищет все циклы и сохраняет их индексы.
@@ -398,70 +393,148 @@ public class CodeGraph implements ReadonlyCode {
 	 * @return Карту: ключ - id первого чанка, не включающего условие, значение - id чанка после if-а
 	 */
 	private Int2IntMap findIfs(@Unmodifiable List<Chunk> chunks) {
-		Int2IntMap ifChunkIds = new Int2IntOpenHashMap();
+		List<Entry> ifEntries = new LinkedList<>();
 
 		for (Chunk chunk : chunks) {
 			Chunk jumpChunk = chunk.getConditionalChunk();
 
-			if (jumpChunk != null && chunk.canTakeRole()) {
+			if (jumpChunk != null && chunk.getCondition() != ConstCondition.TRUE && chunk.canTakeRole()) {
 				int jumpId = jumpChunk.getId();
 
-				if (jumpId > chunk.getId() && chunk.getCondition() != ConstCondition.TRUE) {
-
+				if (jumpId > chunk.getId()) {
 					// Не берём чанк с самим условием, так как
 					// в нём может быть код, не относящийся к if
 					int startChunkId = chunk.getId() + 1;
 
-					var anotherEntry = ifChunkIds.int2IntEntrySet().stream()
-							.filter(entry -> entry.getIntValue() == jumpId).findFirst();
-
-					// Проверяем что нашли "and"
-					if (anotherEntry.isPresent() &&
-						anotherEntry.get().getIntKey() == chunk.getId() &&
-						chunk.getOperations().isEmpty()) {
-
-						var anotherChunk = chunks.get(chunk.getId() - 1);
-
-						// При получении условия IfScope оно инвертируется, так что "or" станет "and"
-						anotherChunk.changeCondition(
-								OperatorCondition.or(anotherChunk.requireCondition(), chunk.requireCondition())
-						);
-
-
-						chunk.changeCondition(ConstCondition.FALSE);
-
-					} else {
-						ifChunkIds.put(startChunkId, jumpId);
-					}
+					ifEntries.add(new Entry(startChunkId, startChunkId, jumpId));
 
 					chunk.initRole(Role.IF_BRANCH);
 				}
 			}
 		}
 
-		return ifChunkIds;
+		boolean result;
+
+		do {
+			result = collapseConditions(chunks, ifEntries);
+		} while (result);
+
+
+		return ifEntries.stream().collect(
+				Int2IntOpenHashMap::new,
+				(map, entry) -> map.put(entry.end, entry.jump),
+				(m1, m2) -> {}
+		);
 	}
+
+
+	@ToString
+	@AllArgsConstructor
+	private static final class Entry {
+		/** Индекс чанка, на котором начинается условие */
+		private int start;
+
+		/** Индекс первого чанка после условия */
+		private int end;
+
+		/** Индекс чанка, на который совершается переход */
+		private int jump;
+	}
+
+
+	/** Объединяет отдельные условия в "and" и "or" условия.
+	 * Изменяет {@code ifEntries} в процессе. */
+	private boolean collapseConditions(@Unmodifiable List<Chunk> chunks, List<Entry> ifEntries) {
+		for (var entry2 : ifEntries) {
+			var foundEntry = ifEntries.stream().filter(entry1 -> entry1 != entry2 && entry1.end + 1 == entry2.start).findAny();
+
+			if (foundEntry.isPresent()) {
+				var entry1 = foundEntry.get();
+
+				// Нашли "and" или "or"
+				if (entry1.jump == entry2.jump ||
+					entry1.jump == entry2.end) {
+
+					Chunk chunk1 = chunks.get(entry1.end - 1),
+						  chunk2 = chunks.get(entry2.end - 1);
+
+					// Между условиями не должно быть другого кода
+					if (!chunk2.getOperations().isEmpty()) continue;
+
+					// В IfScope условие инвертируется, поэтому "and" станет "or", и наоборот
+
+					if (entry1.jump == entry2.jump) { // and
+						chunk2.changeCondition(OperatorCondition.or(
+								chunk1.requireCondition(),
+								chunk2.requireCondition()
+						));
+
+					} else { // or
+						chunk2.changeCondition(OperatorCondition.and(
+								chunk1.requireCondition().opposite(),
+								chunk2.requireCondition()
+						));
+					}
+
+					chunk1.changeCondition(ConstCondition.FALSE);
+
+					entry2.start = entry1.start;
+					ifEntries.remove(entry1);
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+
+
 
 	/**
 	 * Ищет все else-ы и сохраняет их индексы в {@code elseChunkIds}.
 	 * @param ifChunkIds найденные if-ы
-	 * @param elseChunkIds ключ - id начального чанка, значение - id чанка после else-а
-	 * @return {@code elseChunkIds}
+	 * @return Карту: ключ - id начального чанка, значение - id чанка после else-а
 	 */
-	private Int2IntMap findElses(@Unmodifiable List<Chunk> chunks, Int2IntMap ifChunkIds, Int2IntMap elseChunkIds) {
+	private Int2IntMap findElses(@Unmodifiable List<Chunk> chunks, Int2IntMap ifChunkIds) {
+		Int2IntMap elseChunkIds = new Int2IntOpenHashMap();
+
 		for (Int2IntMap.Entry entry : ifChunkIds.int2IntEntrySet()) {
 			Chunk lastIfChunk = chunks.get(entry.getIntValue() - 1);
 
 			if (lastIfChunk.canTakeRole() &&
-				lastIfChunk.requireCondition() == ConstCondition.TRUE &&
-				lastIfChunk.requireConditionalChunk().getId() > lastIfChunk.getId()) {
+				lastIfChunk.requireCondition() == ConstCondition.TRUE) {
 
-				elseChunkIds.put(lastIfChunk.getId() + 1, lastIfChunk.requireConditionalChunk().getId());
-				lastIfChunk.initRole(Role.ELSE_BRANCH);
+				int start = lastIfChunk.getId(),
+					end = lastIfChunk.requireConditionalChunk().getId();
+
+				if (start < end) {
+					elseChunkIds.put(start + 1, end);
+					lastIfChunk.initRole(Role.ELSE_BRANCH);
+				}
 			}
 		}
 
 		return elseChunkIds;
+	}
+
+
+	// ----------------------------------------------- After decompiling -----------------------------------------------
+
+	public void beforeVariablesInit() {
+		methodScope.beforeVariablesInit(methodScope);
+		methodScope.checkCyclicReference();
+	}
+
+
+	/** @return приоритет, в котором должен вызываться метод {@link #initVariables()} */
+	public int getVariablesInitPriority() {
+		return methodScope.getVariablesInitPriority();
+	}
+
+	/** Инициализирует переменные в методе */
+	public void initVariables() {
+		methodScope.initVariables(visitor.getLocalVarsStart(), chunks);
 	}
 
 
@@ -472,6 +545,6 @@ public class CodeGraph implements ReadonlyCode {
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		out.record(methodScope, context);
+		out.record(methodScope, new MethodWriteContext(context, methodScope));
 	}
 }

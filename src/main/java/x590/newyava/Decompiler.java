@@ -75,6 +75,7 @@ public class Decompiler {
 		}
 	}
 
+
 	private static InputStream getResource(Class<?> clazz) throws IOException {
 		String path = clazz.getName().substring(clazz.getPackageName().length() + 1) + ".class";
 
@@ -83,8 +84,10 @@ public class Decompiler {
 
 	private static InputStream getResource(ClassLoader classLoader, String className) throws IOException {
 		String path = className.replace('.', '/') + ".class";
+
 		return throwIOExceptionIfNull(classLoader.getResourceAsStream(path), className);
 	}
+
 
 	private static InputStream throwIOExceptionIfNull(@Nullable InputStream inputStream, String className) throws IOException {
 		if (inputStream == null) {

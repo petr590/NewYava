@@ -1,5 +1,6 @@
 package x590.newyava.visitor;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
@@ -8,11 +9,10 @@ import x590.newyava.Decompiler;
 import x590.newyava.Modifiers;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.annotation.DefaultValue;
-import x590.newyava.context.ClassContext;
 import x590.newyava.decompilation.CodeGraph;
 import x590.newyava.decompilation.instruction.*;
 import x590.newyava.descriptor.MethodDescriptor;
-import x590.newyava.io.SignatureReader;
+import x590.newyava.type.ClassType;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
 
@@ -25,14 +25,15 @@ import static org.objectweb.asm.Opcodes.*;
 
 @Getter
 public class DecompileMethodVisitor extends MethodVisitor {
-
+	@Getter(AccessLevel.NONE)
 	private final Decompiler decompiler;
 
-	private final String className;
 	private final int modifiers;
-	private final String name, descriptor;
+	private final MethodDescriptor descriptor;
 	private final @Nullable String signature;
-	private final String @Nullable[] exceptions;
+
+	private final @Unmodifiable List<ReferenceType> exceptions;
+
 	private final List<DecompilingAnnotation> annotations = new ArrayList<>();
 
 	private @Nullable DefaultValue defaultValue;
@@ -40,33 +41,30 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	// Является @Nullable, но это не указывается из-за кучи предупреждений
 	private CodeGraph codeGraph;
 
-	public DecompileMethodVisitor(Decompiler decompiler, String className, int modifiers, String name, String descriptor,
-	                              @Nullable String signature, String @Nullable[] exceptions) {
+	/** Слот, на котором начинаются переменные, объявленные в методе */
+	private final int localVarsStart;
+
+	public DecompileMethodVisitor(Decompiler decompiler, ClassType hostClass, int modifiers, String name,
+	                              String argsAndReturnType, @Nullable String signature, String @Nullable[] exceptions) {
 
 		super(Opcodes.ASM9);
 
 		this.decompiler = decompiler;
 
-		this.className = className;
 		this.modifiers = modifiers;
-		this.name = name;
-		this.descriptor = descriptor;
+		this.descriptor = MethodDescriptor.of(hostClass, name, argsAndReturnType);
 		this.signature = signature;
-		this.exceptions = exceptions;
+		this.exceptions = exceptions == null ?
+				Collections.emptyList() :
+				Arrays.stream(exceptions).map(ReferenceType::valueOf).toList();
+
+		this.localVarsStart =
+				((modifiers & ACC_STATIC) == 0 ? 1 : 0) +
+				descriptor.arguments().stream().mapToInt(type -> type.getSize().slots()).sum();
 	}
 
 	public @Nullable CodeGraph getCodeGraph() {
 		return codeGraph;
-	}
-
-	public MethodDescriptor getDescriptor(ClassContext context) {
-		return MethodDescriptor.of(context.getThisType(), name, descriptor);
-	}
-
-	public @Unmodifiable List<ReferenceType> getExceptions() {
-		return exceptions == null ?
-				Collections.emptyList() :
-				Arrays.stream(exceptions).map(ReferenceType::valueOf).toList();
 	}
 
 	public @Unmodifiable List<DecompilingAnnotation> getAnnotations() {
@@ -85,6 +83,8 @@ public class DecompileMethodVisitor extends MethodVisitor {
 		return defaultValue = new DefaultValue();
 	}
 
+	// ----------------------------------------------------- code ------------------------------------------------------
+
 	@Override
 	public void visitCode() {
 		codeGraph = new CodeGraph(this);
@@ -94,30 +94,27 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	public void visitLocalVariable(String name, String descriptor, @Nullable String signature,
 	                               Label start, Label end, int slotId) {
 
-		if (!decompiler.getConfig().isIgnoreVariableTable()) {
+		if (!decompiler.getConfig().ignoreVariableTable()) {
 			codeGraph.setVariable(slotId, Type.valueOf(descriptor), name, start, end);
 		}
 	}
 
 	@Override
 	public void visitMaxs(int maxStack, int maxLocals) {
-		codeGraph.initVariables(maxLocals,
-				Type.parseMethodArguments(new SignatureReader(descriptor)),
-				(modifiers & Modifiers.ACC_STATIC) != 0,
-				ReferenceType.valueOf(className));
+		codeGraph.initVariables(maxLocals, descriptor, (modifiers & Modifiers.ACC_STATIC) != 0);
 	}
 
 	@Override
 	public void visitInsn(int opcode) {
 		codeGraph.addInstruction(switch (opcode) {
-			case IRETURN -> ReturnInsn.IRETURN;
-			case LRETURN -> ReturnInsn.LRETURN;
-			case FRETURN -> ReturnInsn.FRETURN;
-			case DRETURN -> ReturnInsn.DRETURN;
-			case ARETURN -> ReturnInsn.ARETURN;
-			case RETURN  -> ReturnInsn.RETURN;
-			case ATHROW  -> ThrowInsn.INSTANCE;
-			default -> new JustInsn(opcode);
+			case IRETURN -> TerminalInsn.IRETURN;
+			case LRETURN -> TerminalInsn.LRETURN;
+			case FRETURN -> TerminalInsn.FRETURN;
+			case DRETURN -> TerminalInsn.DRETURN;
+			case ARETURN -> TerminalInsn.ARETURN;
+			case RETURN  -> TerminalInsn.RETURN;
+			case ATHROW  -> TerminalInsn.ATHROW;
+			default -> JustInsn.of(opcode);
 		});
 	}
 
@@ -127,8 +124,8 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	}
 
 	@Override
-	public void visitVarInsn(int opcode, int varIndex) {
-		codeGraph.addInstruction(new VarInsn(opcode, varIndex));
+	public void visitVarInsn(int opcode, int slotId) {
+		codeGraph.addInstruction(new VarInsn(opcode, slotId));
 	}
 
 	@Override
@@ -165,8 +162,8 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	}
 
 	@Override
-	public void visitIincInsn(int varIndex, int increment) {
-		codeGraph.addInstruction(new IIncInsn(varIndex, increment));
+	public void visitIincInsn(int slotId, int increment) {
+		codeGraph.addInstruction(new IIncInsn(slotId, increment));
 	}
 
 	@Override

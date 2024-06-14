@@ -9,8 +9,8 @@ import x590.newyava.constant.FloatConstant;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.constant.LongConstant;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.ConstNullOperation;
 import x590.newyava.decompilation.operation.LdcOperation;
 import x590.newyava.decompilation.operation.Operation;
@@ -81,15 +81,12 @@ public class NewArrayOperation implements Operation {
 
 	boolean addInitializer(int index, Operation value) {
 		if (initializers != null && index < initializers.size()) {
-//			value.updateReturnType(arrayType.getElementType()); // FIRST_TYPE_ASSIGNMENT
 			initializers.set(index, value);
-
 			useInitializersList = true;
-
 			return true;
-		} else {
-			return false;
 		}
+
+		return false;
 	}
 
 	public boolean hasInitializer() {
@@ -97,7 +94,7 @@ public class NewArrayOperation implements Operation {
 	}
 
 	@Override
-	public Type getReturnType() {
+	public ArrayType getReturnType() {
 		return arrayType;
 	}
 
@@ -106,6 +103,7 @@ public class NewArrayOperation implements Operation {
 		if (initializers != null) {
 			var type = arrayType.getElementType();
 			initializers.forEach(initializer -> initializer.inferType(type));
+			initializers.forEach(Operation::allowImplicitCast);
 		}
 	}
 
@@ -134,17 +132,17 @@ public class NewArrayOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		if (useInitializersList) {
 			out .recordSp("new").record(memberType, context)
-				.recordN("[]", arrayType.getNestLevel()).recordSp();
+				.recordN("[]", arrayType.getNestLevel()).space();
 		}
 
 		writeAsArrayInitializer(out, context);
 	}
 
 	@Override
-	public void writeAsArrayInitializer(DecompilationWriter out, Context context) {
+	public void writeAsArrayInitializer(DecompilationWriter out, MethodWriteContext context) {
 		if (useInitializersList) {
 			if (Objects.requireNonNull(initializers).isEmpty()) {
 				out.record("{}");

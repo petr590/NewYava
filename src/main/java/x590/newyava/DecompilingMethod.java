@@ -8,12 +8,12 @@ import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.annotation.DefaultValue;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.context.Context;
 import x590.newyava.decompilation.CodeGraph;
 import x590.newyava.decompilation.ReadonlyCode;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
-import x590.newyava.exception.DisassemblingException;
 import x590.newyava.exception.IllegalModifiersException;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ArrayType;
@@ -34,7 +34,11 @@ import static x590.newyava.Modifiers.*;
 public class DecompilingMethod implements ContextualWritable, Importable {
 	private final int modifiers;
 
+	/** Формальный дескриптор */
 	private final MethodDescriptor descriptor;
+
+	/** Видимый дескриптор. Инициализируется после декомпиляции */
+	private MethodDescriptor visibleDescriptor;
 
 	private final @Unmodifiable List<DecompilingAnnotation> annotations;
 
@@ -43,11 +47,16 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 	private final @Nullable DefaultValue defaultValue;
 
 	@Getter(AccessLevel.NONE)
-	private final @Nullable CodeGraph codeGraph;
+	private @Nullable CodeGraph codeGraph;
 
-	public DecompilingMethod(DecompileMethodVisitor visitor, ClassContext context) {
+	/** Сообщение об исключении, произошедшем во время декомпиляции */
+	@Getter(AccessLevel.NONE)
+	private @Nullable String exceptionMessage;
+
+	public DecompilingMethod(DecompileMethodVisitor visitor) {
 		this.modifiers    = visitor.getModifiers();
-		this.descriptor   = visitor.getDescriptor(context);
+		this.descriptor   = visitor.getDescriptor();
+
 		this.annotations  = visitor.getAnnotations();
 		this.exceptions   = visitor.getExceptions();
 		this.defaultValue = visitor.getDefaultValue();
@@ -64,13 +73,84 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 				codeGraph.decompile(descriptor, context);
 
 			} catch (DecompilationException ex) {
-				ex.setMethodDescriptor(descriptor);
-				throw ex;
+				handleException(ex, context);
 
-			} catch (DisassemblingException ex) {
-				throw new DecompilationException(ex, descriptor);
+			} catch (Exception ex) {
+				handleException(new DecompilationException(ex), context);
 			}
 		}
+
+		this.visibleDescriptor = getVisibleDescriptor(context);
+	}
+
+	private void handleException(DecompilationException ex, ClassContext context) {
+		if (context.getConfig().failOnDecompilationException()) {
+			ex.setMethodDescriptor(descriptor);
+			throw ex;
+		}
+
+		exceptionMessage = ex.getMessage();
+		codeGraph = null;
+		ex.setMethodDescriptor(descriptor);
+		ex.printStackTrace();
+	}
+
+	private MethodDescriptor getVisibleDescriptor(ClassContext context) {
+		if (descriptor.isConstructor()) {
+			if (context.isEnumClass()) {
+				return descriptor.slice(2);
+			}
+
+			if (codeGraph != null) {
+				return descriptor.slice(codeGraph.getMethodScope().getArgsStart());
+			}
+		}
+
+		return descriptor;
+	}
+
+	/** Можно ли оставить метод в классе.
+	 * Должен вызываться только после {@link #decompile(ClassContext)} */
+	public boolean keep(ClassContext context) {
+		if ((modifiers & ACC_SYNTHETIC) != 0) {
+			return false;
+		}
+
+		var visDesc = visibleDescriptor;
+
+		if (codeGraph != null && codeGraph.isEmpty()) {
+			// Пустой static {}
+			if (visDesc.isStaticInitializer()) {
+				return false;
+			}
+
+			// Одиночный пустой конструктор
+			if (visDesc.isConstructor() && visDesc.arguments().isEmpty() &&
+					context.findMethods(method -> method.getDescriptor().isConstructor()).count() == 1) {
+
+				return false;
+			}
+		}
+
+		// Конструктор в анонимном классе
+		if (visDesc.isConstructor() && visDesc.hostClass().isAnonymous()) {
+			return false;
+		}
+
+		// Автосгенерированные методы enum-класса
+		if (context.isEnumClass()) {
+			var enumType = context.getThisType();
+
+			return  !visDesc.equals(enumType, "valueOf", enumType, List.of(ClassType.STRING)) &&
+					!visDesc.equals(enumType, "values", ArrayType.forType(enumType));
+		}
+
+		// Геттеры полей в record
+		if ((context.getClassModifiers() & ACC_RECORD) != 0) {
+			return codeGraph == null || !codeGraph.getMethodScope().isRecordInvokedynamic();
+		}
+
+		return true;
 	}
 
 	public int getVariablesInitPriority() {
@@ -95,45 +175,6 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		}
 	}
 
-	/** Можно ли оставить метод в классе.
-	 * Должен вызываться только после {@link #decompile(ClassContext)} */
-	public boolean keep(ClassContext context) {
-		if ((modifiers & ACC_SYNTHETIC) != 0) {
-			return false;
-		}
-
-		if (codeGraph != null && codeGraph.isEmpty()) {
-			// Пустой static {}
-			if (descriptor.isStaticInitializer()) {
-				return false;
-			}
-
-			// Одиночный пустой конструктор
-			if (descriptor.isConstructor() &&
-					context.findMethods(method -> method.getDescriptor().isConstructor()).count() == 1) {
-
-				return false;
-			}
-		}
-
-		if (descriptor.isConstructor() && descriptor.hostClass().isAnonymous()) {
-			return false;
-		}
-
-		if (context.isEnumClass()) {
-			var enumType = context.getThisType();
-
-			return  !descriptor.equals(enumType, "valueOf", enumType, List.of(ClassType.STRING)) &&
-					!descriptor.equals(enumType, "values", ArrayType.forType(enumType));
-		}
-
-		if ((context.getClassModifiers() & ACC_RECORD) != 0) {
-			return codeGraph == null || !codeGraph.getMethodScope().isRecordInvokedynamic();
-		}
-
-		return true;
-	}
-
 	@Override
 	public void addImports(ClassContext context) {
 		context .addImportsFor(descriptor).addImportsFor(annotations)
@@ -152,20 +193,24 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		boolean isStatic = (modifiers & ACC_STATIC) != 0;
 		var variables = codeGraph == null ? null : codeGraph.getMethodScope().getVariables();
 
-		descriptor.write(out, context, isStatic, variables);
+		visibleDescriptor.write(out, context, isStatic, variables);
 
 		if (!exceptions.isEmpty()) {
 			out.record(" throws ").record(exceptions, context, ", ");
 		}
 
 		if (defaultValue != null) {
-			out.record(" default ").record(defaultValue.getAnnotationValue(), context, descriptor.returnType());
+			out.record(" default ").record(defaultValue.getAnnotationValue(), new ConstantWriteContext(context, descriptor.returnType(), true));
 		}
 
-		if (codeGraph != null) {
-			out.recordSp().record(codeGraph, context);
+		if (codeGraph != null && exceptionMessage == null) {
+			out.space().record(codeGraph, context);
 		} else {
 			out.record(';');
+
+			if (exceptionMessage != null) {
+				out.record(" /* ").record(exceptionMessage).record(" */");
+			}
 		}
 	}
 

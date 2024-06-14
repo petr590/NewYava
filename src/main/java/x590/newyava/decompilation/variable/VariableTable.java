@@ -13,9 +13,7 @@ public class VariableTable implements VariableTableView {
 	private final List<VariableSlot> slots = new ArrayList<>();
 
 	public void extendTo(int size) {
-		var slots = this.slots;
-
-		while (slots.size() <= size) {
+		for (var slots = this.slots; slots.size() <= size; ) {
 			slots.add(new VariableSlot(slots.size()));
 		}
 	}

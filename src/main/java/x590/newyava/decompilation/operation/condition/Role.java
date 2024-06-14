@@ -97,7 +97,7 @@ public interface Role {
 			out.record(literal);
 
 			if (labelName != null) {
-				out.recordSp().record(labelName);
+				out.space().record(labelName);
 			}
 		}
 	}

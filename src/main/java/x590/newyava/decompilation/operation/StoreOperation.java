@@ -2,30 +2,27 @@ package x590.newyava.decompilation.operation;
 
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.io.DecompilationWriter;
-import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
 import java.util.List;
+import java.util.Objects;
 
-public class StoreOperation implements Operation {
+public class StoreOperation extends AssignOperation {
 	private final VariableReference varRef;
-
-	private final Operation value;
 
 	private boolean definition;
 
-	public StoreOperation(MethodContext context, int index, Type requiredType) {
-		this.varRef = context.getVarRef(index);
-		this.value = context.popAs(requiredType);
-	}
+	public StoreOperation(MethodContext context, int slotId, Type requiredType) {
+		super(
+				context, context.popAs(requiredType), null,
+				operation -> operation instanceof LoadOperation load && load.getSlotId() == slotId
+		);
 
-	@Override
-	public Type getReturnType() {
-		return PrimitiveType.VOID;
+		this.varRef = context.getVarRef(slotId);
 	}
 
 	@Override
@@ -35,42 +32,51 @@ public class StoreOperation implements Operation {
 
 	@Override
 	public void inferType(Type ignored) {
-		varRef.assignUp(value.getReturnType());
+		super.inferType(ignored);
+
+		varRef.assignUp(Objects.requireNonNull(value).getReturnType());
 		value.inferType(varRef.getType());
 	}
 
 	@Override
-	public void defineVariableOnStore() {
-		if (varRef.attemptDefine()) {
+	public void declareVariableOnStore() {
+		if (varRef.attemptDeclare()) {
 			definition = true;
 		}
 
-		Operation.super.defineVariableOnStore();
+		super.declareVariableOnStore();
 	}
 
 	@Override
 	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(value);
-	}
-
-	@Override
-	public Priority getPriority() {
-		return Priority.ASSIGNMENT;
+		return List.of(Objects.requireNonNull(value));
 	}
 
 	@Override
 	public void addImports(ClassContext context) {
 		context.addImportsFor(value);
+
+		if (definition) {
+			context.addImport(varRef.getType());
+		}
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		if (definition) {
-			out.record(varRef.getType(), context).recordSp();
+			out.recordSp(varRef.getType(), context);
 		}
 
-		out.record(varRef.getName()).record(" = ");
+		super.write(out, context);
+	}
 
+	@Override
+	protected void writeTarget(DecompilationWriter out, MethodWriteContext context) {
+		out.record(varRef.getName());
+	}
+
+	@Override
+	protected void writeValue(DecompilationWriter out, MethodWriteContext context) {
 		out.record(
 				value, context, getPriority(),
 				definition && Type.isArray(varRef.getType()) ?

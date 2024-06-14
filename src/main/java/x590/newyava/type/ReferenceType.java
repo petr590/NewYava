@@ -12,8 +12,16 @@ public interface ReferenceType extends Type {
 
 	List<? extends ReferenceType> getInterfaces();
 
+	default boolean isNested() {
+		return false;
+	}
+
 	default boolean isAnonymous() {
 		return false;
+	}
+
+	default @Nullable ClassType getOuter() {
+		return null;
 	}
 
 	static boolean isAssignable(ReferenceType givenType, ReferenceType requiredType) {

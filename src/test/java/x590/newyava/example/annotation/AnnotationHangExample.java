@@ -1,8 +1,8 @@
 package x590.newyava.example.annotation;
 
 import org.junit.Test;
-import x590.newyava.Main;
-import x590.newyava.example.enums.ExampleEnum;
+import x590.newyava.example.Main;
+import x590.newyava.example.enums.EnumExample;
 
 import java.util.List;
 import java.util.Map;
@@ -18,7 +18,7 @@ import static x590.newyava.example.annotation.Annotations.*;
 @DoubleAnnotation(val = 1, arr = {1})
 @BooleanAnnotation(val = true, arr = {true})
 @StringAnnotation(val = "hello", arr = {"hello"})
-@EnumAnnotation(val = ExampleEnum.A, arr = {ExampleEnum.A})
+@EnumAnnotation(val = EnumExample.A, arr = {EnumExample.A})
 @ClassAnnotation(val = int.class, arr = {int.class})
 @AnnotationAnnotation(val = @SomeAnnotation, arr = {@SomeAnnotation})
 @SuppressWarnings("all")

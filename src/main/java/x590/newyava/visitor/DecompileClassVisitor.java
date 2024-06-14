@@ -9,7 +9,6 @@ import x590.newyava.DecompilingField;
 import x590.newyava.DecompilingMethod;
 import x590.newyava.EntryType;
 import x590.newyava.annotation.DecompilingAnnotation;
-import x590.newyava.context.ClassContext;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
 
@@ -31,9 +30,17 @@ public class DecompileClassVisitor extends ClassVisitor {
 
 	private String name;
 
-	private @Nullable String superName;
+	@Getter
+	private ClassType thisType;
 
-	private String[] interfaces;
+	/** Суперкласс. Для {@code java.lang.Object} - сам {@code java.lang.Object}.
+	 * Это нужно для избегания проверок на {@code null} */
+	@Getter
+	private ClassType superType;
+
+	@Getter
+	private @Unmodifiable List<ClassType> interfaces;
+
 	private @Nullable String signature;
 
 
@@ -57,8 +64,9 @@ public class DecompileClassVisitor extends ClassVisitor {
 		this.version = version;
 		this.modifiers = modifiers;
 		this.name = name;
-		this.superName = superName;
-		this.interfaces = interfaces;
+		this.thisType = ClassType.valueOf(name);
+		this.superType = superName == null ? ClassType.OBJECT : ClassType.valueOf(superName);
+		this.interfaces = Arrays.stream(interfaces).map(ClassType::valueOf).toList();
 		this.signature = signature;
 
 		super.visit(version, modifiers, name, signature, superName, interfaces);
@@ -94,8 +102,11 @@ public class DecompileClassVisitor extends ClassVisitor {
 			if (outerName != null) {
 				assert !outerName.equals(name) : outerName;
 				this.outerClassName = outerName;
-				ClassType.checkOrUpdateNested(innerName, outerName);
 			}
+		}
+
+		if (outerName != null) {
+			ClassType.checkOrUpdateNested(innerName, outerName);
 		}
 	}
 
@@ -105,7 +116,7 @@ public class DecompileClassVisitor extends ClassVisitor {
 
 		super.visitField(modifiers, name, descriptor, signature, value);
 
-		var fieldVisitor = new DecompileFieldVisitor(modifiers, name, descriptor, signature, value);
+		var fieldVisitor = new DecompileFieldVisitor(thisType, modifiers, name, descriptor, signature, value);
 		fieldVisitors.add(fieldVisitor);
 		return fieldVisitor;
 	}
@@ -116,7 +127,7 @@ public class DecompileClassVisitor extends ClassVisitor {
 
 		super.visitMethod(modifiers, name, descriptor, signature, exceptions);
 
-		var methodVisitor = new DecompileMethodVisitor(decompiler, this.name, modifiers, name, descriptor, signature, exceptions);
+		var methodVisitor = new DecompileMethodVisitor(decompiler, thisType, modifiers, name, descriptor, signature, exceptions);
 		methodVisitors.add(methodVisitor);
 		return methodVisitor;
 	}
@@ -133,25 +144,6 @@ public class DecompileClassVisitor extends ClassVisitor {
 		super.visitAttribute(attr);
 	}
 
-	@Override
-	public void visitEnd() {
-		super.visitEnd();
-	}
-
-	public ClassType getThisType() {
-		return ClassType.valueOf(name);
-	}
-
-	/** @return суперкласс. Для {@code java.lang.Object} возвращает себя же.
-	 * Это нужно для избегания проверок на {@code null} */
-	public ClassType getSuperType() {
-		return superName == null ? ClassType.OBJECT : ClassType.valueOf(superName);
-	}
-
-	public @Unmodifiable List<ClassType> getInterfaces() {
-		return Arrays.stream(interfaces).map(ClassType::valueOf).toList();
-	}
-
 	public @Nullable ClassType getOuterClassType() {
 		return outerClassName == null ? null : ClassType.valueOf(outerClassName);
 	}
@@ -161,12 +153,12 @@ public class DecompileClassVisitor extends ClassVisitor {
 				MethodDescriptor.of(ClassType.valueOf(outerClassName), enclosingMethodName, enclosingMethodDesc);
 	}
 
-	public @Unmodifiable List<DecompilingField> getFields(ClassContext context) {
-		return fieldVisitors.stream().map(visitor -> new DecompilingField(visitor, context)).toList();
+	public @Unmodifiable List<DecompilingField> getFields() {
+		return fieldVisitors.stream().map(DecompilingField::new).toList();
 	}
 
-	public @Unmodifiable List<DecompilingMethod> getMethods(ClassContext context) {
-		return methodVisitors.stream().map(visitor -> new DecompilingMethod(visitor, context)).toList();
+	public @Unmodifiable List<DecompilingMethod> getMethods() {
+		return methodVisitors.stream().map(DecompilingMethod::new).toList();
 	}
 
 	public @Unmodifiable List<DecompilingAnnotation> getAnnotations() {

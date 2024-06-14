@@ -44,4 +44,9 @@ public abstract sealed class Constant implements AnnotationValue
 	}
 
 	public abstract Type getType();
+
+	/** @return {@code true}, если значение константы равно переданному значению, иначе {@code false} */
+	public boolean valueEquals(int value) {
+		return false;
+	}
 }

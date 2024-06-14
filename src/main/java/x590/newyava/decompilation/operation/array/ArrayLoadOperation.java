@@ -1,9 +1,10 @@
 package x590.newyava.decompilation.operation.array;
 
+import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
@@ -15,15 +16,21 @@ import java.util.List;
 
 public class ArrayLoadOperation implements Operation {
 
+	@Getter
 	private final Operation array, index;
 
-	private final Type requiredType, returnType;
+	private final ArrayType arrayRequiredType;
+	private Type returnType;
 
 	public ArrayLoadOperation(MethodContext context, Type requiredType) {
 		this.index = context.popAs(PrimitiveType.INT);
-		this.array = context.popAs(ArrayType.forType(requiredType));
-		this.requiredType = requiredType;
-		this.returnType = ((ArrayType)array.getReturnType()).getElementType();
+
+		this.arrayRequiredType = ArrayType.forType(requiredType);
+		this.array = context.popAs(arrayRequiredType);
+
+		this.returnType =
+				array.getReturnType() instanceof ArrayType arrayType ?
+				arrayType.getElementType() : requiredType;
 	}
 
 	@Override
@@ -34,7 +41,11 @@ public class ArrayLoadOperation implements Operation {
 	@Override
 	public void inferType(Type ignored) {
 		index.inferType(PrimitiveType.INT);
-		array.inferType(requiredType);
+		array.inferType(arrayRequiredType);
+
+		if (array.getReturnType() instanceof ArrayType arrayType) {
+			this.returnType = arrayType.getElementType();
+		}
 	}
 
 	@Override
@@ -48,7 +59,7 @@ public class ArrayLoadOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		out.record(array, context, getPriority())
 			.record('[').record(index, context, Priority.ZERO).record(']');
 	}

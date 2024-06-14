@@ -2,7 +2,10 @@ package x590.newyava.example.variable;
 
 import org.junit.Test;
 import x590.newyava.Config;
-import x590.newyava.Main;
+import x590.newyava.example.Main;
+
+import javax.swing.text.html.HTMLDocument;
+import java.net.URL;
 
 @SuppressWarnings("all")
 public class NamesExample {
@@ -10,6 +13,8 @@ public class NamesExample {
 	public void run() {
 		Main.run(this, Config.builder().ignoreVariableTable(true).build());
 	}
+
+	private void test(URL url, HTMLDocument htmlDocument, Character character) {}
 
 	// OMG
 	public void test(Abstract abs, Assert assrt, Boolean bool, Break brk, Byte b, Case cs, Catch ctch,

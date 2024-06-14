@@ -2,8 +2,8 @@ package x590.newyava.decompilation.operation;
 
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
@@ -48,11 +48,11 @@ public class UnaryOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		out.record(operator);
 
 		if (operand instanceof UnaryOperation unary && unary.operator.equals(operator))
-			out.recordSp();
+			out.space();
 
 		out.record(operand, context, getPriority());
 	}
