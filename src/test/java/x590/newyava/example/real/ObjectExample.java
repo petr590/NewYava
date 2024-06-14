@@ -1,7 +1,7 @@
 package x590.newyava.example.real;
 
 import org.junit.Test;
-import x590.newyava.Main;
+import x590.newyava.example.Main;
 
 @SuppressWarnings("all")
 public class ObjectExample {

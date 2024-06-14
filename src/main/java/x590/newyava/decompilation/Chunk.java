@@ -8,12 +8,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 import org.jetbrains.annotations.UnmodifiableView;
 import org.objectweb.asm.Label;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.instruction.FlowControlInsn;
 import x590.newyava.decompilation.instruction.Instruction;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.ProxyOperation;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.decompilation.operation.condition.JumpOperation;
 import x590.newyava.decompilation.operation.condition.Role;
@@ -54,6 +56,11 @@ public class Chunk implements Comparable<Chunk> {
 
 	@Getter
 	private final List<Operation> operations = new ArrayList<>();
+
+	/** Прокси всех операций, оставшихся на стеке после декомпиляции чанка. */
+	@Getter
+	private @Unmodifiable List<ProxyOperation> leftOperations;
+
 
 	/** Операция условного/безусловного перехода в конце чанка или {@code null}, если такой операции нет.
 	 * Примечание: {@code return} и {@code throw} не являются операциями перехода. */
@@ -132,8 +139,20 @@ public class Chunk implements Comparable<Chunk> {
 	void decompile(MethodContext methodContext) {
 		methodContext.setCurrentChunk(this);
 
-		for (var instruction : instructions) {
-			var operation = instruction.toOperation(methodContext);
+		for (int i = 0, s = instructions.size(); i < s; i++) {
+			Operation operation = null;
+
+			var instruction = instructions.get(i);
+
+			if (i < s - 1) {
+				operation = instruction.toOperation(methodContext, instructions.get(i + 1));
+			}
+
+			if (operation != null) {
+				i++; // Пропускаем две инструкции, а не одну
+			} else {
+				operation = instruction.toOperation(methodContext);
+			}
 
 			if (operation != null) {
 				if (operation.getReturnType() != PrimitiveType.VOID) {
@@ -142,6 +161,8 @@ public class Chunk implements Comparable<Chunk> {
 					operations.add(operation);
 				}
 			}
+
+//			System.out.printf("Instruction: %s, stack: %s\n", instruction, methodContext.getStack());
 		}
 
 		if (flowControlInsn != null) {
@@ -155,6 +176,7 @@ public class Chunk implements Comparable<Chunk> {
 			}
 		}
 
+		leftOperations = methodContext.getStack().makeProxyOperations();
 		methodContext.setCurrentChunk(null);
 	}
 

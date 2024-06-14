@@ -27,14 +27,15 @@ public final class Variable {
 	/** Итоговое имя переменной */
 	private @Nullable String name;
 
-	private boolean defined;
+	private boolean declare;
 
 	/**
 	 * Если у ссылки на переменную есть название, то оно станет окончательным для этой переменной
 	 */
-	public Variable(VariableReference ref) {
+	public Variable(VariableReference ref, boolean declare) {
 		this.type = ref.getType();
 		this.name = ref.getInitialName();
+		this.declare = declare;
 
 		if (name == null) {
 			names = new HashSet<>();
@@ -81,9 +82,9 @@ public final class Variable {
 		return namesView;
 	}
 
-	public boolean attemptDefine() {
-		if (!defined) {
-			return defined = true;
+	public boolean attemptDeclare() {
+		if (!declare) {
+			return declare = true;
 		}
 
 		return false;

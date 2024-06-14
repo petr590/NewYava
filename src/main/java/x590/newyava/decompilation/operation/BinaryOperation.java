@@ -1,12 +1,12 @@
 package x590.newyava.decompilation.operation;
 
-import lombok.RequiredArgsConstructor;
+import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.constant.LongConstant;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
@@ -14,7 +14,10 @@ import java.util.List;
 
 public class BinaryOperation implements Operation {
 
+	@Getter
 	private final Operation operand1, operand2;
+
+	@Getter
 	private final Operator operator;
 	private final Type requiredType1, requiredType2, returnType;
 
@@ -41,26 +44,6 @@ public class BinaryOperation implements Operation {
 	}
 
 
-	@RequiredArgsConstructor
-	public enum Operator {
-		ADD("+", Priority.ADD_SUB),
-		SUB("-", Priority.ADD_SUB),
-		MUL("*", Priority.MUL_DIV_REM),
-		DIV("/", Priority.MUL_DIV_REM),
-		REM("%", Priority.MUL_DIV_REM),
-		SHL("<<", Priority.SHIFT),
-		SHR(">>", Priority.SHIFT),
-		USHR(">>>", Priority.SHIFT),
-		AND("&", Priority.BIT_AND),
-		XOR("^", Priority.BIT_XOR),
-		OR ("|", Priority.BIT_OR),
-		NOT("~", Priority.UNARY);
-
-		private final String value;
-		private final Priority priority;
-	}
-
-
 	@Override
 	public Type getReturnType() {
 		return returnType;
@@ -79,7 +62,7 @@ public class BinaryOperation implements Operation {
 
 	@Override
 	public Priority getPriority() {
-		return operator.priority;
+		return operator.getPriority();
 	}
 
 	@Override
@@ -88,13 +71,13 @@ public class BinaryOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
-		if (operator == Operator.NOT) {
-			out.record(operator.value).record(operand1, context, getPriority(), Associativity.RIGHT);
+	public void write(DecompilationWriter out, MethodWriteContext context) {
+		if (operator.isUnary()) {
+			out.record(operator.getValue()).record(operand1, context, getPriority(), Associativity.RIGHT);
 
 		} else {
 			out.record(operand1, context, getPriority(), Associativity.LEFT)
-					.recordSp().recordSp(operator.value)
+					.wrapSpaces(operator.getValue())
 					.record(operand2, context, getPriority(), Associativity.RIGHT);
 		}
 	}
@@ -102,6 +85,6 @@ public class BinaryOperation implements Operation {
 	@Override
 	public String toString() {
 		return String.format("BinaryOperation %08x(%s %s %s)",
-				hashCode(), operand1, operator.value, operand2);
+				hashCode(), operand1, operator.getValue(), operand2);
 	}
 }

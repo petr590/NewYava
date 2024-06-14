@@ -4,16 +4,15 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.function.TriConsumer;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import x590.newyava.ContextualTypeWritable;
+import x590.newyava.GenericWritable;
 import x590.newyava.ContextualWritable;
 import x590.newyava.Writable;
 import x590.newyava.context.Context;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Associativity;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.scope.Scope;
-import x590.newyava.type.Type;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -144,31 +143,25 @@ public class DecompilationWriter extends Writer {
 		return this;
 	}
 
-	/* --------------------------------------------- ContextualWritable --------------------------------------------- */
-	public DecompilationWriter record(ContextualWritable writable, Context context) {
+	/* ---------------------------------------------- GenericWritable ----------------------------------------------- */
+	public <C extends Context> DecompilationWriter record(GenericWritable<C> writable, C context) {
 		writable.write(this, context);
 		return this;
 	}
 
-	public DecompilationWriter record(Collection<? extends ContextualWritable> writables, Context context) {
+	public <C extends Context> DecompilationWriter record(
+			Collection<? extends GenericWritable<C>> writables,
+			C context
+	) {
 		writables.forEach(writable -> record(writable, context));
 		return this;
 	}
-	public DecompilationWriter record(Collection<? extends ContextualWritable> writables,
-	                                  Context context, String separator) {
 
-		return record(writables, separator, 0, (writable, index) -> record(writable, context));
-	}
-
-	/* ------------------------------------------- ContextualTypeWritable ------------------------------------------- */
-	public DecompilationWriter record(ContextualTypeWritable writable, Context context, @Nullable Type type) {
-		writable.write(this, context, type);
-		return this;
-	}
-
-	public DecompilationWriter record(Collection<? extends ContextualTypeWritable> writables,
-	                                  Context context, @Nullable Type type, String separator) {
-		return record(writables, separator, (writable, index) -> writable.write(this, context, type));
+	public <C extends Context> DecompilationWriter record(
+			Collection<? extends GenericWritable<C>> writables,
+	        C context, String separator
+	) {
+		return record(writables, separator, (writable, index) -> writable.write(this, context));
 	}
 
 
@@ -219,30 +212,30 @@ public class DecompilationWriter extends Writer {
 
 
 	/* ---------------------------------------------- Operation, Scope ---------------------------------------------- */
-	public DecompilationWriter record(Scope scope, Context context) {
+	public DecompilationWriter record(Scope scope, MethodWriteContext context) {
 		return record(scope, context, Priority.ZERO);
 	}
 
-	public DecompilationWriter record(Operation operation, Context context, Priority priority) {
+	public DecompilationWriter record(Operation operation, MethodWriteContext context, Priority priority) {
 		return record(operation, context, priority, priority.getAssociativity());
 	}
 
 	public <T extends Operation> DecompilationWriter record(
-			T operation, Context context, Priority priority,
-			TriConsumer<T, DecompilationWriter, Context> writer
+			T operation, MethodWriteContext context, Priority priority,
+			TriConsumer<T, DecompilationWriter, MethodWriteContext> writer
 	) {
 		return record(operation, context, priority, priority.getAssociativity(), writer);
 	}
 
 	public DecompilationWriter record(
-			Operation operation, Context context, Priority priority, Associativity side
+			Operation operation, MethodWriteContext context, Priority priority, Associativity side
 	) {
 		return record(operation, context, priority, side, Operation::write);
 	}
 
 	public <T extends Operation> DecompilationWriter record(
-			T operation, Context context, Priority priority, Associativity side,
-	        TriConsumer<T, DecompilationWriter, Context> writer
+			T operation, MethodWriteContext context, Priority priority, Associativity side,
+	        TriConsumer<T, DecompilationWriter, MethodWriteContext> writer
 	) {
 		var selfPriority = operation.getPriority();
 
@@ -260,14 +253,14 @@ public class DecompilationWriter extends Writer {
 
 	public DecompilationWriter record(
 			Collection<? extends Operation> operations,
-			Context context, Priority priority, String separator
+			MethodWriteContext context, Priority priority, String separator
 	) {
 		return record(operations, context, priority, separator, Operation::write);
 	}
 
 	public <T extends Operation> DecompilationWriter record(
-			Collection<? extends T> operations, Context context, Priority priority,
-			String separator, TriConsumer<T, DecompilationWriter, Context> writer
+			Collection<? extends T> operations, MethodWriteContext context, Priority priority,
+			String separator, TriConsumer<T, DecompilationWriter, MethodWriteContext> writer
 	) {
 		if (!operations.isEmpty()) {
 			record(operations.iterator().next(), context, priority, priority.getAssociativity(), writer);
@@ -284,33 +277,42 @@ public class DecompilationWriter extends Writer {
 	}
 
 
-	/* -------------------------------------------------- recordSp -------------------------------------------------- */
-	public DecompilationWriter recordSp() {
+	/* --------------------------------------------------- space --------------------------------------------------- */
+
+	/** Записывает пробел */
+	public DecompilationWriter space() {
 		return record(' ');
 	}
 
+	/** Записывает строку, добавляя пробел в конце */
 	public DecompilationWriter recordSp(String str) {
 		return record(str).record(' ');
 	}
 
+	/** Записывает {@link ContextualWritable}, добавляя пробел в конце */
 	public DecompilationWriter recordSp(ContextualWritable writable, Context context) {
 		return record(writable, context).record(' ');
 	}
 
-	public DecompilationWriter recordSp(char ch) {
-		return record(ch).record(' ');
+	/** Записывает строку, добавляя пробелы в начале и в конце */
+	public DecompilationWriter wrapSpaces(String str) {
+		return record(' ').record(str).record(' ');
 	}
 
-	/* --------------------------------------------------- other --------------------------------------------------- */
+	/* ----------------------------------------------------- ln ----------------------------------------------------- */
+
+	/** Записывает перенос строки */
 	public DecompilationWriter ln() {
 		return record('\n');
 	}
 
+	/** Записывает перенос строки если выполнено условие */
 	public boolean lnIf(boolean condition) {
 		if (condition) ln();
 		return condition;
 	}
 
+	/* ------------------------------------------------ flush, close ------------------------------------------------ */
 	@Override
 	public void flush() throws IOException {
 		out.flush();

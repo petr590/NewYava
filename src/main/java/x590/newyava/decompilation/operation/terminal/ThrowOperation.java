@@ -2,8 +2,8 @@ package x590.newyava.decompilation.operation.terminal;
 
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
@@ -42,7 +42,7 @@ public class ThrowOperation implements TerminalOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		out.recordSp("throw").record(exception, context, Priority.ZERO);
 	}
 

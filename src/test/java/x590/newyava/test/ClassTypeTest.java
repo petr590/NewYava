@@ -11,7 +11,7 @@ import java.util.List;
 public class ClassTypeTest {
 
 	@Test
-	public void test1() {
+	public void testNames() {
 		ClassType stringType = ClassType.valueOf("java/lang/String");
 
 		Assert.assertEquals(stringType.getBinName(), "java/lang/String");
@@ -41,7 +41,7 @@ public class ClassTypeTest {
 	}
 
 	@Test
-	public void test2() {
+	public void testNested() {
 		//x590/newyava/Main
 		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle",              "x590/newyava/Main");
 		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle$Inner",        "x590/newyava/Main$Middle");
@@ -63,12 +63,5 @@ public class ClassTypeTest {
 
 		//x590/newyava/Main$Middle$Inner$1
 		ClassType.checkOrUpdateNested("x590/newyava/Main$Middle", "x590/newyava/Main");
-	}
-
-	@Test
-	public void test3() {
-		List<String> strings = List.of("a", "b", "c", "", "d");
-
-		System.out.println(strings.stream().filter(str -> !str.isEmpty()).peek(System.out::println).count());
 	}
 }

@@ -43,7 +43,14 @@ public class DecompilationException extends RuntimeException {
 
 	@Override
 	public String getMessage() {
-		return descriptor == null ? super.getMessage() :
-				"In method " + descriptor + ": " + super.getMessage();
+		if (descriptor == null) {
+			return super.getMessage();
+		}
+
+		var message = super.getMessage();
+
+		return message != null ?
+				"In method " + descriptor + ": " + message :
+				"In method " + descriptor;
 	}
 }

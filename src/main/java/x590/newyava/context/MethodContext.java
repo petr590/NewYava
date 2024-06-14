@@ -3,6 +3,7 @@ package x590.newyava.context;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.decompilation.CodeStack;
 import x590.newyava.decompilation.variable.VariableReference;
@@ -10,6 +11,8 @@ import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.Type;
 import x590.newyava.type.TypeSize;
+
+import java.util.function.Predicate;
 
 /**
  * Предоставляет доступ к основным свойствам метода, стеку и локальным переменным.
@@ -62,11 +65,23 @@ public class MethodContext extends ContextProxy {
 	 * то убирает её со стека и возвращает {@code true}.
 	 * Иначе возвращает {@code false}. */
 	public boolean popIfSame(Operation operation) {
-		if (!stack.isEmpty() && stack.peek() == operation) {
-			stack.pop();
-			return true;
+		return popIf(op -> op == operation) != null;
+	}
+
+	/**
+	 * Если стек не пуст и предикат возвращает {@code true},
+	 * то убирает верхнюю операцию со стека и возвращает её.
+	 * Иначе возвращает {@code null}.
+	 * @param predicate предикат, в который передаётся операция, лежащая на вершине стека.
+	 * @return операцию, которая была убрана со стека или {@code null}
+	 */
+	public @Nullable Operation popIf(Predicate<Operation> predicate) {
+		var stack = this.stack;
+
+		if (!stack.isEmpty() && predicate.test(stack.peek())) {
+			return stack.pop();
 		}
 
-		return false;
+		return null;
 	}
 }

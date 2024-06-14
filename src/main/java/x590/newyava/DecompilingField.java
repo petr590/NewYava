@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
@@ -33,9 +34,12 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 	private @Nullable Operation initializer;
 
-	public DecompilingField(DecompileFieldVisitor visitor, ClassContext context) {
+	/** Если {@code true}, то это поле является ссылкой на {@code this} внешнего класса. */
+	private boolean isOuterInstance;
+
+	public DecompilingField(DecompileFieldVisitor visitor) {
 		this.modifiers   = visitor.getModifiers();
-		this.descriptor  = visitor.getDescriptor(context);
+		this.descriptor  = visitor.getDescriptor();
 		this.annotations = visitor.getAnnotations();
 		this.initializer = visitor.getInitializer();
 	}
@@ -49,6 +53,8 @@ public class DecompilingField implements ContextualWritable, Importable {
 		return (modifiers & ACC_ENUM) != 0;
 	}
 
+	/** Устанавливает инициализатор поля, если он не установлен.
+	 * @return {@code true}, если инициализатор поля был установлен данным вызовом, иначе {@code false} */
 	public boolean setInitializer(Operation value) {
 		if (initializer == null) {
 			initializer = value;
@@ -58,11 +64,19 @@ public class DecompilingField implements ContextualWritable, Importable {
 		return false;
 	}
 
+	/** Помечает поле как экземпляр внешнего класса. */
+	public void makeOuterInstance() {
+		isOuterInstance = true;
+	}
+
 	public void inferVariableTypes() {
 		if (initializer != null) {
 			initializer.inferType(descriptor.type());
+			initializer.allowImplicitCast();
 		}
 	}
+
+	// ----------------------------------------------------- write -----------------------------------------------------
 
 	@Override
 	public void addImports(ClassContext context) {
@@ -81,7 +95,7 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 		if (initializer != null) {
 			out.record(" = ").record(
-					initializer, context, Priority.ZERO,
+					initializer, new MethodWriteContext(context), Priority.ZERO,
 					Type.isArray(descriptor.type()) ? Operation::writeAsArrayInitializer : Operation::write
 			);
 		}
@@ -143,8 +157,11 @@ public class DecompilingField implements ContextualWritable, Importable {
 		if (initializer instanceof InvokeSpecialOperation invokeSpecial &&
 			!invokeSpecial.canInlineEnumConstant()) {
 
-			out.record(" ".repeat(Math.max(0, minWidth - descriptor.name().length())));
-			invokeSpecial.writeNew(out, context, true);
+			if (invokeSpecial.getArguments().size() > 2) {
+				out.record(" ".repeat(Math.max(0, minWidth - descriptor.name().length())));
+			}
+
+			invokeSpecial.writeNew(out, new MethodWriteContext(context), true);
 		}
 	}
 }

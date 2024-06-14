@@ -4,7 +4,6 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import static x590.newyava.type.Type.*;
-import static x590.newyava.type.PrimitiveType.*;
 import static x590.newyava.type.IntMultiType.*;
 
 public class PrimitiveTypeTest {

@@ -6,7 +6,7 @@ import x590.newyava.type.Type;
 
 public interface Condition extends Operation {
 
-	/** @return противоположное условие. Не должен изменять и возвращать {@code this} */
+	/** @return противоположное условие. Не должен изменять и возвращать {@code this}. */
 	Condition opposite();
 
 	@Override

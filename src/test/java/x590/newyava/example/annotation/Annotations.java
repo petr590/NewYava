@@ -1,6 +1,6 @@
 package x590.newyava.example.annotation;
 
-import x590.newyava.example.enums.ExampleEnum;
+import x590.newyava.example.enums.EnumExample;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -75,8 +75,8 @@ public final class Annotations {
 	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
 	@Retention(RetentionPolicy.CLASS)
 	@interface EnumAnnotation {
-		ExampleEnum val();
-		ExampleEnum[] arr();
+		EnumExample val();
+		EnumExample[] arr();
 	}
 
 	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})

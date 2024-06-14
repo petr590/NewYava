@@ -1,8 +1,8 @@
 package x590.newyava.decompilation.operation.invoke;
 
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.CastOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.descriptor.MethodDescriptor;
@@ -54,9 +54,17 @@ public class InvokeStaticOperation extends InvokeOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
-		out.record(descriptor.hostClass(), context).record('.');
+	public void write(DecompilationWriter out, MethodWriteContext context) {
+		if (!canOmitClass(context)) {
+			out.record(descriptor.hostClass(), context).record('.');
+		}
+
 		writeNameAndArgs(out, context);
+	}
+
+	private boolean canOmitClass(MethodWriteContext context) {
+		return context.getConfig().canOmitThisAndClass() &&
+				descriptor.hostClass().equals(context.getThisType());
 	}
 
 	@Override

@@ -1,7 +1,6 @@
 package x590.newyava.example;
 
 import org.junit.Test;
-import x590.newyava.Main;
 
 @SuppressWarnings("all")
 public class EscapeExample {

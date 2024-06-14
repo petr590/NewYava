@@ -1,10 +1,12 @@
 package x590.newyava.decompilation.scope;
 
 
+import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.Chunk;
+import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.decompilation.operation.invokedynamic.RecordInvokedynamicOperation;
 import x590.newyava.decompilation.operation.terminal.ReturnValueOperation;
 import x590.newyava.decompilation.operation.terminal.ReturnVoidOperation;
@@ -18,6 +20,10 @@ public class MethodScope extends Scope {
 
 	private final MethodContext methodContext;
 
+	/** Индекс, с которого начинаются аргументы видимого дескриптора */
+	@Getter
+	private int argsStart;
+
 	public MethodScope(@Unmodifiable List<Chunk> chunks, MethodContext methodContext) {
 		super(chunks);
 		this.methodContext = methodContext;
@@ -29,12 +35,21 @@ public class MethodScope extends Scope {
 
 		int last = operations.size() - 1;
 
-		if (!operations.isEmpty() && operations.get(last) == ReturnVoidOperation.INSTANCE) {
+		if (last >= 0 && operations.get(last) == ReturnVoidOperation.INSTANCE) {
 			operations.remove(last);
 		}
 
-		if (context.isConstructor() && !operations.isEmpty() && operations.get(0).isDefaultConstructor(context)) {
-			operations.remove(0);
+		if (context.isConstructor()) {
+			if (context.getThisType().isNested() && !operations.isEmpty() &&
+					OperationUtil.checkOuterInstanceInit(operations.get(0), context)) {
+
+				operations.remove(0);
+				argsStart = 1;
+			}
+
+			if (!operations.isEmpty() && operations.get(0).isDefaultConstructor(context)) {
+				operations.remove(0);
+			}
 		}
 	}
 
@@ -55,6 +70,8 @@ public class MethodScope extends Scope {
 		outerScope = newOuterScope;
 	}
 
+	/** Проверяет, что нет циклических ссылок между лямбда-методами.
+	 * @throws DecompilationException при обнаружении циклической ссылки. */
 	public void checkCyclicReference() {
 		if (outerScope == null)
 			return;
@@ -70,7 +87,7 @@ public class MethodScope extends Scope {
 		}
 	}
 
-	/** @return приоритет, в котором должен вызываться метод {@link #initVariables(List)} */
+	/** @return приоритет, в котором должен вызываться метод {@link #initVariables(int, List)} */
 	public int getVariablesInitPriority() {
 		return outerScope == null ? 0 : outerScope.getVariablesInitPriority() - 1;
 	}

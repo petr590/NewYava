@@ -1,9 +1,10 @@
 package x590.newyava.decompilation.operation.invoke;
 
+import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.decompilation.operation.Priority;
@@ -16,6 +17,7 @@ import java.util.List;
 
 public abstract class InvokeOperation implements Operation {
 
+	@Getter
 	protected final MethodDescriptor descriptor;
 
 	protected final List<Operation> arguments;
@@ -52,7 +54,7 @@ public abstract class InvokeOperation implements Operation {
 		return descriptor.returnType();
 	}
 
-	protected void writeNameAndArgs(DecompilationWriter out, Context context) {
+	protected void writeNameAndArgs(DecompilationWriter out, MethodWriteContext context) {
 		out.record(descriptor.name()).record('(').record(arguments, context, Priority.ZERO, ", ").record(')');
 	}
 }

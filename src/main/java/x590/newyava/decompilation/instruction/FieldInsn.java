@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.instruction;
 
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.operation.FieldOperation;
 import x590.newyava.decompilation.operation.Operation;
@@ -17,14 +18,14 @@ public record FieldInsn(int opcode, String className, String name, String typeNa
 	}
 
 	@Override
-	public Operation toOperation(MethodContext context) {
+	public @Nullable Operation toOperation(MethodContext context) {
 		var descriptor = FieldDescriptor.of(className, name, typeName);
 
 		return switch (opcode) {
-			case GETSTATIC -> FieldOperation.getStatic(descriptor);
+			case GETSTATIC -> FieldOperation.getStatic(context, descriptor);
 			case PUTSTATIC -> FieldOperation.putStatic(context, descriptor, context.popAs(descriptor.type()));
-			case GETFIELD  -> new FieldOperation(descriptor, null, context.popAs(descriptor.hostClass()));
-			case PUTFIELD  -> new FieldOperation(descriptor, context.popAs(descriptor.type()), context.popAs(descriptor.hostClass()));
+			case GETFIELD  -> FieldOperation.getField(context, descriptor, context.popAs(descriptor.hostClass()));
+			case PUTFIELD  -> FieldOperation.putField(context, descriptor, context.popAs(descriptor.type()), context.popAs(descriptor.hostClass()));
 			default -> throw new UnknownOpcodeException(opcode);
 		};
 	}

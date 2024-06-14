@@ -1,8 +1,9 @@
 package x590.newyava.decompilation.operation.invoke;
 
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.Modifiers;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.NewOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
@@ -14,6 +15,7 @@ import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 
@@ -67,12 +69,15 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 				(arguments.isEmpty() || isDefaultEnumConstructor(context));
 	}
 
+
+	// Enum.<init>(String, int)
+	private static final MethodDescriptor DEFAULT_ENUM_CONSTRUCTOR =
+			new MethodDescriptor(ClassType.ENUM, MethodDescriptor.INIT, PrimitiveType.VOID,
+					List.of(ClassType.STRING, PrimitiveType.INT));
+
 	private boolean isDefaultEnumConstructor(MethodContext context) {
 		return (context.getClassModifiers() & Modifiers.ACC_ENUM) != 0 &&
-				context.isConstructor() &&
-				// Enum.<init>(String, int)
-				descriptor.equals(ClassType.ENUM, MethodDescriptor.INIT, PrimitiveType.VOID,
-						List.of(ClassType.STRING, PrimitiveType.INT));
+				descriptor.equals(DEFAULT_ENUM_CONSTRUCTOR);
 	}
 
 	public boolean isNew() {
@@ -80,7 +85,7 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		switch (invokeType) {
 			case PLAIN -> super.write(out, context);
 			case NEW -> writeNew(out, context, false);
@@ -96,23 +101,26 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 
 
 	public boolean canInlineEnumConstant() {
-		return arguments.size() <= 2 && !(
-				invokeType == InvokeType.NEW &&
-				returnType instanceof ClassType classType &&
-				classType.isAnonymous()
-		);
+		return arguments.size() <= 2 && getAnonymousClassType() == null;
+	}
+
+	private @Nullable ClassType getAnonymousClassType() {
+		return  invokeType == InvokeType.NEW &&
+				returnType instanceof ClassType classType && classType.isAnonymous() ?
+				classType : null;
 	}
 
 	/**
-	 * Записывает операцию как {@code new <type>(...)}.
+	 * Записывает операцию как создание нового объекта.
+	 * Записывает тело анонимного класса, если оно есть.
 	 * @param isEnumConstant если {@code true}, то записывает только аргументы
-	 *                       и тело анонимного класса, если они есть.
+	 *    и тело анонимного класса, если они есть. Иначе записывает как<br>
+	 *    {@code new <type>(args) { class body }}
 	 */
-	public void writeNew(DecompilationWriter out, Context context, boolean isEnumConstant) {
-		if (invokeType == InvokeType.NEW &&
-			returnType instanceof ClassType classType &&
-			classType.isAnonymous()) {
+	public void writeNew(DecompilationWriter out, MethodWriteContext context, boolean isEnumConstant) {
+		var classType = getAnonymousClassType();
 
+		if (classType != null) {
 			var foundClass = context.findClass(classType);
 
 			if (foundClass.isPresent()) {
@@ -124,7 +132,7 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 				if (superType != null && interfaces.size() > 0 || interfaces.size() > 1) {
 					throw new DecompilationException(
 							"Anonymous class extends %s and implements %s",
-							superType, interfaces
+							superType, interfaces.stream().map(Object::toString).collect(Collectors.joining(", "))
 					);
 				}
 
@@ -133,14 +141,13 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 
 				if (isEnumConstant) {
 					writeEnumArgs(out, context);
-					out.recordSp();
 
 				} else {
 					out.recordSp("new").record(type, context);
 					writeArgs(out, context);
 				}
 
-				anonymous.writeBody(out);
+				anonymous.writeBody(out.space());
 
 				return;
 			}
@@ -155,15 +162,17 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 		}
 	}
 
-	private void writeArgs(DecompilationWriter out, Context context) {
+	private void writeArgs(DecompilationWriter out, MethodWriteContext context) {
 		out.record('(').record(arguments, context, Priority.ZERO, ", ").record(')');
 	}
 
-	private void writeEnumArgs(DecompilationWriter out, Context context) {
+	private void writeEnumArgs(DecompilationWriter out, MethodWriteContext context) {
 		var args = arguments;
 
 		if (args.size() > 2) {
-			out.record('(').record(args.subList(Math.min(args.size(), 2), args.size()), context, Priority.ZERO, ", ").record(')');
+			out .record('(')
+				.record(args.subList(Math.min(args.size(), 2), args.size()), context, Priority.ZERO, ", ")
+				.record(')');
 		}
 	}
 }

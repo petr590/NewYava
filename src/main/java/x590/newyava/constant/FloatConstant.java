@@ -4,9 +4,8 @@ import it.unimi.dsi.fastutil.floats.Float2ObjectMap;
 import it.unimi.dsi.fastutil.floats.Float2ObjectOpenHashMap;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
-import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
+import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
@@ -33,11 +32,23 @@ public final class FloatConstant extends Constant {
 	}
 
 	@Override
+	public boolean valueEquals(int value) {
+		return this.value == value;
+	}
+
+	@Override
 	public void addImports(ClassContext context) {}
 
 	@Override
-	public void write(DecompilationWriter out, Context context, @Nullable Type type) {
-		out.record(String.valueOf(value)).record('f');
+	public void write(DecompilationWriter out, ConstantWriteContext context) {
+		float val = value;
+		int intVal = (int)val;
+
+		if (context.isImplicitCastAllowed() && intVal == val) {
+			out.record(String.valueOf(intVal));
+		} else {
+			out.record(String.valueOf(val)).record('f');
+		}
 	}
 
 	@Override

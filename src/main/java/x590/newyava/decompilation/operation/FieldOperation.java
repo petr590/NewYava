@@ -1,31 +1,34 @@
 package x590.newyava.decompilation.operation;
 
-import lombok.RequiredArgsConstructor;
+import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.constant.ClassConstant;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
-import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
-@RequiredArgsConstructor
-public class FieldOperation implements Operation {
-	private final FieldDescriptor descriptor;
+/**
+ * Операция записи/чтения поля из объекта/класса
+ */
+@Getter
+public class FieldOperation extends AssignOperation {
 
-	private final @Nullable Operation value, instance;
-
-	public static Operation getStatic(FieldDescriptor descriptor) {
+	/** @return операцию чтения статического поля.
+	 * Если это поле {@code TYPE} одного из классов-обёрток,
+	 * оно заменяется на соответствующий класс примитива. */
+	public static Operation getStatic(MethodContext context, FieldDescriptor descriptor) {
 		if (descriptor.name().equals("TYPE")) {
 			var hostClass = descriptor.hostClass();
-			
+
 			if (hostClass.equals(ClassType.BYTE))      return new LdcOperation(ClassConstant.BYTE);
 			if (hostClass.equals(ClassType.SHORT))     return new LdcOperation(ClassConstant.SHORT);
 			if (hostClass.equals(ClassType.CHARACTER)) return new LdcOperation(ClassConstant.CHAR);
@@ -37,10 +40,12 @@ public class FieldOperation implements Operation {
 			if (hostClass.equals(ClassType.VOID))      return new LdcOperation(ClassConstant.VOID);
 		}
 
-		return new FieldOperation(descriptor, null, null);
+		return new FieldOperation(context, descriptor, null, null);
 	}
 
-	public static Operation putStatic(MethodContext context, FieldDescriptor descriptor, Operation value) {
+	/** @return операцию записи статического поля. Если возможно, то добавляет инициализатор
+	 * статическому полю, и тогда возвращает {@code null} */
+	public static @Nullable Operation putStatic(MethodContext context, FieldDescriptor descriptor, Operation value) {
 		if (!value.usesAnyVariable() &&
 			context.getDescriptor().isStaticInitializer() &&
 			descriptor.hostClass().equals(context.getDescriptor().hostClass())) {
@@ -56,16 +61,48 @@ public class FieldOperation implements Operation {
 			}
 		}
 
-		return new FieldOperation(descriptor, value, null);
+		return new FieldOperation(context, descriptor, value, null);
 	}
 
-	@Override
-	public Type getReturnType() {
-		return value == null ? descriptor.type() : PrimitiveType.VOID;
+	/** @return операцию чтения поля объекта. */
+	public static Operation getField(MethodContext context, FieldDescriptor descriptor, Operation instance) {
+		return new FieldOperation(context, descriptor, null, instance);
+	}
+
+	/** @return операцию записи поля объекта. */
+	public static Operation putField(MethodContext context, FieldDescriptor descriptor,
+	                                 Operation value, Operation instance) {
+
+		return new FieldOperation(context, descriptor, value, instance);
+	}
+
+
+	private final FieldDescriptor descriptor;
+
+	private final @Nullable Operation instance;
+
+	private FieldOperation(MethodContext context, FieldDescriptor descriptor,
+	                       @Nullable Operation value, @Nullable Operation instance) {
+		super(
+				context, value, descriptor.type(),
+				operation -> operation instanceof FieldOperation getField &&
+						getField.isGetter() &&
+						getField.getDescriptor().equals(descriptor) &&
+						Objects.equals(getField.getInstance(), instance)
+		);
+
+		this.descriptor = descriptor;
+		this.instance = instance;
+	}
+
+	public boolean isGetter() {
+		return value == null;
 	}
 
 	@Override
 	public void inferType(Type ignored) {
+		super.inferType(ignored);
+
 		if (value != null) value.inferType(descriptor.type());
 		if (instance != null) instance.inferType(descriptor.hostClass());
 	}
@@ -81,11 +118,6 @@ public class FieldOperation implements Operation {
 	}
 
 	@Override
-	public Priority getPriority() {
-		return value == null ? Priority.DEFAULT : Priority.ASSIGNMENT;
-	}
-
-	@Override
 	public void addImports(ClassContext context) {
 		if (instance == null) {
 			context.addImport(descriptor.hostClass());
@@ -94,8 +126,39 @@ public class FieldOperation implements Operation {
 		context.addImportsFor(instance).addImportsFor(value);
 	}
 
+
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
+		if (value != null) {
+			super.write(out, context);
+		} else {
+			writeTarget(out, context);
+		}
+	}
+
+	@Override
+	protected void writeTarget(DecompilationWriter out, MethodWriteContext context) {
+		var instance = this.instance;
+		var descriptor = this.descriptor;
+
+		if (instance != null) {
+			var foundField = context.findClass(descriptor.hostClass())
+					.flatMap(clazz -> clazz.getFields().stream().filter(field -> field.getDescriptor().equals(descriptor)).findFirst());
+
+			if (foundField.isPresent() && foundField.get().isOuterInstance()) {
+				out.record(descriptor.type(), context).record(".this");
+				return;
+			}
+		}
+
+		if (context.getConfig().canOmitThisAndClass() &&
+			isThisOrThisClass(context) &&
+			!context.hasVarWithName(descriptor.name())) {
+
+			out.record(descriptor.name());
+			return;
+		}
+
 		if (instance != null) {
 			out.record(instance, context, getPriority());
 		} else {
@@ -103,10 +166,12 @@ public class FieldOperation implements Operation {
 		}
 
 		out.record('.').record(descriptor.name());
+	}
 
-		if (value != null) {
-			out.record(" = ").record(value, context, Priority.ASSIGNMENT);
-		}
+	private boolean isThisOrThisClass(MethodWriteContext context) {
+		return instance != null ?
+				instance.isThisRef() :
+				descriptor.hostClass().equals(context.getThisType());
 	}
 
 	@Override

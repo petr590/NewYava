@@ -57,8 +57,8 @@ public class VariableReference {
 
 	/** Объявляет переменную. Доступно только после связывания ссылки с самой переменной.
 	 * @return {@code true}, если переменная была не объявлена */
-	public boolean attemptDefine() {
-		return getVariable().attemptDefine();
+	public boolean attemptDeclare() {
+		return getVariable().attemptDeclare();
 	}
 
 	/** @return тип переменной. До связывания ссылки с переменной возвращает {@link #initialType}. */

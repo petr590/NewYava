@@ -2,12 +2,23 @@ package x590.newyava.test;
 
 import org.junit.Test;
 
-import java.util.List;
+import java.util.Deque;
+import java.util.LinkedList;
 
 public class StreamTest {
 	@Test
 	public void test() {
-		var list = List.of(1, 2, 3, 4, 5);
-		list.stream().peek(System.out::println).forEach(System.out::println);
+		Deque<String> list = new LinkedList<>();
+
+		list.push("a");
+		list.push("b");
+		list.push("c");
+
+		var stream = list.stream();
+
+		list.push("d");
+//		list.pop();
+
+		stream.forEach(System.out::println);
 	}
 }

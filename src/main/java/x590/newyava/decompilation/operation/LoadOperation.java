@@ -1,14 +1,16 @@
 package x590.newyava.decompilation.operation;
 
 import lombok.Getter;
-import org.objectweb.asm.Opcodes;
-import x590.newyava.context.Context;
+import x590.newyava.Modifiers;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
 public class LoadOperation implements Operation {
+	@Getter
+	private final int slotId;
 
 	@Getter
 	private final VariableReference varRef;
@@ -18,10 +20,11 @@ public class LoadOperation implements Operation {
 	private final boolean isThisRef;
 
 	public LoadOperation(MethodContext context, int slotId, Type requiredType) {
+		this.slotId = slotId;
 		this.varRef = context.getVarRef(slotId);
 		this.requiredType = requiredType;
 
-		this.isThisRef = (context.getModifiers() & Opcodes.ACC_STATIC) == 0 && slotId == 0;
+		this.isThisRef = slotId == 0 && (context.getModifiers() & Modifiers.ACC_STATIC) == 0;
 	}
 
 	@Override
@@ -45,7 +48,7 @@ public class LoadOperation implements Operation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
 		out.record(varRef.getName());
 	}
 

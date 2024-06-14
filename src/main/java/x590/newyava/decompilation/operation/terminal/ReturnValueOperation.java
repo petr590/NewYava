@@ -3,8 +3,8 @@ package x590.newyava.decompilation.operation.terminal;
 import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
-import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
@@ -21,7 +21,7 @@ public class ReturnValueOperation implements ReturnOperation {
 
 	public ReturnValueOperation(MethodContext context, Type requiredType) {
 		this.value = context.popAs(requiredType);
-		this.requiredType = requiredType;
+		this.requiredType = context.getDescriptor().returnType();
 	}
 
 	@Override
@@ -32,6 +32,7 @@ public class ReturnValueOperation implements ReturnOperation {
 	@Override
 	public void inferType(Type ignored) {
 		value.inferType(requiredType);
+		value.allowImplicitCast();
 	}
 
 	@Override
@@ -45,8 +46,8 @@ public class ReturnValueOperation implements ReturnOperation {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
-		out.recordSp("return").record(value, context, Priority.ZERO);
+	public void write(DecompilationWriter out, MethodWriteContext context) {
+		out.record("return ").record(value, context, Priority.ZERO);
 	}
 
 	@Override

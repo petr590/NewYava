@@ -1,14 +1,12 @@
 package x590.newyava.decompilation.scope;
 
 import lombok.Getter;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.Unmodifiable;
-import org.jetbrains.annotations.UnmodifiableView;
+import org.jetbrains.annotations.*;
 import x590.newyava.Log;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
+import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
@@ -20,6 +18,7 @@ import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 /**
  * Область видимости, ограниченная, как правило, фигурными скобками
@@ -40,13 +39,8 @@ public class Scope implements Operation, Comparable<Scope> {
 	@Getter
 	private @Nullable Scope parent;
 
+	@Getter
 	protected final List<Operation> operations = new ArrayList<>();
-
-	private final @UnmodifiableView List<Operation> operationsView = Collections.unmodifiableList(operations);
-
-	public @UnmodifiableView List<Operation> getOperations() {
-		return operationsView;
-	}
 
 	private final List<Scope> scopes = new ArrayList<>();
 
@@ -83,6 +77,7 @@ public class Scope implements Operation, Comparable<Scope> {
 
 
 	@Override
+	@MustBeInvokedByOverriders
 	public void inferType(Type ignored) {
 		operations.forEach(operation -> operation.inferType(PrimitiveType.VOID));
 	}
@@ -114,39 +109,51 @@ public class Scope implements Operation, Comparable<Scope> {
 
 
 	/**
-	 * Начинает все scope-ы, до которых дошла очередь.
-	 * @param scopes очередь {@link Scope}-ов, должна быть отсортирована по возрастанию.
+	 * Начинает все {@code scope}-ы, до которых дошла очередь. Если {@link IfScope}
+	 * выходит за границы текущего  {@code scope}, то он будет уменьшен до этих границ.
+	 * @param scopeQueue очередь {@link Scope}-ов, должна быть отсортирована по возрастанию.
 	 * @param currentId текущий id чанка.
 	 */
-	public Scope startScopes(Queue<Scope> scopes, int currentId) {
-		var scope = scopes.peek();
+	public final Scope startScopes(Queue<Scope> scopeQueue, int currentId) {
+		var scope = scopeQueue.peek();
 
 		if (scope != null && scope.getStartChunk().getId() == currentId) {
-			scopes.poll();
+			scopeQueue.poll();
 
 			operations.add(scope);
-			this.scopes.add(scope);
+			scopes.add(scope);
 			scope.parent = this;
 
-			if (scope instanceof IfScope && scope.endChunk.getId() > this.endChunk.getId()) {
+			if ((scope instanceof IfScope || scope instanceof ElseScope)
+					&& scope.endChunk.getId() > this.endChunk.getId()) {
 				scope.endChunk = this.endChunk;
 			}
 
-			return scope.startScopes(scopes, currentId);
+			return scope.startScopes(scopeQueue, currentId);
 		}
 
 		return this;
 	}
 
 	/** Завершает все текущие scope-ы, если они достигли конца */
-	public Scope endIfReached(int currentId) {
-		return currentId >= endChunk.getId() && parent != null ?
-				parent.endIfReached(currentId) :
-				this;
+	public final Scope endIfReached(int currentId) {
+		if (currentId >= endChunk.getId() && parent != null) {
+			onEnd();
+			return parent.endIfReached(currentId);
+		}
+
+		return this;
 	}
 
-	/** Связывает с каждым {@link VariableReference} определённый {@link Variable} */
-	public void initVariables(@Unmodifiable List<Chunk> chunks) {
+	public void onEnd() {}
+
+	/**
+	 * Связывает с каждым {@link VariableReference} определённый {@link Variable}.
+	 * @param localVarsStart слот, с которого начинаются переменные, объявленные в методе
+	 *                       (т.е. <i>не</i> параметры метода и <i>не</i> {@code this}).
+	 * @param chunks список всех чанков метода.
+	 */
+	public void initVariables(int localVarsStart, @Unmodifiable List<Chunk> chunks) {
 		int startChunkId = startChunk.getId(),
 			endChunkId = endChunk.getId();
 
@@ -165,7 +172,7 @@ public class Scope implements Operation, Comparable<Scope> {
 
 				} else {
 					if (curRef.getVariable() == null) {
-						curRef.initVariable(new Variable(curRef));
+						curRef.initVariable(new Variable(curRef, slot.getId() < localVarsStart));
 					}
 
 					ref = Optional.of(curRef);
@@ -175,7 +182,7 @@ public class Scope implements Operation, Comparable<Scope> {
 			variables.add(ref.map(VariableReference::getVariable).orElse(null));
 		}
 
-		scopes.forEach(scope -> scope.initVariables(chunks));
+		scopes.forEach(scope -> scope.initVariables(localVarsStart, chunks));
 	}
 
 	private Optional<VariableReference> findVariable(int slotId) {
@@ -224,9 +231,21 @@ public class Scope implements Operation, Comparable<Scope> {
 		return name;
 	}
 
+	/** @return переменную с указанным именем в текущем scope-е или внешних,
+	 * или пустой Optional, если такая переменная не найдена. */
 	protected Optional<Variable> findVarByName(String name) {
-		return variables.stream().filter(var -> var != null && name.equals(var.getName())).findAny()
-				.or(() -> parent != null ? parent.findVarByName(name) : Optional.empty());
+		return variables.stream().filter(namePredicate(name))
+				.findAny().or(() -> parent != null ? parent.findVarByName(name) : Optional.empty());
+	}
+
+	/** @return {@code true}, если в текущем или дочерних scope-ах есть переменная с указанным именем. */
+	public boolean hasVarByNameInDepth(String name) {
+		return variables.stream().anyMatch(namePredicate(name)) ||
+				scopes.stream().anyMatch(scope -> scope.hasVarByNameInDepth(name));
+	}
+
+	private Predicate<Variable> namePredicate(String name) {
+		return var -> var != null && name.equals(var.getName());
 	}
 
 
@@ -243,6 +262,7 @@ public class Scope implements Operation, Comparable<Scope> {
 
 
 	@Override
+	@MustBeInvokedByOverriders
 	public void addImports(ClassContext context) {
 		context.addImportsFor(operations);
 	}
@@ -253,8 +273,8 @@ public class Scope implements Operation, Comparable<Scope> {
 	}
 
 	@Override
-	public void write(DecompilationWriter out, Context context) {
-		if (canOmitBrackets() && !context.getConfig().isAlwaysWriteBrackets()) {
+	public void write(DecompilationWriter out, MethodWriteContext context) {
+		if (canOmitBrackets() && context.getConfig().canOmitBrackets()) {
 			if (operations.isEmpty()) {
 				writeHeader(out, context);
 				out.record(';');
@@ -271,7 +291,7 @@ public class Scope implements Operation, Comparable<Scope> {
 		}
 
 		if (writeHeader(out, context)) {
-			out.recordSp();
+			out.space();
 		}
 
 		out.record('{').incIndent();
@@ -288,7 +308,7 @@ public class Scope implements Operation, Comparable<Scope> {
 	}
 
 
-	protected void writeBody(DecompilationWriter out, Context context) {
+	protected void writeBody(DecompilationWriter out, MethodWriteContext context) {
 		Operation prev = null;
 
 		for (var operation : operations) {
@@ -296,7 +316,7 @@ public class Scope implements Operation, Comparable<Scope> {
 				if (prev instanceof Scope scope && scope.realOmitBrackets(context)) {
 					out.ln().indent();
 				} else {
-					out.recordSp();
+					out.space();
 				}
 
 			} else {
@@ -318,7 +338,7 @@ public class Scope implements Operation, Comparable<Scope> {
 
 
 	private boolean realOmitBrackets(Context context) { // Oh, rly?
-		return canOmitBrackets() && !context.getConfig().isAlwaysWriteBrackets() &&
+		return canOmitBrackets() && context.getConfig().canOmitBrackets() &&
 				(operations.isEmpty() || operations.size() == 1 && !operations.get(0).isScopeLike());
 	}
 
@@ -327,7 +347,7 @@ public class Scope implements Operation, Comparable<Scope> {
 	 * @return {@code true}, если заголовок записан.
 	 * После него будет записан пробел при наличии фигурных скобок.
 	 */
-	protected boolean writeHeader(DecompilationWriter out, Context context) {
+	protected boolean writeHeader(DecompilationWriter out, MethodWriteContext context) {
 		return false;
 	}
 

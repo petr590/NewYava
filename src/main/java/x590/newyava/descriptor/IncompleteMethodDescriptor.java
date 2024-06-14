@@ -21,7 +21,7 @@ public record IncompleteMethodDescriptor(String name, Type returnType, @Unmodifi
 		return new IncompleteMethodDescriptor(name, returnType, Collections.unmodifiableList(arguments));
 	}
 
-	public long slots() {
+	public int slots() {
 		return MethodDescriptor.slots(arguments);
 	}
 
