@@ -2,14 +2,13 @@ package x590.newyava.example.code;
 
 import org.junit.Test;
 import x590.newyava.Config;
+import x590.newyava.example.InterfaceExample;
 import x590.newyava.example.Main;
 
-import java.util.function.Function;
-import java.util.function.IntFunction;
-import java.util.function.Supplier;
+import java.util.function.*;
 
 @SuppressWarnings("all")
-public class LambdaExample {
+public class LambdaExample implements InterfaceExample {
 	@Test
 	public void run() {
 		Main.run(this, Config.builder().ignoreVariableTable(true).build());
@@ -39,8 +38,30 @@ public class LambdaExample {
 		return Object::toString;
 	}
 
-	public Supplier<String> objectLambda() {
+	public Supplier<String> thisLambda() {
 		return this::toString;
+	}
+
+	public Supplier<String> superLambda() {
+		return super::toString;
+	}
+
+	public Supplier<String> superInterfaceLambda() {
+		return InterfaceExample.super::toString;
+	}
+
+	public IntUnaryOperator superInterfaceLambda2() {
+		return InterfaceExample.super::exampleMethod2;
+	}
+
+	// Не должна заменяться ссылкой на метод
+	public IntSupplier superInterfaceLambda3() {
+		return () -> InterfaceExample.super.exampleMethod2(2);
+	}
+
+	@Override
+	public int exampleMethod1(int x) {
+		return 0;
 	}
 
 	private String get(Supplier<String> supplier) {

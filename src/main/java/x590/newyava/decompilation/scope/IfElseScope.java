@@ -23,7 +23,7 @@ public abstract sealed class IfElseScope extends Scope permits IfScope, ElseScop
 	/** Инициализирует поле {@link #leftOperation} */
 	@Override
 	@MustBeInvokedByOverriders
-	public void onEnd() {
+	protected void onEnd() {
 		var leftOperations = getEndChunk().getLeftOperations();
 		if (!leftOperations.isEmpty()) {
 			leftOperation = leftOperations.get(0);

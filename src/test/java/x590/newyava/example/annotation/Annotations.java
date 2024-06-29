@@ -9,89 +9,89 @@ import java.lang.annotation.Target;
 
 public final class Annotations {
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface ByteAnnotation {
+	public @interface ByteAnnotation {
 		byte val();
 		byte[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface ShortAnnotation {
+	public @interface ShortAnnotation {
 		short val();
 		short[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface CharAnnotation {
+	public @interface CharAnnotation {
 		char val();
 		char[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface IntAnnotation {
+	public @interface IntAnnotation {
 		int val();
 		int[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface LongAnnotation {
+	public @interface LongAnnotation {
 		long val();
 		long[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface FloatAnnotation {
+	public @interface FloatAnnotation {
 		float val();
 		float[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface DoubleAnnotation {
+	public @interface DoubleAnnotation {
 		double val();
 		double[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface BooleanAnnotation {
+	public @interface BooleanAnnotation {
 		boolean val();
 		boolean[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface StringAnnotation {
+	public @interface StringAnnotation {
 		String val();
 		String[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface EnumAnnotation {
+	public @interface EnumAnnotation {
 		EnumExample val();
 		EnumExample[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface ClassAnnotation {
+	public @interface ClassAnnotation {
 		Class<?> val();
 		Class<?>[] arr();
 	}
 
-	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
 	@Retention(RetentionPolicy.CLASS)
-	@interface AnnotationAnnotation {
+	public @interface AnnotationAnnotation {
 		SomeAnnotation val();
 		SomeAnnotation[] arr();
 	}
 
-	@interface SomeAnnotation {}
+	public @interface SomeAnnotation {}
 }

@@ -1,6 +1,6 @@
 package x590.newyava.annotation;
 
-import x590.newyava.GenericWritable;
+import x590.newyava.io.GenericWritable;
 import x590.newyava.Importable;
 import x590.newyava.constant.*;
 import x590.newyava.context.ConstantWriteContext;

@@ -18,6 +18,10 @@ public enum AbstractEnumExample {
 
 	private final boolean b;
 
+	AbstractEnumExample(Void ignored) {
+		this();
+	}
+
 	AbstractEnumExample() {
 		this(false);
 	}
@@ -30,6 +34,5 @@ public enum AbstractEnumExample {
 
 	public static void main(String[] args) {
 		Main.runForCaller();
-//		Main.run(AbstractEnum.class);
 	}
 }

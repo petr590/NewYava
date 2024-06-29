@@ -1,9 +1,13 @@
-package x590.newyava.decompilation.operation;
+package x590.newyava.decompilation.operation.variable;
 
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
+import x590.newyava.decompilation.operation.AssignOperation;
+import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.variable.VarUsage;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
@@ -14,12 +18,23 @@ import java.util.Objects;
 public class StoreOperation extends AssignOperation {
 	private final VariableReference varRef;
 
-	private boolean definition;
+	private boolean declaration;
 
-	public StoreOperation(MethodContext context, int slotId, Type requiredType) {
+	public static @Nullable StoreOperation of(MethodContext context, int slotId, Type requiredType) {
+		var value = context.popAs(requiredType);
+
+		if (value instanceof CatchOperation catchOp) {
+			catchOp.initVarRef(context.getVarRef(slotId));
+			return null;
+		}
+
+		return new StoreOperation(context, slotId, value);
+	}
+
+	public StoreOperation(MethodContext context, int slotId, Operation value) {
 		super(
-				context, context.popAs(requiredType), null,
-				operation -> operation instanceof LoadOperation load && load.getSlotId() == slotId
+				context, value, null,
+				operation -> operation instanceof ILoadOperation load && load.getSlotId() == slotId
 		);
 
 		this.varRef = context.getVarRef(slotId);
@@ -31,6 +46,14 @@ public class StoreOperation extends AssignOperation {
 	}
 
 	@Override
+	public VarUsage getVarUsage(int slotId) {
+		var usage = super.getVarUsage(slotId);
+		return usage == VarUsage.NONE && slotId == varRef.getSlotId() ?
+				VarUsage.STORE :
+				usage;
+	}
+
+	@Override
 	public void inferType(Type ignored) {
 		super.inferType(ignored);
 
@@ -39,12 +62,15 @@ public class StoreOperation extends AssignOperation {
 	}
 
 	@Override
-	public void declareVariableOnStore() {
+	public boolean declareVariables() {
 		if (varRef.attemptDeclare()) {
-			definition = true;
+			declaration = true;
+
+			super.declareVariables();
+			return true;
 		}
 
-		super.declareVariableOnStore();
+		return super.declareVariables();
 	}
 
 	@Override
@@ -56,14 +82,14 @@ public class StoreOperation extends AssignOperation {
 	public void addImports(ClassContext context) {
 		context.addImportsFor(value);
 
-		if (definition) {
+		if (declaration) {
 			context.addImport(varRef.getType());
 		}
 	}
 
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
-		if (definition) {
+		if (declaration) {
 			out.recordSp(varRef.getType(), context);
 		}
 
@@ -79,7 +105,7 @@ public class StoreOperation extends AssignOperation {
 	protected void writeValue(DecompilationWriter out, MethodWriteContext context) {
 		out.record(
 				value, context, getPriority(),
-				definition && Type.isArray(varRef.getType()) ?
+				declaration && Type.isArray(varRef.getType()) ?
 						Operation::writeAsArrayInitializer :
 						Operation::write
 		);

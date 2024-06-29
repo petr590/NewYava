@@ -3,6 +3,7 @@ package x590.newyava.constant;
 import it.unimi.dsi.fastutil.doubles.Double2ObjectMap;
 import it.unimi.dsi.fastutil.doubles.Double2ObjectOpenHashMap;
 import lombok.AccessLevel;
+import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
@@ -10,6 +11,7 @@ import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
+@EqualsAndHashCode(callSuper = false)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class DoubleConstant extends Constant {
 

@@ -3,7 +3,7 @@ package x590.newyava.decompilation.instruction;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import x590.newyava.context.MethodContext;
-import x590.newyava.decompilation.operation.IIncOperation;
+import x590.newyava.decompilation.operation.variable.IIncOperation;
 import x590.newyava.decompilation.operation.Operation;
 
 import static org.objectweb.asm.Opcodes.ILOAD;

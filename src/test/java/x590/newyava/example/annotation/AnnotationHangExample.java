@@ -25,7 +25,7 @@ import static x590.newyava.example.annotation.Annotations.*;
 public class AnnotationHangExample {
 	@Test
 	public void run() {
-		Main.run(this, Annotations.class.getNestMembers());
+		Main.run(this);
 	}
 
 	@ClassAnnotation(val = List.class, arr = {Map.class})

@@ -8,10 +8,8 @@ public class FieldsExample {
 		Main.run(FieldsExample.class);
 	}
 
-//	@Getter @Setter
 	private int x;
 
-//	@Getter @Setter
 	private static int y;
 
 	private static final boolean BOOL1 = true;

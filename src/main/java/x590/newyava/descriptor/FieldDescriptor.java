@@ -1,11 +1,12 @@
 package x590.newyava.descriptor;
 
-import x590.newyava.ContextualWritable;
+import x590.newyava.io.ContextualWritable;
 import x590.newyava.Importable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
+import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
 
 public record FieldDescriptor(ClassType hostClass, String name, Type type)
@@ -23,6 +24,13 @@ public record FieldDescriptor(ClassType hostClass, String name, Type type)
 	@Override
 	public void write(DecompilationWriter out, Context context) {
 		out.recordSp(type, context).record(name);
+	}
+
+
+	public boolean equals(ReferenceType hostClass, String name, Type type) {
+		return  this.hostClass.equals(hostClass) &&
+				this.name.equals(name) &&
+				this.type.equals(type);
 	}
 
 

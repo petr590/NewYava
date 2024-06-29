@@ -23,12 +23,18 @@ import java.util.List;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 
-/** Дескриптор метода */
+/**
+ * Дескриптор метода.
+ * @param fromIndex индекс, с которого начинаются аргументы.
+ * @param fromSlot слот переменной, с которого начинаются аргументы (не учитывая переменную {@code this}).
+ *                 Не то же самое, что и {@link #fromIndex}.
+ */
 public record MethodDescriptor(
 		ReferenceType hostClass,
 		String name,
 		Type returnType,
 		@Unmodifiable List<Type> arguments,
+		int fromIndex,
 		int fromSlot
 ) implements Importable {
 
@@ -54,7 +60,7 @@ public record MethodDescriptor(
 	}
 
 	public MethodDescriptor(ReferenceType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
-		this(hostClass, name, returnType, arguments, 0);
+		this(hostClass, name, returnType, arguments, 0, 0);
 	}
 
 	public MethodDescriptor(ReferenceType hostClass, String name, Type returnType) {
@@ -83,16 +89,23 @@ public record MethodDescriptor(
 		return slots(arguments);
 	}
 
-	/** @return Новый дескриптор с аргументами начиная с {@code from} до конца */
+	/** @return Новый дескриптор с аргументами начиная с {@code from} до конца.
+	 * Если {@code from} равен 0, возвращает {@code this}. */
 	public MethodDescriptor slice(int from) {
 		return slice(from, arguments.size());
 	}
 
 	/** @return Новый дескриптор с аргументами начиная с {@code from} до {@code to} не включительно.
-	 * Если {@code from} равен 0, а {@code to} равен количеству аргументов, возвращает {@code this} */
+	 * Если {@code from} равен 0, а {@code to} равен количеству аргументов, возвращает {@code this}. */
 	public MethodDescriptor slice(int from, int to) {
-		return from == 0 && to == arguments.size() ? this :
-				new MethodDescriptor(hostClass, name, returnType, arguments.subList(from, to), fromSlot + from);
+		return from == 0 && to == arguments.size() ?
+				this :
+				new MethodDescriptor(
+						hostClass, name, returnType,
+						arguments.subList(from, to),
+						fromIndex + from,
+						fromSlot + slots(arguments.subList(0, from))
+				);
 	}
 
 
@@ -104,13 +117,28 @@ public record MethodDescriptor(
 		return name.equals(CLINIT);
 	}
 
+
+	public boolean isRecordDefaultConstructor(Context context) {
+		if (!isConstructor()) return false;
+
+		var recordComponents = context.getRecordComponents();
+
+		if (recordComponents != null && recordComponents.size() == arguments.size()) {
+			var iterator = arguments.iterator();
+			return recordComponents.stream().allMatch(component -> component.getDescriptor().type().equals(iterator.next()));
+		}
+
+		return false;
+	}
+
+
 	@Override
 	public void addImports(ClassContext context) {
 		context.addImport(returnType).addImportsFor(arguments);
 	}
 
 	public void write(DecompilationWriter out, Context context, boolean isStatic,
-	                  @Nullable List<Variable> variables) {
+	                  @Nullable @Unmodifiable List<Variable> variables) {
 
 		switch (name) {
 			case CLINIT -> {
@@ -118,10 +146,18 @@ public record MethodDescriptor(
 				return;
 			}
 
-			case INIT -> out.record(hostClass, context);
+			case INIT -> {
+				out.record(hostClass, context);
+
+				if (isRecordDefaultConstructor(context)) {
+					return;
+				}
+			}
+
 			default -> out.recordSp(returnType, context).record(name);
 		}
 
+		// Принимает индекс аргумента метода, возвращает имя этого аргумента
 		IntFunction<String> nameGetter = variables != null ?
 				new NameGetter(variables.subList(fromSlot, variables.size()), isStatic) :
 				new NameGenerator();
@@ -131,8 +167,9 @@ public record MethodDescriptor(
 		).record(')');
 	}
 
+	/** Получает имя из списка переменных */
 	private class NameGetter implements IntFunction<String> {
-		private final List<Variable> variables;
+		private final @Unmodifiable List<Variable> variables;
 		private int offset;
 
 		public NameGetter(List<Variable> variables, boolean isStatic) {
@@ -151,6 +188,7 @@ public record MethodDescriptor(
 		}
 	}
 
+	/** Генерирует имена всех параметров метода на основе их типов */
 	private class NameGenerator implements IntFunction<String> {
 		private final List<String> names;
 

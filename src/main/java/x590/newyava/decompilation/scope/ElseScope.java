@@ -15,11 +15,11 @@ public final class ElseScope extends IfElseScope {
 	}
 
 	@Override
-	public void onEnd() {
+	protected void onEnd() {
 		super.onEnd();
 
 		if (getParent() != null && leftOperation != null) {
-			var operations = getParent().getOperations();
+			var operations = getParent().operations;
 			int size = operations.size();
 
 			if (size >= 2 &&

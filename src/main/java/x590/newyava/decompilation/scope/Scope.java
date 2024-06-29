@@ -1,18 +1,25 @@
 package x590.newyava.decompilation.scope;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import lombok.AccessLevel;
+import lombok.Data;
 import lombok.Getter;
 import org.jetbrains.annotations.*;
 import x590.newyava.Log;
+import x590.newyava.RemoveIfNotUsed;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.Chunk;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.decompilation.operation.Priority;
+import x590.newyava.decompilation.operation.variable.DeclareOperation;
+import x590.newyava.decompilation.variable.VarUsage;
 import x590.newyava.decompilation.variable.Variable;
 import x590.newyava.decompilation.variable.VariableReference;
-import x590.newyava.decompilation.variable.VariableSlotView;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
@@ -25,9 +32,11 @@ import java.util.function.Predicate;
  */
 public class Scope implements Operation, Comparable<Scope> {
 
+	/** Первый чанк, принадлежащий scope-у. */
 	@Getter
 	private final Chunk startChunk;
 
+	/** Последний чанк, принадлежащий scope-у. */
 	@Getter
 	private Chunk endChunk;
 
@@ -39,18 +48,31 @@ public class Scope implements Operation, Comparable<Scope> {
 	@Getter
 	private @Nullable Scope parent;
 
-	@Getter
+
 	protected final List<Operation> operations = new ArrayList<>();
+
+	private final @UnmodifiableView List<Operation> operationsView = Collections.unmodifiableList(operations);
+
+	public @UnmodifiableView List<Operation> getOperations() {
+		return operationsView;
+	}
 
 	private final List<Scope> scopes = new ArrayList<>();
 
-	private final List<@Nullable Variable> variables = new ArrayList<>();
+	/** Переменные, которые содержит этот scope.
+	 * Если переменная равна {@code null}, значит в этом слоте нет переменных. */
+	protected final List<@Nullable Variable> variables = new ArrayList<>();
 
-	private final @UnmodifiableView List<Variable> variablesView = Collections.unmodifiableList(variables);
+	private final @UnmodifiableView List<@Nullable Variable> variablesView = Collections.unmodifiableList(variables);
 
-	public @UnmodifiableView List<Variable> getVariables() {
+	public @UnmodifiableView List<@Nullable Variable> getVariables() {
 		return variablesView;
 	}
+
+
+	/** Переменные, которые должны быть объявлены в этом scope. */
+	protected final Set<Variable> variablesToDeclare = new HashSet<>();
+
 
 	public Scope(@Unmodifiable List<Chunk> chunks) {
 		this(chunks, 0);
@@ -67,14 +89,17 @@ public class Scope implements Operation, Comparable<Scope> {
 		this.startIndex = startChunk.getStartIndex() + startIndexOffset;
 	}
 
-	public void addOperations(Collection<Operation> operations) {
-		this.operations.addAll(operations);
-	}
-
 	public boolean isEmpty() {
 		return operations.isEmpty();
 	}
 
+
+	private final Int2ObjectMap<VarUsage> usagesCache = new Int2ObjectArrayMap<>();
+
+	@Override
+	public VarUsage getVarUsage(int slotId) {
+		return usagesCache.computeIfAbsent(slotId, Operation.super::getVarUsage);
+	}
 
 	@Override
 	@MustBeInvokedByOverriders
@@ -82,9 +107,18 @@ public class Scope implements Operation, Comparable<Scope> {
 		operations.forEach(operation -> operation.inferType(PrimitiveType.VOID));
 	}
 
+	/** @return все операции внутри scope, включая операцию в заголовке. */
 	@Override
-	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return operations;
+	public final @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		var headerOperation = getHeaderOperation();
+		return headerOperation == null ? operations :
+				OperationUtil.addBefore(headerOperation, operations);
+	}
+
+	/** @return операцию в заголовке scope или {@code null}, если её нет.
+	 * По умолчанию возвращает {@code null}. */
+	protected @Nullable Operation getHeaderOperation() {
+		return null;
 	}
 
 
@@ -108,9 +142,36 @@ public class Scope implements Operation, Comparable<Scope> {
 	}
 
 
+
 	/**
-	 * Начинает все {@code scope}-ы, до которых дошла очередь. Если {@link IfScope}
-	 * выходит за границы текущего  {@code scope}, то он будет уменьшен до этих границ.
+	 * Добавляет операции из чанка в список операций и вызывает
+	 * {@link #onAdd(Operation, Chunk)}, если список не пустой.
+	 */
+	public void addOperationsFromChunk(Chunk chunk) {
+		var chunkOperations = chunk.getOperations();
+
+		operations.addAll(chunkOperations);
+
+		if (!chunkOperations.isEmpty()) {
+			onAdd(chunkOperations.get(chunkOperations.size() - 1), chunk);
+		}
+	}
+
+
+	/**
+	 * Вызывается при добавлении группы операций (в том числе и {@link Scope}) в {@link #operations}.
+	 * @param lastOperation последняя операция из добавленных.
+	 * @param lastChunk чанк, из которого была добавлена группа операций
+	 *                  или последний чанк {@link Scope}-а.
+	 */
+	@RemoveIfNotUsed
+	protected void onAdd(Operation lastOperation, Chunk lastChunk) {}
+
+
+	/**
+	 * Начинает все scope-ы, до которых дошла очередь.
+	 * Если {@link IfScope}, {@link ElseScope} или {@link CatchScope} выходит за
+	 * границы текущего scope, то он будет уменьшен до этих границ.
 	 * @param scopeQueue очередь {@link Scope}-ов, должна быть отсортирована по возрастанию.
 	 * @param currentId текущий id чанка.
 	 */
@@ -122,9 +183,11 @@ public class Scope implements Operation, Comparable<Scope> {
 
 			operations.add(scope);
 			scopes.add(scope);
+			onAdd(scope, scope.endChunk);
+
 			scope.parent = this;
 
-			if ((scope instanceof IfScope || scope instanceof ElseScope)
+			if ((scope instanceof IfScope || scope instanceof ElseScope || scope instanceof CatchScope)
 					&& scope.endChunk.getId() > this.endChunk.getId()) {
 				scope.endChunk = this.endChunk;
 			}
@@ -145,49 +208,87 @@ public class Scope implements Operation, Comparable<Scope> {
 		return this;
 	}
 
-	public void onEnd() {}
+
+	/** Вызывается, когда текущий scope достигает конца */
+	protected void onEnd() {}
+
+
+	@Data
+	protected static final class VarOwner {
+		/** id чанков начала и конца */
+		private final int start, end;
+
+		/** Scope, которому принадлежит переменная */
+		private final Scope scope;
+
+		@Getter(AccessLevel.NONE)
+		private @Nullable Variable variable;
+
+		public Variable getOrCreateVariable(VariableReference ref) {
+			if (variable != null)
+				return variable;
+
+			return variable = new Variable(ref, false);
+		}
+	}
+
 
 	/**
-	 * Связывает с каждым {@link VariableReference} определённый {@link Variable}.
-	 * @param localVarsStart слот, с которого начинаются переменные, объявленные в методе
-	 *                       (т.е. <i>не</i> параметры метода и <i>не</i> {@code this}).
-	 * @param chunks список всех чанков метода.
+	 * Ищет для каждой переменной своего "владельца" - т.е. scope, в котором
+	 * эта переменная должна быть объявлена.
 	 */
-	public void initVariables(int localVarsStart, @Unmodifiable List<Chunk> chunks) {
-		int startChunkId = startChunk.getId(),
-			endChunkId = endChunk.getId();
+	protected void findVarsHosts(Int2ObjectMap<List<VarOwner>> hostsMap) {
+		scopes.forEach(scope -> scope.findVarsHosts(hostsMap));
 
-		for (VariableSlotView slot : startChunk.getVarSlots()) {
-			Optional<VariableReference> ref =
-					parent == null ? Optional.empty() : parent.findVariable(slot.getId());
+		for (int slotId : hostsMap.keySet()) {
+			boolean usesLoad = false,
+					usesStore = false;
 
-			for (int id = startChunkId; id <= endChunkId; id++) {
-				VariableReference curRef = slot.get(chunks.get(id).getStartIndex());
-
-				if (curRef == null)
-					continue;
-
-				if (ref.isPresent()) {
-					curRef.initVariable(ref.get().getVariable());
-
-				} else {
-					if (curRef.getVariable() == null) {
-						curRef.initVariable(new Variable(curRef, slot.getId() < localVarsStart));
+			Loop: for (Operation operation : getNestedOperations()) {
+				switch (operation.getVarUsage(slotId)) {
+					case LOAD -> {
+						usesLoad = true;
+						if (usesStore)
+							break Loop;
 					}
 
-					ref = Optional.of(curRef);
+					case STORE -> {
+						usesStore = true;
+						if (usesLoad)
+							break Loop;
+					}
 				}
 			}
 
-			variables.add(ref.map(VariableReference::getVariable).orElse(null));
-		}
+			// Если в данном scope мы и читаем, и записываем переменную,
+			// то она должна быть объявлена здесь (или в одном из родителей)
+			if (usesLoad & usesStore) {
+				var hosts = hostsMap.get(slotId);
 
-		scopes.forEach(scope -> scope.initVariables(localVarsStart, chunks));
+				int startId = startChunk.getStartIndex(),
+					endId = endChunk.getEndIndex();
+
+				// Удаляем вложенных владельцев
+				hosts.removeIf(owner -> owner.start >= startId && owner.end <= endId);
+
+				// Добавляем себя как владельца переменной
+				hosts.add(new VarOwner(startId, endId, this));
+			}
+		}
 	}
 
-	private Optional<VariableReference> findVariable(int slotId) {
-		return Optional.ofNullable(startChunk.getVarSlots().get(slotId).get(startChunk.getId()))
-				.or(() -> parent == null ? Optional.empty() : parent.findVariable(slotId));
+	/** Добавляет {@code null} в {@link #variables}, если его размер меньше {@code size} */
+	protected void addNullVariableIfLess(int size) {
+		if (variables.size() < size)
+			variables.add(null);
+
+		scopes.forEach(scope -> scope.addNullVariableIfLess(size));
+	}
+
+	/** Добавляет переменную в {@link #variables} */
+	protected void addVariable(Variable variable) {
+		variables.add(variable);
+		scopes.forEach(scope -> scope.addVariable(variable));
 	}
 
 	public void initVariableNames() {
@@ -256,6 +357,42 @@ public class Scope implements Operation, Comparable<Scope> {
 
 
 	@Override
+	public boolean declareVariables() {
+		var headerOperation = getHeaderOperation();
+		boolean result = headerOperation != null && headerOperation.declareVariables();
+
+		var operations = this.operations;
+
+		for (var variable : variablesToDeclare) {
+			if (variable.isDeclared()) {
+				continue;
+			}
+
+			for (int i = 0, size = operations.size(); i < size; i++) {
+				Operation operation = operations.get(i);
+
+				if (operation.getVarUsage(variable.getSlotId()) == VarUsage.NONE) {
+					continue;
+				}
+
+				if (!(operation instanceof Scope)) {
+					operation.declareVariables();
+				}
+
+				if (!variable.isDeclared()) {
+					operations.add(i, new DeclareOperation(variable));
+				}
+
+				result = true;
+				break;
+			}
+		}
+
+		// Одиночный "or", так как супер-метод должен вызываться всегда.
+		return result | Operation.super.declareVariables();
+	}
+
+	@Override
 	public Type getReturnType() {
 		return PrimitiveType.VOID;
 	}
@@ -274,6 +411,10 @@ public class Scope implements Operation, Comparable<Scope> {
 
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
+		if (labelName != null) {
+			out.record(labelName).record(": ");
+		}
+
 		if (canOmitBrackets() && context.getConfig().canOmitBrackets()) {
 			if (operations.isEmpty()) {
 				writeHeader(out, context);
@@ -312,7 +453,7 @@ public class Scope implements Operation, Comparable<Scope> {
 		Operation prev = null;
 
 		for (var operation : operations) {
-			if (operation instanceof ElseScope) {
+			if (shouldJoin(operation, prev)) {
 				if (prev instanceof Scope scope && scope.realOmitBrackets(context)) {
 					out.ln().indent();
 				} else {
@@ -334,6 +475,12 @@ public class Scope implements Operation, Comparable<Scope> {
 
 			prev = operation;
 		}
+	}
+
+
+	private boolean shouldJoin(Operation current, Operation prev) {
+		return  current instanceof ElseScope && prev instanceof IfScope ||
+				current instanceof CatchScope && (prev instanceof TryScope || prev instanceof CatchScope);
 	}
 
 

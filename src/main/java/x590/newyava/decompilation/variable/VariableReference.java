@@ -6,6 +6,8 @@ import org.jetbrains.annotations.Nullable;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.type.Type;
 
+import java.util.Objects;
+
 /**
  * Ссылка на переменную. Несколько ссылок могут указывать на одну и ту же переменную.
  * Используется, когда сами переменные ещё не восстановлены.
@@ -20,14 +22,20 @@ public class VariableReference {
 
 	private final @Nullable String initialName;
 
-	private final int start, end;
+	private final int slotId;
+
+	/** Индекс начала (индекс, соответствующий инструкциям) */
+	private final int start;
+
+	/** Индекс конца (индекс, соответствующий инструкциям) */
+	private final int end;
 
 	private Variable variable;
 
 	private @Nullable VariableReference binded;
 
-	public VariableReference(Type initialType, int start, int end) {
-		this(initialType, null, start, end);
+	public VariableReference(Type initialType, int slotId, int start, int end) {
+		this(initialType, null, slotId, start, end);
 	}
 
 
@@ -39,26 +47,30 @@ public class VariableReference {
 		this.binded = ref;
 	}
 
-	public Variable getVariable() {
+	public @Nullable Variable getVariable() {
 		return binded != null ? binded.getVariable() : variable;
+	}
+
+	public Variable requireVariable() {
+		return Objects.requireNonNull(getVariable());
 	}
 
 	/** Преобразует тип переменной к требуемому с расширением вниз.
 	 * Доступно только после связывания ссылки переменной. */
 	public void assignUp(Type requiredType) {
-		getVariable().assignUp(requiredType);
+		requireVariable().assignUp(requiredType);
 	}
 
 	/** Преобразует тип переменной к требуемому с расширением вверх.
 	 * Доступно только после связывания ссылки переменной. */
 	public void assignDown(Type requiredType) {
-		getVariable().assignDown(requiredType);
+		requireVariable().assignDown(requiredType);
 	}
 
 	/** Объявляет переменную. Доступно только после связывания ссылки с самой переменной.
 	 * @return {@code true}, если переменная была не объявлена */
 	public boolean attemptDeclare() {
-		return getVariable().attemptDeclare();
+		return requireVariable().attemptDeclare();
 	}
 
 	/** @return тип переменной. До связывания ссылки с переменной возвращает {@link #initialType}. */
@@ -69,7 +81,7 @@ public class VariableReference {
 
 	/** @return имя переменной. Доступно только после связывания ссылки с самой переменной. */
 	public String getName() {
-		return getVariable().getName();
+		return requireVariable().getName();
 	}
 
 	/**

@@ -3,8 +3,6 @@ package x590.newyava.example.nested;
 import org.junit.Test;
 import x590.newyava.example.Main;
 
-import java.util.List;
-
 @SuppressWarnings("all")
 public class NestedClassExample {
 
@@ -13,23 +11,22 @@ public class NestedClassExample {
 		Main.run(this);
 	}
 
-	public static void recursion() {
-		recursion();
-	}
+	public static class Another {}
 
 	public static class Middle {
 		public static class Inner {
 
 			public Inner(String arg1, int arg2) {}
 
-			public static Class<?> getAnonClass(List<?> justAList) {
+			public Class<?> getAnonClass() {
 				int id = (int)(Math.random() * 1000);
+				String strId = String.valueOf(id);
 
 				return new Inner("abc", 5) {
 					private int x = 1;
 
 					public String toString() {
-						return String.valueOf(id + x);
+						return String.valueOf(id + x) + strId + Inner.this.toString();
 					}
 				}.getClass();
 			}
@@ -43,8 +40,15 @@ public class NestedClassExample {
 	}
 
 	public static Class<?> getNestClassInMethod2() {
-		class In$Method {}
+		int x = 10;
 
-		return In$Method.class;
+		class In$Method {
+			@Override
+			public int hashCode() {
+				return x;
+			}
+		}
+
+		return new In$Method().getClass();
 	}
 }

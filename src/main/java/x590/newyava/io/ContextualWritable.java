@@ -1,7 +1,6 @@
-package x590.newyava;
+package x590.newyava.io;
 
 import x590.newyava.context.Context;
-import x590.newyava.io.DecompilationWriter;
 
 @FunctionalInterface
 public interface ContextualWritable extends GenericWritable<Context> {}

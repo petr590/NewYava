@@ -1,7 +1,10 @@
-package x590.newyava.decompilation.operation;
+package x590.newyava.decompilation.operation.variable;
 
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
+import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.Priority;
+import x590.newyava.decompilation.variable.VarUsage;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
@@ -33,6 +36,21 @@ public class IIncOperation implements Operation {
 		return new IIncOperation(context, slotId, value, true, false);
 	}
 
+
+	@Override
+	public boolean usesAnyVariable() {
+		return true;
+	}
+
+	@Override
+	public VarUsage getVarUsage(int slotId) {
+		return slotId == varRef.getSlotId() ? VarUsage.LOAD : VarUsage.NONE;
+	}
+
+	@Override
+	public void inferType(Type ignored) {
+		varRef.assignUp(PrimitiveType.INT);
+	}
 
 	@Override
 	public Type getReturnType() {

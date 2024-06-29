@@ -1,6 +1,7 @@
 package x590.newyava.constant;
 
 import lombok.AccessLevel;
+import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
@@ -8,6 +9,7 @@ import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.Type;
 
+@EqualsAndHashCode(callSuper = false)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class StringConstant extends Constant {
 

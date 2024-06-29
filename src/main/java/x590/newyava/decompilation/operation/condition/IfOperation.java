@@ -11,6 +11,8 @@ import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.type.PrimitiveType;
+import x590.newyava.type.Type;
 
 import java.util.List;
 
@@ -35,6 +37,11 @@ public class IfOperation extends JumpOperation {
 
 	public static IfOperation acmpNull(MethodContext context, Label label, CompareType compareType) {
 		return new IfOperation(label, CompareCondition.acmpNull(context, compareType));
+	}
+
+	@Override
+	public void inferType(Type ignored) {
+		condition.inferType(PrimitiveType.BOOLEAN);
 	}
 
 	@Override

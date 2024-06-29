@@ -20,10 +20,15 @@ public class Config {
 	 * Иначе просто выведется сообщение об ошибке и будет записан заголовок метода. */
 	private final boolean failOnDecompilationException;
 
+	/** Если {@code true}, то будет импортировать вложенные классы
+	 * (при совпадении имён предпочтение отдаётся классам верхнего уровня). */
+	private final boolean importNestedClasses;
+
 	public boolean ignoreVariableTable() { return ignoreVariableTable; }
 	public boolean canOmitBrackets() { return !alwaysWriteBrackets; }
 	public boolean canOmitThisAndClass() { return !alwaysWriteThisAndClass; }
 	public boolean failOnDecompilationException() { return failOnDecompilationException; }
+	public boolean importNestedClasses() { return importNestedClasses; }
 
 
 	private static Config defaultInstance;

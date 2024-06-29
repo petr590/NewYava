@@ -14,6 +14,7 @@ import org.objectweb.asm.Label;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.instruction.FlowControlInsn;
 import x590.newyava.decompilation.instruction.Instruction;
+import x590.newyava.decompilation.operation.variable.CatchOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.ProxyOperation;
 import x590.newyava.decompilation.operation.condition.Condition;
@@ -24,9 +25,7 @@ import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.decompilation.variable.VariableSlotView;
 import x590.newyava.type.PrimitiveType;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Чанк - это блок непрерывно выполняющихся инструкций с возможной инструкцией перехода в конце.
@@ -40,6 +39,7 @@ public class Chunk implements Comparable<Chunk> {
 	@Getter
 	private final int startIndex;
 
+	@Getter
 	@Setter(AccessLevel.PACKAGE)
 	private int endIndex;
 
@@ -135,9 +135,21 @@ public class Chunk implements Comparable<Chunk> {
 		}
 	}
 
-	/** Преобразует инструкции в операции, включая инструкцию перехода. */
-	void decompile(MethodContext methodContext) {
+	/**
+	 * Преобразует инструкции в операции, включая инструкцию перехода.
+	 * @param catchMaps список карт, где ключ - id чанка, на котором начинается блок {@code catch},
+	 *                  значение - все типы исключений, которые ловит этот блок.
+	 */
+	void decompile(MethodContext methodContext, Collection<Int2ObjectMap<CatchOperation>> catchMaps) {
 		methodContext.setCurrentChunk(this);
+
+		var foundCatch = catchMaps.stream()
+				.map(map -> map.get(id))
+				.filter(Objects::nonNull)
+				.findAny();
+
+		foundCatch.ifPresent(catchOperation -> methodContext.getStack().push(catchOperation));
+
 
 		for (int i = 0, s = instructions.size(); i < s; i++) {
 			Operation operation = null;

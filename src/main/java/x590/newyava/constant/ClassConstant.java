@@ -1,6 +1,7 @@
 package x590.newyava.constant;
 
 import lombok.AccessLevel;
+import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
@@ -9,6 +10,7 @@ import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
+@EqualsAndHashCode(callSuper = false)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class ClassConstant extends Constant {
 
@@ -42,5 +44,10 @@ public final class ClassConstant extends Constant {
 	@Override
 	public void write(DecompilationWriter out, ConstantWriteContext context) {
 		out.record(type, context).record(".class");
+	}
+
+	@Override
+	public String toString() {
+		return "ClassConstant(" + type + ")";
 	}
 }

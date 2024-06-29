@@ -1,8 +1,11 @@
-package x590.newyava;
+package x590.newyava.io;
 
 import x590.newyava.context.Context;
-import x590.newyava.io.DecompilationWriter;
 
+/**
+ * Представляет объект, который можно записать в {@link DecompilationWriter}
+ * с использованием контекста
+ */
 @FunctionalInterface
 public interface GenericWritable<C extends Context> {
 
