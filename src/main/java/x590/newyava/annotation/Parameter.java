@@ -1,6 +1,6 @@
 package x590.newyava.annotation;
 
-import x590.newyava.ContextualWritable;
+import x590.newyava.io.ContextualWritable;
 import x590.newyava.Importable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;

@@ -1,6 +1,5 @@
 package x590.newyava.example;
 
-import org.apache.commons.lang3.ArrayUtils;
 import x590.newyava.Config;
 import x590.newyava.Decompiler;
 
@@ -17,20 +16,12 @@ public class Main {
 		run(exampleObj.getClass(), Config.defaultConfig());
 	}
 
-	public static void run(Object exampleObj, Class<?>... classes) {
-		run(exampleObj.getClass(), Config.defaultConfig(), classes);
+	public static void run(Class<?>... classes) {
+		new Decompiler(Config.defaultConfig()).run(classes);
 	}
 
 	public static void run(Object exampleObj, Config config) {
 		run(exampleObj.getClass(), config);
-	}
-
-	public static void run(String className) {
-		run(className, Config.defaultConfig());
-	}
-
-	public static void run(String className, Config config) {
-		new Decompiler(config).run(className);
 	}
 
 	public static void run(Class<?> exampleClass) {
@@ -41,7 +32,8 @@ public class Main {
 		new Decompiler(config).run(exampleClass.getNestMembers());
 	}
 
-	public static void run(Class<?> exampleClass, Config config, Class<?>... classes) {
-		new Decompiler(config).run(ArrayUtils.addAll(exampleClass.getNestMembers(), classes));
+
+	public static void run(String className) {
+		new Decompiler(Config.defaultConfig()).run(ClassLoader.getSystemClassLoader(), className);
 	}
 }

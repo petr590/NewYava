@@ -1,11 +1,14 @@
 package x590.newyava.decompilation.operation;
 
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
+
+import java.util.List;
 
 public class TernaryOperator implements Operation {
 
@@ -46,6 +49,11 @@ public class TernaryOperator implements Operation {
 				isCondition = true;
 			}
 		}
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(condition, operand1, operand2);
 	}
 
 	@Override

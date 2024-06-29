@@ -28,6 +28,8 @@ public class ClassContext implements Context {
 	@Getter
 	private final DecompilingClass decompilingClass;
 
+	/* -------------------------------------------------- Getters --------------------------------------------------- */
+
 	@Override
 	public Config getConfig() {
 		return decompiler.getConfig();
@@ -48,23 +50,37 @@ public class ClassContext implements Context {
 		return decompilingClass.getSuperType();
 	}
 
+	@Override
+	public @Nullable @Unmodifiable List<DecompilingField> getRecordComponents() {
+		return decompilingClass.getRecordComponents();
+	}
 
+	/* -------------------------------------------------- Imports --------------------------------------------------- */
+	/** Кандидаты на импорт */
 	private Multiset<ClassType> importCandidates = HashMultiset.create();
 
+	/** Простые имена классов, объявленных в данном классе, а также имя данного класса.
+	 * Нельзя импортировать классы с такими же именами. */
+	private final Set<String> declaredClassesNames = new HashSet<>();
+
+	/** Конечные импорты. Для вложенных классов равно {@code null}. */
 	private Set<ClassType> imports;
 
-	private @Nullable ClassContext outer;
+	/** Импорты {@link #getThisType()} и всех его внешних классов */
+	private Set<ClassType> thisClassImports;
 
-	private Multiset<ClassType> getImportCandidates() {
-		return outer != null ? outer.getImportCandidates() : importCandidates;
-	}
+	/** Контекст внешнего класса. Если он не равен {@code null}, то к нему делегируются вся работа с импортами. */
+	private @Nullable ClassContext outer;
 
 	/**
 	 * Устанавливает контекст внешнего класса.
+	 * @throws NullPointerException если переданный параметр равен {@code null}.
 	 * @throws IllegalStateException если контекст внешнего класса уже установлен.
 	 * @throws IllegalArgumentException если контекст внешнего класса равен {@code this}.
 	 */
 	public void setOuterContext(ClassContext outer) {
+		Objects.requireNonNull(outer);
+
 		if (this.outer != null) {
 			throw new IllegalStateException("Outer context already has been set");
 		}
@@ -85,11 +101,35 @@ public class ClassContext implements Context {
 		return this;
 	}
 
-	/** Добавляет импорт указанного класса, если он не объявлен внутри метода */
+	/** Добавляет импорт указанного класса, если он не объявлен внутри метода.
+	 * Не импортирует вложенные классы, если {@link Config#importNestedClasses()} равно {@code false},
+	 * вместо этого импортирует класс верхнего уровня. */
 	public ClassContext addImport(@Nullable ClassType classType) {
-		if (classType != null && !classType.isEnclosedInMethod())
-			getImportCandidates().add(classType);
+		if (outer != null) {
+			outer.addImport(classType);
+			return this;
+		}
 
+		if (classType == null || classType.isEnclosedInMethod()) {
+			return this;
+		}
+
+		if (classType.getTopLevelClass().equals(getThisType())) {
+			declaredClassesNames.add(classType.getSimpleName());
+		}
+
+		if (classType.isNested() && !getConfig().importNestedClasses()) {
+			importCandidates.add(classType.getTopLevelClass());
+		} else {
+			importCandidates.add(classType);
+		}
+
+		return this;
+	}
+
+	/** Добавляет импорты для всех указанных типов */
+	public ClassContext addImports(@Unmodifiable List<? extends ClassType> classTypes) {
+		classTypes.forEach(this::addImport);
 		return this;
 	}
 
@@ -109,12 +149,6 @@ public class ClassContext implements Context {
 		return this;
 	}
 
-	/** Добавляет импорты для всех указанных типов */
-	public ClassContext addImports(List<ClassType> classTypes) {
-		classTypes.forEach(this::addImport);
-		return this;
-	}
-
 	/**
 	 * Вычисляет итоговые импорты. Из нескольких классов
 	 * с одинаковым именем берёт самый часто встречающийся.
@@ -122,6 +156,11 @@ public class ClassContext implements Context {
 	 * @throws IllegalStateException если импорты уже вычислены.
 	 */
 	public void computeImports() {
+		thisClassImports = new HashSet<>();
+		for (ClassType type = getThisType(); type != null; type = type.getOuter()) {
+			thisClassImports.add(type);
+		}
+
 		if (outer != null)
 			return;
 
@@ -134,11 +173,27 @@ public class ClassContext implements Context {
 				.collect(Collectors.groupingBy(entry -> entry.getElement().getSimpleName()));
 
 		for (var group : grouped.entrySet()) {
+			if (declaredClassesNames.contains(group.getKey())) {
+				continue;
+			}
+
 			imports.add(group.getValue().stream()
-					.max(Comparator.comparingInt(Multiset.Entry::getCount))
+					.max(ClassContext::compareImportCandidates)
 					.orElseThrow().getElement());
 		}
 	}
+
+	/** Сравнивает две записи по количеству использований.
+	 * Классы верхнего уровня имеют приоритет. */
+	private static int compareImportCandidates(Multiset.Entry<ClassType> entry1, Multiset.Entry<ClassType> entry2) {
+		boolean isNested1 = entry1.getElement().isNested(),
+				isNested2 = entry2.getElement().isNested();
+
+		return isNested1 != isNested2 ?
+				(isNested1 ? -1 : 1) :
+				entry1.getCount() - entry2.getCount();
+	}
+
 
 	/**
 	 * @return набор импортируемых классов, вычисленный методом {@link #computeImports()}.
@@ -154,12 +209,29 @@ public class ClassContext implements Context {
 		return Collections.unmodifiableSet(imports);
 	}
 
-	@Override
-	public boolean imported(ClassType classType) {
-		return getImports().contains(classType);
+	/** Перед классом мы должны писать имя этого класса при обращении к его членам.
+	 * Пока класс не начался, эта переменная равна {@code false}. */
+	private boolean entered;
+
+	public void enter() {
+		entered = true;
+	}
+
+	public void exit() {
+		entered = false;
 	}
 
 
+	/** @return {@code true}, если класс импортирован. */
+	@Override
+	public boolean imported(ClassType classType) {
+		return getImports().contains(classType) ||
+				thisClassImports.contains(classType) ||
+				(entered && thisClassImports.contains(classType.getOuter()));
+	}
+
+
+	/* ---------------------------------------------------- find ---------------------------------------------------- */
 	@Override
 	public Optional<DecompilingField> findField(FieldDescriptor descriptor) {
 		return decompilingClass.getFields().stream()
@@ -178,7 +250,7 @@ public class ClassContext implements Context {
 	}
 
 	@Override
-	public Optional<DecompilingClass> findClass(ClassType classType) {
+	public Optional<DecompilingClass> findClass(@Nullable ClassType classType) {
 		return decompiler.findClass(classType);
 	}
 }

@@ -43,8 +43,20 @@ public class ClassType implements ReferenceType {
 			VOID      = valueOf(Void.class);
 
 
-	private final String binName, binSimpleName;
-	private String name, simpleName;
+	/** Полное бинарное имя класса, например {@code "java/lang/Object"} */
+	private final String binName;
+
+	/** Бинарное имя класса, например {@code "Object"} или {@code "Map$Entry"} */
+	private final String binSimpleName;
+
+	/** Полное имя класса, например {@code "java.lang.Object"} */
+	private String name;
+
+	/** Имя класса, например {@code "Object"}.
+	 * Пустое для анонимных классов. */
+	private String simpleName;
+
+	/** Имя пакета класса, например {@code "java.lang"} */
 	private final String packageName;
 
 	private boolean isEnclosedInMethod;
@@ -71,20 +83,29 @@ public class ClassType implements ReferenceType {
 		this.packageName = index < 0 ? "" : name.substring(0, index);
 	}
 
-	private static boolean isValidName(String name) {
-		int len = name.length();
+	private static boolean isValidName(String binName) {
+		if (binName.equals("module-info")) {
+			return true;
+		}
+
+		if (binName.endsWith("/package-info")) {
+			binName = binName.substring(0, binName.length() - "/package-info".length());
+		}
+
+
+		int len = binName.length();
 
 		if (len == 0 ||
-				!Character.isJavaIdentifierStart(name.charAt(0)) ||
-				!Character.isJavaIdentifierPart(name.charAt(len - 1))) {
+				!Character.isJavaIdentifierStart(binName.charAt(0)) ||
+				!Character.isJavaIdentifierPart(binName.charAt(len - 1))) {
 			return false;
 		}
 
-		for (int i = 1, l = name.length(); i < l; ++i) {
-			char c = name.charAt(i);
+		for (int i = 1, l = binName.length(); i < l; ++i) {
+			char c = binName.charAt(i);
 
 			if (c == '/') {
-				if (name.charAt(i - 1) == '/')
+				if (binName.charAt(i - 1) == '/')
 					return false;
 
 			} else if (!Character.isJavaIdentifierPart(c)) {
@@ -170,6 +191,10 @@ public class ClassType implements ReferenceType {
 	}
 
 
+	public boolean isPackageInfo() {
+		return simpleName.equals("package-info");
+	}
+
 	@Override
 	public boolean isNested() {
 		return outer != null;
@@ -178,6 +203,27 @@ public class ClassType implements ReferenceType {
 	@Override
 	public boolean isAnonymous() {
 		return isEnclosedInMethod && simpleName.isEmpty();
+	}
+
+
+	/** @return {@code true}, если этот класс объявлен внутри переданного класса
+	 * на любом уровне вложенности, т.е. если есть иерархия:
+	 * <pre>
+	 * {@code class X {
+	 *      class Y {
+	 *          class Z {}
+	 *      }
+	 * }}
+	 * </pre>
+	 * то {@code Z.isInside(X)} вернёт {@code true}. */
+	public boolean isInside(ClassType other) {
+		return outer != null && (outer.equals(other) || outer.isInside(other));
+	}
+
+
+	/** @return класс верхнего уровня, который содержит данный класс. */
+	public ClassType getTopLevelClass() {
+		return outer == null ? this : outer.getTopLevelClass();
 	}
 
 
@@ -399,6 +445,16 @@ public class ClassType implements ReferenceType {
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		out.record(context.imported(this) ? simpleName : name);
+		if (context.imported(this)) {
+			out.record(simpleName);
+			return;
+		}
+
+		if (outer != null) {
+			out.record(outer, context).record('.').record(simpleName);
+			return;
+		}
+
+		out.record(name);
 	}
 }

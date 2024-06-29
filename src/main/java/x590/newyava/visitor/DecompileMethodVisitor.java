@@ -1,12 +1,15 @@
 package x590.newyava.visitor;
 
+import com.google.common.collect.Streams;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import lombok.AccessLevel;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.*;
 import x590.newyava.Decompiler;
-import x590.newyava.Modifiers;
+import x590.newyava.modifiers.Modifiers;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.annotation.DefaultValue;
 import x590.newyava.decompilation.CodeGraph;
@@ -15,11 +18,13 @@ import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
+import x590.newyava.type.TypeSize;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static org.objectweb.asm.Opcodes.*;
 
@@ -42,7 +47,7 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	private CodeGraph codeGraph;
 
 	/** Слот, на котором начинаются переменные, объявленные в методе */
-	private final int localVarsStart;
+	private final IntList argumentsSizes;
 
 	public DecompileMethodVisitor(Decompiler decompiler, ClassType hostClass, int modifiers, String name,
 	                              String argsAndReturnType, @Nullable String signature, String @Nullable[] exceptions) {
@@ -58,9 +63,11 @@ public class DecompileMethodVisitor extends MethodVisitor {
 				Collections.emptyList() :
 				Arrays.stream(exceptions).map(ReferenceType::valueOf).toList();
 
-		this.localVarsStart =
-				((modifiers & ACC_STATIC) == 0 ? 1 : 0) +
-				descriptor.arguments().stream().mapToInt(type -> type.getSize().slots()).sum();
+		var stream = descriptor.arguments().stream().mapToInt(type -> type.getSize().slots());
+
+		this.argumentsSizes =
+				((modifiers & ACC_STATIC) == 0 ? Streams.concat(IntStream.of(TypeSize.WORD.slots()), stream) : stream)
+						.collect(IntArrayList::new, IntList::add, IntList::addAll);
 	}
 
 	public @Nullable CodeGraph getCodeGraph() {
@@ -83,7 +90,7 @@ public class DecompileMethodVisitor extends MethodVisitor {
 		return defaultValue = new DefaultValue();
 	}
 
-	// ----------------------------------------------------- code ------------------------------------------------------
+	/* ---------------------------------------------------- code ---------------------------------------------------- */
 
 	@Override
 	public void visitCode() {
@@ -184,5 +191,13 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	@Override
 	public void visitLabel(Label label) {
 		codeGraph.addLabel(label);
+	}
+
+	@Override
+	public void visitTryCatchBlock(Label start, Label end, Label handler, @Nullable String type) {
+		codeGraph.addTryCatchBlock(
+				start, end, handler,
+				type == null ? null : ClassType.valueOf(type)
+		);
 	}
 }

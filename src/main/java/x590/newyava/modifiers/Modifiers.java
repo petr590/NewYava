@@ -1,4 +1,4 @@
-package x590.newyava;
+package x590.newyava.modifiers;
 
 import org.objectweb.asm.Opcodes;
 
@@ -10,6 +10,7 @@ public class Modifiers {
 	private Modifiers() {}
 
 	public static final int
+			ACC_VISIBLE      = 0,
 			ACC_PUBLIC       = Opcodes.ACC_PUBLIC,
 			ACC_PRIVATE      = Opcodes.ACC_PRIVATE,
 			ACC_PROTECTED    = Opcodes.ACC_PROTECTED,
@@ -36,9 +37,8 @@ public class Modifiers {
 			ACC_RECORD       = Opcodes.ACC_RECORD,
 			ACC_DEPRECATED   = Opcodes.ACC_DEPRECATED,
 
-			ACC_ACCESS       = ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED,
+			ACC_ACCESS       = ACC_VISIBLE | ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED,
 			ACC_PUBLIC_STATIC_FINAL = ACC_PUBLIC | ACC_STATIC | ACC_FINAL,
 			ACC_FIELD        = ACC_ACCESS | ACC_STATIC | ACC_FINAL | ACC_VOLATILE | ACC_TRANSIENT,
-			ACC_VISIBLE      = 0,
 			ACC_NONE         = 0;
 }

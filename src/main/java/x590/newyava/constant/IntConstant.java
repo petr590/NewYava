@@ -3,6 +3,7 @@ package x590.newyava.constant;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.AccessLevel;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
@@ -12,6 +13,7 @@ import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
+@EqualsAndHashCode(callSuper = false)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class IntConstant extends Constant implements Comparable<IntConstant> {
 	private static final Int2ObjectMap<IntConstant> CACHE = new Int2ObjectOpenHashMap<>();

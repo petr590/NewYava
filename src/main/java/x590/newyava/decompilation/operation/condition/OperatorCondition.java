@@ -2,13 +2,17 @@ package x590.newyava.decompilation.operation.condition;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Associativity;
+import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
+
+import java.util.List;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class OperatorCondition implements Condition {
@@ -33,6 +37,11 @@ public class OperatorCondition implements Condition {
 	public void inferType(Type ignored) {
 		operand1.inferType(PrimitiveType.BOOLEAN);
 		operand2.inferType(PrimitiveType.BOOLEAN);
+	}
+
+	@Override
+	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
+		return List.of(operand1, operand2);
 	}
 
 	@Override

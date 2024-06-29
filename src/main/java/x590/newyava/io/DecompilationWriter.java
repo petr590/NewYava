@@ -4,9 +4,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.function.TriConsumer;
 import org.jetbrains.annotations.NotNull;
-import x590.newyava.GenericWritable;
-import x590.newyava.ContextualWritable;
-import x590.newyava.Writable;
 import x590.newyava.context.Context;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Associativity;
@@ -23,7 +20,23 @@ import java.util.function.ObjIntConsumer;
 @RequiredArgsConstructor
 public class DecompilationWriter extends Writer {
 
-	private final Writer out;
+	private final WriterFactory writerFactory;
+
+	private Writer out;
+
+	public void openWriter(String className) throws IOException {
+		out = writerFactory.getWriter(className);
+	}
+
+	public void closeWriter() throws IOException {
+		if (out != null) {
+			try {
+				writerFactory.closeWriter(out);
+			} finally {
+				out = null;
+			}
+		}
+	}
 
 	/* --------------------------------------------------- indent --------------------------------------------------- */
 	public static final String DEFAULT_INDENT = "    ";
@@ -315,11 +328,14 @@ public class DecompilationWriter extends Writer {
 	/* ------------------------------------------------ flush, close ------------------------------------------------ */
 	@Override
 	public void flush() throws IOException {
-		out.flush();
+		if (out != null) {
+			out.flush();
+		}
 	}
 
 	@Override
 	public void close() throws IOException {
-		out.close();
+		writerFactory.close();
+		out = null;
 	}
 }

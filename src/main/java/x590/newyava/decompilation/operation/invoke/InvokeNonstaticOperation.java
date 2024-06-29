@@ -1,21 +1,23 @@
 package x590.newyava.decompilation.operation.invoke;
 
+import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 public abstract class InvokeNonstaticOperation extends InvokeOperation {
-	protected final Operation object;
+	@Getter
+	protected Operation object;
 
 	public InvokeNonstaticOperation(MethodContext context, MethodDescriptor descriptor) {
 		super(context, descriptor);
@@ -30,9 +32,7 @@ public abstract class InvokeNonstaticOperation extends InvokeOperation {
 
 	@Override
 	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		var operations = new ArrayList<>(arguments);
-		operations.add(object);
-		return operations;
+		return OperationUtil.addBefore(object, super.getNestedOperations());
 	}
 
 	@Override

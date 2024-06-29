@@ -2,11 +2,15 @@ package x590.newyava.decompilation.scope;
 
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.Chunk;
+import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.decompilation.operation.condition.ConstCondition;
@@ -56,6 +60,21 @@ public class LoopScope extends Scope {
 	public void inferType(Type ignored) {
 		super.inferType(ignored);
 		condition.inferType(PrimitiveType.BOOLEAN);
+	}
+
+	@Override
+	protected @Nullable Operation getHeaderOperation() {
+		return condition;
+	}
+
+	@Override
+	public boolean isBreakable() {
+		return true;
+	}
+
+	@Override
+	public boolean isContinuable() {
+		return true;
 	}
 
 	@Override

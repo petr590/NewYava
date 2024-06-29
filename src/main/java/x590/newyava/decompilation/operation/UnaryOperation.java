@@ -51,6 +51,7 @@ public class UnaryOperation implements Operation {
 	public void write(DecompilationWriter out, MethodWriteContext context) {
 		out.record(operator);
 
+		// Нужно избегать записей типа --x, когда на самом деле должно быть -(-x)
 		if (operand instanceof UnaryOperation unary && unary.operator.equals(operator))
 			out.space();
 

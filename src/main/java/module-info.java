@@ -8,5 +8,5 @@ module newyava {
 	requires com.google.common;
 	requires lombok;
 
-//	requires java.compiler;
+	requires java.compiler;
 }

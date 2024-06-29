@@ -2,6 +2,8 @@ package x590.newyava;
 
 import lombok.AccessLevel;
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.function.FailableConsumer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
@@ -12,10 +14,13 @@ import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.context.Context;
 import x590.newyava.decompilation.CodeGraph;
 import x590.newyava.decompilation.ReadonlyCode;
+import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.exception.IllegalModifiersException;
+import x590.newyava.io.ContextualWritable;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.modifiers.EntryType;
 import x590.newyava.type.ArrayType;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.ReferenceType;
@@ -25,7 +30,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static x590.newyava.Literals.*;
-import static x590.newyava.Modifiers.*;
+import static x590.newyava.modifiers.Modifiers.*;
 
 /**
  * Декомпилируемый метод
@@ -68,9 +73,18 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 	}
 
 	public void decompile(ClassContext context) {
+		tryCatchOnCodeGraph(context, codeGraph -> codeGraph.decompile(descriptor, context));
+
+		this.visibleDescriptor = getVisibleDescriptor(context);
+	}
+
+	/** Если {@link #codeGraph} не {@code null}, то выполняет {@code action}.
+	 * При возникновении исключения оно обрабатывается в {@link #handleException},
+	 * при необходимости оно оборачивается в {@link DecompilationException}. */
+	private void tryCatchOnCodeGraph(Context context, FailableConsumer<CodeGraph, DecompilationException> action) {
 		if (codeGraph != null) {
 			try {
-				codeGraph.decompile(descriptor, context);
+				action.accept(codeGraph);
 
 			} catch (DecompilationException ex) {
 				handleException(ex, context);
@@ -79,20 +93,24 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 				handleException(new DecompilationException(ex), context);
 			}
 		}
-
-		this.visibleDescriptor = getVisibleDescriptor(context);
 	}
 
-	private void handleException(DecompilationException ex, ClassContext context) {
+	/** Обрабатывает исключение. Если {@link Config#failOnDecompilationException()} равно {@code true},
+	 * то выбрасывает это исключение ещё раз, иначе записывает в консоль стектрейс. */
+	private void handleException(DecompilationException ex, Context context) {
 		if (context.getConfig().failOnDecompilationException()) {
 			ex.setMethodDescriptor(descriptor);
 			throw ex;
 		}
 
-		exceptionMessage = ex.getMessage();
+		String  name = ex.getClass().getSimpleName(),
+				message = ex.getMessage();
+		exceptionMessage = StringUtils.isEmpty(message) ? name : name + ": " + message;
+
 		codeGraph = null;
 		ex.setMethodDescriptor(descriptor);
 		ex.printStackTrace();
+//		System.err.println(ex);
 	}
 
 	private MethodDescriptor getVisibleDescriptor(ClassContext context) {
@@ -102,16 +120,27 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 			}
 
 			if (codeGraph != null) {
-				return descriptor.slice(codeGraph.getMethodScope().getArgsStart());
+				var methodScope = codeGraph.getMethodScope();
+				return descriptor.slice(methodScope.getArgsStart(), methodScope.getArgsEnd());
 			}
 		}
 
 		return descriptor;
 	}
 
+	/** @return индекс начала видимых аргументов метода. */
+	public int getArgsStart() {
+		return visibleDescriptor.fromIndex();
+	}
+
+	/** @return индекс конца видимых аргументов метода. */
+	public int getArgsEnd() {
+		return visibleDescriptor.fromIndex() + visibleDescriptor.arguments().size();
+	}
+
 	/** Можно ли оставить метод в классе.
 	 * Должен вызываться только после {@link #decompile(ClassContext)} */
-	public boolean keep(ClassContext context) {
+	public boolean keep(ClassContext context, @Nullable @Unmodifiable List<DecompilingField> recordComponents) {
 		if ((modifiers & ACC_SYNTHETIC) != 0) {
 			return false;
 		}
@@ -124,11 +153,18 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 				return false;
 			}
 
-			// Одиночный пустой конструктор
-			if (visDesc.isConstructor() && visDesc.arguments().isEmpty() &&
+			if (visDesc.isConstructor()) {
+				// Одиночный пустой конструктор
+				if (visDesc.arguments().isEmpty() &&
 					context.findMethods(method -> method.getDescriptor().isConstructor()).count() == 1) {
 
-				return false;
+					return false;
+				}
+
+				// Пустой дефолтный record-конструктор
+				if (visDesc.isRecordDefaultConstructor(context)) {
+					return false;
+				}
 			}
 		}
 
@@ -145,9 +181,25 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 					!visDesc.equals(enumType, "values", ArrayType.forType(enumType));
 		}
 
-		// Геттеры полей в record
-		if ((context.getClassModifiers() & ACC_RECORD) != 0) {
-			return codeGraph == null || !codeGraph.getMethodScope().isRecordInvokedynamic();
+		if ((context.getClassModifiers() & ACC_RECORD) != 0 && codeGraph != null) {
+
+			// Автосгенерированные методы hashCode, equals и toString в record
+			if (codeGraph.getMethodScope().isRecordInvokedynamic()) {
+				return false;
+			}
+
+			// Автосгенерированные геттеры полей в record
+			if (recordComponents != null && visDesc.arguments().isEmpty() &&
+				visDesc.hostClass() instanceof ClassType hostClass) {
+
+				var fieldDescriptor = new FieldDescriptor(hostClass, visDesc.name(), visDesc.returnType());
+
+				if (recordComponents.stream().anyMatch(field -> field.getDescriptor().equals(fieldDescriptor)) &&
+					codeGraph.getMethodScope().isGetterOf(fieldDescriptor)) {
+
+					return false;
+				}
+			}
 		}
 
 		return true;
@@ -157,22 +209,16 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		return codeGraph == null ? 0 : codeGraph.getVariablesInitPriority();
 	}
 
-	public void beforeVariablesInit() {
-		if (codeGraph != null) {
-			codeGraph.beforeVariablesInit();
-		}
+	public void beforeVariablesInit(Context context) {
+		tryCatchOnCodeGraph(context, CodeGraph::beforeVariablesInit);
 	}
 
-	public void initVariables() {
-		if (codeGraph != null) {
-			codeGraph.initVariables();
-		}
+	public void initVariables(Context context) {
+		tryCatchOnCodeGraph(context, CodeGraph::initVariables);
 	}
 
-	public void inferVariableTypesAndNames() {
-		if (codeGraph != null) {
-			codeGraph.inferVariableTypesAndNames();
-		}
+	public void inferVariableTypesAndNames(Context context) {
+		tryCatchOnCodeGraph(context, CodeGraph::inferVariableTypesAndNames);
 	}
 
 	@Override

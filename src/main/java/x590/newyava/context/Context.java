@@ -1,10 +1,14 @@
 package x590.newyava.context;
 
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.*;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
+import x590.newyava.modifiers.Modifiers;
 import x590.newyava.type.ClassType;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -23,6 +27,8 @@ public interface Context {
 
 	ClassType getSuperType();
 
+	@Nullable @Unmodifiable List<DecompilingField> getRecordComponents();
+
 
 	/** @return {@code true} если данный класс импортирован, иначе {@code false}. */
 	boolean imported(ClassType classType);
@@ -35,5 +41,5 @@ public interface Context {
 
 	/** @return класс, найденный среди всех декомпилируемых данным декомпилятором классов
 	 * или пустой Optional */
-	Optional<DecompilingClass> findClass(ClassType classType);
+	Optional<DecompilingClass> findClass(@Nullable ClassType classType);
 }

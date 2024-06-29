@@ -1,5 +1,6 @@
 package x590.newyava.annotation;
 
+import lombok.EqualsAndHashCode;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
@@ -12,6 +13,7 @@ import x590.newyava.type.Type;
 import java.util.ArrayList;
 import java.util.List;
 
+@EqualsAndHashCode(callSuper = false)
 class ArrayValue extends AnnotationVisitor implements AnnotationValue {
 	private final List<AnnotationValue> values;
 
@@ -63,10 +65,10 @@ class ArrayValue extends AnnotationVisitor implements AnnotationValue {
 
 	@Override
 	public void write(DecompilationWriter out, ConstantWriteContext context) {
-		if (values.isEmpty()) {
-			out.record("{}");
-		} else {
-			out.record("{ ").record(values, new ConstantWriteContext(context, elementType), ", ").record(" }");
+		switch (values.size()) {
+			case 0 -> out.record("{}");
+			case 1 -> out.record(values.get(0), new ConstantWriteContext(context, elementType));
+			default -> out.record("{ ").record(values, new ConstantWriteContext(context, elementType), ", ").record(" }");
 		}
 	}
 }

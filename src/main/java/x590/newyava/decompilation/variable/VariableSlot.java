@@ -4,10 +4,12 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.type.Types;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -21,8 +23,15 @@ public class VariableSlot implements VariableSlotView {
 
 	private final List<VariableReference> refs = new ArrayList<>();
 
+	private final @UnmodifiableView List<VariableReference> refsView = Collections.unmodifiableList(refs);
+
 	public boolean isEmpty() {
 		return refs.isEmpty();
+	}
+
+	@Override
+	public @UnmodifiableView List<VariableReference> getVarRefs() {
+		return refsView;
 	}
 
 	public void add(VariableReference ref) {
@@ -37,9 +46,9 @@ public class VariableSlot implements VariableSlotView {
 	}
 
 	@Override
-	public @Nullable VariableReference get(int start) {
+	public @Nullable VariableReference get(int index) {
 		for (var ref : refs) {
-			if (start >= ref.getStart() && start < ref.getEnd())
+			if (index >= ref.getStart() && index < ref.getEnd())
 				return ref;
 		}
 
@@ -48,11 +57,13 @@ public class VariableSlot implements VariableSlotView {
 
 	@Override
 	public VariableReference getOrCreate(int start, int end) {
-		var ref = get(start);
+		assert start < end : String.format("start(%d) >= end(%d)", start, end);
+
+		var ref = get(end - 1);
 
 		if (ref != null) return ref;
 
-		ref = new VariableReference(Types.ANY_TYPE, start, end);
+		ref = new VariableReference(Types.ANY_TYPE, id, start, end);
 		refs.add(ref);
 		return ref;
 	}

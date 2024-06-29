@@ -2,12 +2,12 @@ package x590.newyava.decompilation.operation.invokedynamic;
 
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
-import x590.newyava.Modifiers;
+import x590.newyava.decompilation.operation.variable.ILoadOperation;
+import x590.newyava.modifiers.Modifiers;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.ReadonlyCode;
-import x590.newyava.decompilation.operation.LoadOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.decompilation.operation.Priority;
@@ -76,7 +76,7 @@ public class LambdaOperation implements Operation {
 			int slot = 0;
 
 			for (Operation arg : indyArgs) {
-				if (arg instanceof LoadOperation load) {
+				if (arg instanceof ILoadOperation load) {
 					var ref = varTable.get(slot).get(0);
 
 					if (ref != null) {
@@ -100,11 +100,11 @@ public class LambdaOperation implements Operation {
 	}
 
 
-	private boolean arrayLambdaChecked;
+	private boolean lambdaSimplified;
 
-	private void checkArrayLambda() {
-		if (arrayLambdaChecked) return;
-		arrayLambdaChecked = true;
+	private void simplifyLambda() {
+		if (lambdaSimplified) return;
+		lambdaSimplified = true;
 
 		if (code != null) {
 			var arrayDescriptor = OperationUtil.recognizeArrayLambda(implDescriptor, code);
@@ -112,6 +112,20 @@ public class LambdaOperation implements Operation {
 			if (arrayDescriptor != null) {
 				implDescriptor = arrayDescriptor;
 				code = null;
+
+			} else {
+				var descriptorAndObject = OperationUtil.recognizeFunctionLambda(implDescriptor, code, indyArgs);
+
+				if (descriptorAndObject != null) {
+					var descriptor = descriptorAndObject.first();
+					var object = descriptorAndObject.second();
+
+					implDescriptor = descriptor;
+					code = null;
+
+					indyArgs.clear();
+					indyArgs.add(object);
+				}
 			}
 		}
 	}
@@ -119,13 +133,13 @@ public class LambdaOperation implements Operation {
 
 	@Override
 	public Priority getPriority() {
-		checkArrayLambda();
+		simplifyLambda();
 		return code == null ? Priority.DEFAULT : Priority.LAMBDA;
 	}
 
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
-		checkArrayLambda();
+		simplifyLambda();
 
 		if (code != null) {
 			var variables = code.getMethodScope().getVariables();

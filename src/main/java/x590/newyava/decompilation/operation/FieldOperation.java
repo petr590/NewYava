@@ -99,6 +99,10 @@ public class FieldOperation extends AssignOperation {
 		return value == null;
 	}
 
+	public boolean isSetter() {
+		return value != null;
+	}
+
 	@Override
 	public void inferType(Type ignored) {
 		super.inferType(ignored);
@@ -145,9 +149,18 @@ public class FieldOperation extends AssignOperation {
 			var foundField = context.findClass(descriptor.hostClass())
 					.flatMap(clazz -> clazz.getFields().stream().filter(field -> field.getDescriptor().equals(descriptor)).findFirst());
 
-			if (foundField.isPresent() && foundField.get().isOuterInstance()) {
-				out.record(descriptor.type(), context).record(".this");
-				return;
+			if (foundField.isPresent()) {
+				var field = foundField.get();
+
+				if (field.isOuterInstance()) {
+					out.record(descriptor.type(), context).record(".this");
+					return;
+				}
+
+				if (field.isOuterVariable()) {
+					out.record(field.getOuterVarName());
+					return;
+				}
 			}
 		}
 

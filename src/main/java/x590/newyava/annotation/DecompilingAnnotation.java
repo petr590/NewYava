@@ -1,5 +1,6 @@
 package x590.newyava.annotation;
 
+import lombok.EqualsAndHashCode;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
@@ -15,7 +16,9 @@ import x590.newyava.type.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.ObjIntConsumer;
+import java.util.stream.Collectors;
 
+@EqualsAndHashCode(callSuper = false)
 public class DecompilingAnnotation extends AnnotationVisitor implements AnnotationValue {
 	private final ReferenceType annotationType;
 
@@ -24,30 +27,6 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Annotati
 	public DecompilingAnnotation(String descriptor) {
 		super(Opcodes.ASM9);
 		this.annotationType = ClassType.valueOfL(descriptor);
-	}
-
-	public static void writeAnnotations(DecompilationWriter out, Context context,
-	                                    @Unmodifiable List<DecompilingAnnotation> annotations) {
-
-		writeAnnotations(out, context, annotations, false);
-	}
-
-	/**
-	 * Записывает аннотации.
-	 * @param inline если {@code true}, то все аннотации записываются через пробел.
-	 * Иначе каждая аннотация записывается с новой строки с учётом отступа.
-	 */
-	public static void writeAnnotations(DecompilationWriter out, Context context,
-	                                    @Unmodifiable List<DecompilingAnnotation> annotations,
-	                                    boolean inline) {
-
-		var constantWriteContext = new ConstantWriteContext(context);
-
-		ObjIntConsumer<DecompilingAnnotation> writer = inline ?
-				(annotation, index) -> out.record(annotation, constantWriteContext).space() :
-				(annotation, index) -> out.record(annotation, constantWriteContext).ln().indent();
-
-		out.record(annotations, writer);
 	}
 
 
@@ -98,7 +77,50 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Annotati
 		out.record('@').record(annotationType, context);
 
 		if (!parameters.isEmpty()) {
-			out.record('(').record(parameters, context, ", ").record(')');
+			out.record('(');
+
+			if (parameters.size() == 1 && parameters.get(0).name().equals("value")) {
+				out.record(parameters.get(0).value(), context);
+			} else {
+				out.record(parameters, context, ", ");
+			}
+
+			out.record(')');
 		}
+	}
+
+	/**
+	 * Записывает аннотации. Каждая аннотация записывается с новой строки с учётом отступа.
+	 */
+	public static void writeAnnotations(DecompilationWriter out, Context context,
+	                                    @Unmodifiable List<DecompilingAnnotation> annotations) {
+
+		writeAnnotations(out, context, annotations, false);
+	}
+
+	/**
+	 * Записывает аннотации.
+	 * @param inline если {@code true}, то все аннотации записываются через пробел.
+	 * Иначе каждая аннотация записывается с новой строки с учётом отступа.
+	 */
+	public static void writeAnnotations(DecompilationWriter out, Context context,
+	                                    @Unmodifiable List<DecompilingAnnotation> annotations,
+	                                    boolean inline) {
+
+		var constantWriteContext = new ConstantWriteContext(context);
+
+		ObjIntConsumer<DecompilingAnnotation> writer = inline ?
+				(annotation, index) -> out.record(annotation, constantWriteContext).space() :
+				(annotation, index) -> out.record(annotation, constantWriteContext).ln().indent();
+
+		out.record(annotations, writer);
+	}
+
+
+	public String toString() {
+		return parameters.isEmpty() ?
+				"@" + annotationType :
+				String.format("@%s(%s)", annotationType,
+						parameters.stream().map(Object::toString).collect(Collectors.joining(", ")));
 	}
 }

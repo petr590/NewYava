@@ -3,23 +3,25 @@ package x590.newyava;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.function.FailableFunction;
+import org.apache.commons.lang3.stream.Streams;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.ClassReader;
+import x590.newyava.io.ConsoleWriterFactory;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.io.WriterFactory;
 import x590.newyava.type.ClassType;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
-import java.io.UncheckedIOException;
+import java.io.*;
+import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
  * Главный класс, выполняющий декомпиляцию.
- * Хранит {@link Config} и список {@link DecompilingClass}.
+ * Хранит {@link Config} и карту всех {@link DecompilingClass}.
  */
 @RequiredArgsConstructor
 public class Decompiler {
@@ -27,52 +29,110 @@ public class Decompiler {
 	@Getter
 	private final Config config;
 
-	private @Nullable @Unmodifiable Map<ClassType, DecompilingClass> classMap;
+	private final WriterFactory writerFactory;
 
-	public void run(String... classNames) {
-		run(Decompiler.class.getClassLoader(), classNames);
+	public Decompiler(Config config) {
+		this(config, ConsoleWriterFactory.INSTANCE);
 	}
 
+	private @Nullable @Unmodifiable Map<ClassType, DecompilingClass> classMap;
+
+	/**
+	 * Декомпилирует все классы с переданными именами.
+	 * @param classLoader загрузчик классов, используемый для поиска классов для декомпиляции.
+	 * @param classNames список полных имён классов, в качестве разделителя можно использовать
+	 *                   {@literal .} или {@literal /}.
+	 */
 	public void run(ClassLoader classLoader, String... classNames) {
 		run(Arrays.stream(classNames), name -> getResource(classLoader, name));
 	}
 
+	/**
+	 * Декомпилирует все переданные классы.
+	 * @param classes список классов для декомпиляции.
+	 */
 	public void run(Class<?>... classes) {
 		run(Arrays.stream(classes), Decompiler::getResource);
 	}
 
-	private <T> void run(Stream<T> stream, FailableFunction<T, InputStream, IOException> resourceGetter) {
-		this.classMap = stream.map(value -> {
+	/**
+	 * Декомпилирует поток классов.
+	 * @param stream список классов для декомпиляции.
+	 */
+	public void run(Stream<Class<?>> stream) {
+		run(stream, Decompiler::getResource);
+	}
+
+
+	/**
+	 * Декомпилирует поток объектов.
+	 * @param stream поток объектов.
+	 * @param resourceGetter функция, принимающая объект и возвращающая {@code InputStream} соответствующего class-файла.
+	 */
+	public <T> void run(
+			Stream<? extends T> stream,
+	        FailableFunction<T, ? extends InputStream, ? extends IOException> resourceGetter
+	) {
+		try {
+			run0(stream, resourceGetter);
+		} catch (IOException ex) {
+			throw new UncheckedIOException(ex);
+		}
+	}
+
+	private <T> void run0(
+			Stream<? extends T> stream,
+	        FailableFunction<T, ? extends InputStream, ? extends IOException> resourceGetter
+	) throws IOException {
+
+		this.classMap = Streams.failableStream(stream)
+				.map(value -> {
 					try (var in = resourceGetter.apply(value)) {
 						return new DecompilingClass(this, new ClassReader(in));
-					} catch (IOException ex) {
-						throw new UncheckedIOException(ex);
 					}
 				}).collect(Collectors.toMap(DecompilingClass::getThisType, clazz -> clazz));
 
 		Collection<DecompilingClass> classes = classMap.values();
 
+		classes.forEach(tryCatch(clazz -> clazz.initNested(classMap), "initNested"));
 
-		classes.forEach(clazz -> clazz.initNested(classMap));
+		classes.forEach(tryCatch(DecompilingClass::decompile, "decompile"));
+		classes.forEach(tryCatch(DecompilingClass::processVariables, "processVariables"));
 
-		classes.forEach(DecompilingClass::decompile);
-		classes.forEach(DecompilingClass::processVariables);
+		classes.forEach(tryCatch(DecompilingClass::addImports, "addImports"));
+		classes.forEach(tryCatch(DecompilingClass::computeImports, "computeImports"));
 
-		classes.forEach(DecompilingClass::addImports);
-		classes.forEach(DecompilingClass::computeImports);
 
-		var writer = new DecompilationWriter(new OutputStreamWriter(System.out));
+		try (var writer = new DecompilationWriter(writerFactory)) {
+			Streams.failableStream(classes.stream())
+					.filter(DecompilingClass::keep)
+					.forEach(clazz -> {
+						try {
+							writer.openWriter(clazz.getThisType().getName());
+							clazz.write(writer);
+							writer.closeWriter();
 
-		classes.stream().filter(DecompilingClass::keep).forEach(clazz -> {
-			writer.record("\n\n----------------------------------------------------------------\n\n");
-			clazz.write(writer);
-		});
-
-		try {
-			writer.flush();
-		} catch (IOException ex) {
-			throw new UncheckedIOException(ex);
+						} catch (Throwable throwable) {
+							writer.flush();
+							System.err.println("Exception while writing class " + clazz.getThisType());
+							throw throwable;
+						}
+					});
 		}
+	}
+
+	private Consumer<DecompilingClass> tryCatch(Consumer<DecompilingClass> method, String stage) {
+		return decompilingClass -> {
+			try {
+				method.accept(decompilingClass);
+			} catch (Throwable throwable) {
+				System.err.printf(
+						"Exception on stage %s while processing class %s\n",
+						stage, decompilingClass
+				);
+				throw throwable;
+			}
+		};
 	}
 
 
@@ -98,7 +158,14 @@ public class Decompiler {
 	}
 
 
-	public Optional<DecompilingClass> findClass(ClassType classType) {
+	public static FailableFunction<String, InputStream, IOException> fileResourceGetter(String dir) {
+		return name -> new BufferedInputStream(new FileInputStream(
+				Path.of(dir, name + ".class").toFile()
+		));
+	}
+
+
+	public Optional<DecompilingClass> findClass(@Nullable ClassType classType) {
 		if (classMap == null) {
 			throw new UnsupportedOperationException("Class map has not been initialized yet");
 		}

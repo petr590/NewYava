@@ -12,13 +12,15 @@ import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.exception.IllegalModifiersException;
+import x590.newyava.io.ContextualWritable;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.modifiers.EntryType;
 import x590.newyava.type.Type;
 import x590.newyava.visitor.DecompileFieldVisitor;
 
 import java.util.List;
 
-import static x590.newyava.Modifiers.*;
+import static x590.newyava.modifiers.Modifiers.*;
 import static x590.newyava.Literals.*;
 
 /**
@@ -37,6 +39,9 @@ public class DecompilingField implements ContextualWritable, Importable {
 	/** Если {@code true}, то это поле является ссылкой на {@code this} внешнего класса. */
 	private boolean isOuterInstance;
 
+	/** Если не {@code null}, то это поле является внешней переменной */
+	private @Nullable String outerVarName;
+
 	public DecompilingField(DecompileFieldVisitor visitor) {
 		this.modifiers   = visitor.getModifiers();
 		this.descriptor  = visitor.getDescriptor();
@@ -51,6 +56,10 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 	public boolean isEnum() {
 		return (modifiers & ACC_ENUM) != 0;
+	}
+
+	public boolean isStatic() {
+		return (modifiers & ACC_STATIC) != 0;
 	}
 
 	/** Устанавливает инициализатор поля, если он не установлен.
@@ -69,6 +78,15 @@ public class DecompilingField implements ContextualWritable, Importable {
 		isOuterInstance = true;
 	}
 
+	/** Помечает поле как внешнюю переменную с переданным именем. */
+	public void makeOuterVariable(String outerVarName) {
+		this.outerVarName = outerVarName;
+	}
+
+	public boolean isOuterVariable() {
+		return outerVarName != null;
+	}
+
 	public void inferVariableTypes() {
 		if (initializer != null) {
 			initializer.inferType(descriptor.type());
@@ -76,7 +94,7 @@ public class DecompilingField implements ContextualWritable, Importable {
 		}
 	}
 
-	// ----------------------------------------------------- write -----------------------------------------------------
+	/* ---------------------------------------------------- write --------------------------------------------------- */
 
 	@Override
 	public void addImports(ClassContext context) {
@@ -163,5 +181,10 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 			invokeSpecial.writeNew(out, new MethodWriteContext(context), true);
 		}
+	}
+
+	public void writeAsRecordComponent(DecompilationWriter out, Context context) {
+		DecompilingAnnotation.writeAnnotations(out, context, annotations, true);
+		out.recordSp(descriptor.type(), context).record(descriptor.name());
 	}
 }

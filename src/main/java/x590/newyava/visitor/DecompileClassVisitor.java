@@ -7,7 +7,7 @@ import org.objectweb.asm.*;
 import x590.newyava.Decompiler;
 import x590.newyava.DecompilingField;
 import x590.newyava.DecompilingMethod;
-import x590.newyava.EntryType;
+import x590.newyava.modifiers.EntryType;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
@@ -17,7 +17,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static x590.newyava.Modifiers.*;
+import static x590.newyava.modifiers.Modifiers.*;
 
 public class DecompileClassVisitor extends ClassVisitor {
 	private final Decompiler decompiler;
@@ -51,6 +51,10 @@ public class DecompileClassVisitor extends ClassVisitor {
 	private final List<DecompileFieldVisitor> fieldVisitors = new ArrayList<>();
 	private final List<DecompileMethodVisitor> methodVisitors = new ArrayList<>();
 	private final List<DecompilingAnnotation> annotations = new ArrayList<>();
+	private final List<ClassType> permittedSubclasses = new ArrayList<>();
+
+	@Getter
+	private @Nullable ModuleInfo moduleInfo;
 
 	public DecompileClassVisitor(Decompiler decompiler) {
 		super(Opcodes.ASM9);
@@ -68,14 +72,10 @@ public class DecompileClassVisitor extends ClassVisitor {
 		this.superType = superName == null ? ClassType.OBJECT : ClassType.valueOf(superName);
 		this.interfaces = Arrays.stream(interfaces).map(ClassType::valueOf).toList();
 		this.signature = signature;
-
-		super.visit(version, modifiers, name, signature, superName, interfaces);
 	}
 
 	@Override
 	public void visitOuterClass(String owner, String methodName, String methodDesc) {
-		super.visitOuterClass(owner, methodName, methodDesc);
-
 		ClassType.checkOrUpdateNested(name, owner, true);
 
 		assert !owner.equals(name) : owner;
@@ -84,20 +84,27 @@ public class DecompileClassVisitor extends ClassVisitor {
 		this.enclosingMethodDesc = methodDesc;
 	}
 
+	private static final int
+			IGNORED_FORMAL_MODIFIERS = ACC_PUBLIC | ACC_SUPER | ACC_DEPRECATED | ACC_RECORD,
+			IGNORED_INNER_MODIFIERS = ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED | ACC_STATIC;
+
 	@Override
-	public void visitInnerClass(String innerName, String outerName, String innerSimpleName, int modifiers) {
-		super.visitInnerClass(innerName, outerName, innerSimpleName, modifiers);
-
+	public void visitInnerClass(String innerName, String outerName, String innerSimpleName, int innerModifiers) {
 		if (innerName.equals(this.name)) {
-			modifiers |= (this.modifiers & ACC_RECORD);
+			int formalModifiers = modifiers;
 
-			if ((this.modifiers & ~ACC_SUPER) != (modifiers & ~(ACC_PRIVATE | ACC_PROTECTED | ACC_STATIC))) {
-				System.err.printf("Modifiers of class and nested class are not matches: (%s), (%s)\n",
-						EntryType.CLASS.modifiersToString(this.modifiers),
-						EntryType.CLASS.modifiersToString(modifiers));
+			if ((formalModifiers & ~IGNORED_FORMAL_MODIFIERS) != (innerModifiers & ~IGNORED_INNER_MODIFIERS)) {
+				System.err.printf("Modifiers of class and nested class are not matches: 0x%x (%s), 0x%x (%s): %s\n",
+						formalModifiers, EntryType.CLASS.modifiersToString(formalModifiers),
+						innerModifiers, EntryType.CLASS.modifiersToString(innerModifiers),
+						innerName);
 			}
 
-			this.modifiers = modifiers;
+			modifiers |= innerModifiers;
+
+			if ((innerModifiers & ACC_PROTECTED) != 0) {
+				modifiers &= ~ACC_PUBLIC;
+			}
 
 			if (outerName != null) {
 				assert !outerName.equals(name) : outerName;
@@ -114,8 +121,6 @@ public class DecompileClassVisitor extends ClassVisitor {
 	public FieldVisitor visitField(int modifiers, String name, String descriptor,
 	                               @Nullable String signature, @Nullable Object value) {
 
-		super.visitField(modifiers, name, descriptor, signature, value);
-
 		var fieldVisitor = new DecompileFieldVisitor(thisType, modifiers, name, descriptor, signature, value);
 		fieldVisitors.add(fieldVisitor);
 		return fieldVisitor;
@@ -124,8 +129,6 @@ public class DecompileClassVisitor extends ClassVisitor {
 	@Override
 	public MethodVisitor visitMethod(int modifiers, String name, String descriptor,
 	                                 @Nullable String signature, String[] exceptions) {
-
-		super.visitMethod(modifiers, name, descriptor, signature, exceptions);
 
 		var methodVisitor = new DecompileMethodVisitor(decompiler, thisType, modifiers, name, descriptor, signature, exceptions);
 		methodVisitors.add(methodVisitor);
@@ -140,8 +143,13 @@ public class DecompileClassVisitor extends ClassVisitor {
 	}
 
 	@Override
-	public void visitAttribute(Attribute attr) {
-		super.visitAttribute(attr);
+	public void visitPermittedSubclass(String permittedSubclass) {
+		permittedSubclasses.add(ClassType.valueOf(permittedSubclass));
+	}
+
+	@Override
+	public ModuleVisitor visitModule(String name, int access, String version) {
+		return moduleInfo = new ModuleInfo(name, access);
 	}
 
 	public @Nullable ClassType getOuterClassType() {
@@ -163,5 +171,9 @@ public class DecompileClassVisitor extends ClassVisitor {
 
 	public @Unmodifiable List<DecompilingAnnotation> getAnnotations() {
 		return Collections.unmodifiableList(annotations);
+	}
+
+	public @Unmodifiable List<ClassType> getPermittedSubclasses() {
+		return Collections.unmodifiableList(permittedSubclasses);
 	}
 }

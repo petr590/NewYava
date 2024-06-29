@@ -1,6 +1,6 @@
 package x590.newyava.exception;
 
-import x590.newyava.EntryType;
+import x590.newyava.modifiers.EntryType;
 
 public class IllegalModifiersException extends DecompilationException {
 

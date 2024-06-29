@@ -27,4 +27,10 @@ public class TernaryOperatorExample {
 	public boolean isNull(Object obj) {
 		return obj == null;
 	}
+
+	private void bar(int x) {}
+
+	public void bug1(boolean x) {
+		bar(x ? 5 : 10);
+	}
 }

@@ -2,12 +2,11 @@ package x590.newyava.decompilation;
 
 import it.unimi.dsi.fastutil.ints.*;
 import it.unimi.dsi.fastutil.objects.*;
-import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
+import lombok.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import org.jetbrains.annotations.UnmodifiableView;
 import org.objectweb.asm.Label;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.context.ClassContext;
@@ -20,6 +19,7 @@ import x590.newyava.decompilation.operation.condition.ConstCondition;
 import x590.newyava.decompilation.operation.condition.OperatorCondition;
 import x590.newyava.decompilation.operation.condition.Role;
 import x590.newyava.decompilation.operation.condition.SwitchOperation;
+import x590.newyava.decompilation.operation.variable.CatchOperation;
 import x590.newyava.decompilation.scope.*;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.decompilation.variable.VariableTable;
@@ -27,6 +27,7 @@ import x590.newyava.decompilation.variable.VariableTableView;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 import x590.newyava.type.TypeSize;
@@ -84,7 +85,7 @@ public class CodeGraph implements ReadonlyCode {
 	}
 
 	public void setVariable(int slotId, Type type, String name, Label start, Label end) {
-		varTable.add(slotId, new VariableReference(type, name, labels.getInt(start), labels.getInt(end)));
+		varTable.add(slotId, new VariableReference(type, name, slotId, labels.getInt(start), labels.getInt(end)));
 	}
 
 	/**
@@ -109,7 +110,7 @@ public class CodeGraph implements ReadonlyCode {
 			var thisSlot = varTable.get(0);
 
 			if (thisSlot.isEmpty()) {
-				thisSlot.add(new VariableReference(descriptor.hostClass(), "this", 0, instructions.size()));
+				thisSlot.add(new VariableReference(descriptor.hostClass(), "this", 0, 0, instructions.size()));
 			}
 		}
 
@@ -120,7 +121,7 @@ public class CodeGraph implements ReadonlyCode {
 			var argType = argTypes.get(i);
 
 			if (slot.isEmpty()) {
-				slot.add(new VariableReference(argType, 0, instructions.size()));
+				slot.add(new VariableReference(argType, i + offset, 0, instructions.size()));
 			}
 
 			if (argType.getSize() == TypeSize.LONG) {
@@ -135,16 +136,12 @@ public class CodeGraph implements ReadonlyCode {
 		methodScope.inferType(PrimitiveType.VOID);
 		methodScope.inferType(PrimitiveType.VOID);
 
-		methodScope.declareVariableOnStore();
+		methodScope.declareVariables();
 		methodScope.initVariableNames();
 	}
 
-	/* ----------------------------------------------- Decompilation ----------------------------------------------- */
 
-	private Chunk last;
-
-	private @Unmodifiable List<Chunk> chunks;
-	private MethodContext methodContext;
+	/* ------------------------------------------------ MethodScope ------------------------------------------------- */
 
 	private MethodScope methodScope;
 
@@ -158,24 +155,115 @@ public class CodeGraph implements ReadonlyCode {
 	}
 
 
-	// ------------------------------------------------- Decompilation -------------------------------------------------
+	/* ------------------------------------------------- Try, catch ------------------------------------------------- */
+	private record TryCatchBlock(Label start, Label end, Label handler, @Nullable ClassType type) {}
 
-	/** Главный метод всего приложения. Именно здесь происходит вся магия.
-	 * Декомпилирует все {@link Scope}-ы и инициализирует {@link #methodScope}. */
+	private final List<TryCatchBlock> tryCatchBlocks = new ArrayList<>();
+
+	public void addTryCatchBlock(Label start, Label end, Label handler, @Nullable ClassType type) {
+		breakpointLabels.add(start);
+		breakpointLabels.add(end);
+		breakpointLabels.add(handler);
+
+		tryCatchBlocks.add(new TryCatchBlock(start, end, handler, type));
+	}
+
+	/**
+	 * @return карту: ключ - блок try, значения - блоки catch, привязанные к этому try.
+	 */
+	private Map<IntIntPair, Int2ObjectMap<CatchOperation>> getTryCatchMap(
+			@UnmodifiableView Int2ObjectMap<Chunk> chunkMap
+	) {
+		Map<IntIntPair, Int2ObjectMap<CatchOperation>> result = new HashMap<>();
+
+		for (TryCatchBlock block : tryCatchBlocks) {
+			int tryStart = chunkMap.get(labels.getInt(block.start)).getId(),
+				tryEnd = chunkMap.get(labels.getInt(block.end)).getId(),
+				catchStart = chunkMap.get(labels.getInt(block.handler)).getId();
+
+			var tryBlock = IntIntPair.of(tryStart, tryEnd);
+
+			var catchBlock = result
+					.computeIfAbsent(tryBlock, tb -> new Int2ObjectOpenHashMap<>())
+					.computeIfAbsent(catchStart, cs -> new CatchOperation());
+
+			catchBlock.add(block.type);
+		}
+
+		return result;
+	}
+
+	private void initCatchEndIndexes(Map<IntIntPair, Int2ObjectMap<CatchOperation>> tryCatchMap,
+	                                 @Unmodifiable List<Chunk> chunks) {
+
+		for (var tryBlock : tryCatchMap.keySet()) {
+			var iter = tryCatchMap.get(tryBlock)
+					.int2ObjectEntrySet().stream()
+					.sorted(Comparator.comparingInt(Int2ObjectMap.Entry::getIntKey))
+					.iterator();
+
+			var catch1 = iter.next();
+
+			// Инициализируем конечные индексы всех catch, кроме последнего
+			while (iter.hasNext()) {
+				var catch2 = iter.next();
+				catch1.getValue().setEndId(catch2.getIntKey());
+				catch1 = catch2;
+			}
+
+			// Инициализируем конечные индексы последнего catch
+			var lastCatchEnd = chunks.get(tryBlock.secondInt()).getConditionalChunk();
+			catch1.getValue().setEndId(lastCatchEnd != null ? lastCatchEnd.getId() : chunks.size());
+		}
+	}
+
+	/** Инициализирует конечный индекс всех catch блоков */
+	private void addTryCatchScopes(
+			List<Scope> scopes,
+	        Map<IntIntPair, Int2ObjectMap<CatchOperation>> tryCatchMap,
+	        @Unmodifiable List<Chunk> chunks
+	) {
+		for (IntIntPair tryBlock : tryCatchMap.keySet()) {
+			scopes.add(new TryScope(chunks.subList(tryBlock.firstInt(), tryBlock.secondInt() + 1)));
+
+			for (var catchEntry : tryCatchMap.get(tryBlock).int2ObjectEntrySet()) {
+				scopes.add(new CatchScope(
+						chunks.subList(catchEntry.getIntKey(), catchEntry.getValue().getEndId()),
+						catchEntry.getValue()
+				));
+			}
+		}
+	}
+
+
+	/* ----------------------------------------------- Decompilation ------------------------------------------------ */
+
+	private Chunk last;
+
+	private MethodContext methodContext;
+
+
+	/** Главный метод приложения. Именно здесь происходит вся магия.
+	 * Декомпилирует все операции, создаёт {@link Scope}-ы и инициализирует {@link #methodScope}. */
 	public void decompile(MethodDescriptor descriptor, ClassContext context) {
 		Int2ObjectMap<Chunk> chunkMap = readChunkMap();
-
 		@Unmodifiable List<Chunk> chunks = chunkMap.values().stream().sorted().toList();
 
 		var methodContext = new MethodContext(context, descriptor, visitor.getModifiers());
-
-		this.chunks = chunks;
 		this.methodContext = methodContext;
 
-		chunks.forEach(chunk -> chunk.decompile(methodContext));
+		var tryCatchMap = getTryCatchMap(chunkMap);
+
+		chunks.forEach(chunk -> chunk.decompile(methodContext, tryCatchMap.values()));
 		chunks.forEach(chunk -> chunk.linkChunks(labels, chunkMap));
 
+		initCatchEndIndexes(tryCatchMap, chunks);
+
+
 		List<Scope> scopes = new ArrayList<>();
+
+		// Добавляем try-catch
+		addTryCatchScopes(scopes, tryCatchMap, chunks);
 
 		// Ищем циклы и операторы break/continue, связанные с ними
 		addScopes(scopes, chunks, findLoops(chunks), LoopScope::new);
@@ -199,7 +287,7 @@ public class CodeGraph implements ReadonlyCode {
 		addScopes(scopes, chunks, elseChunkIds, ElseScope::new);
 
 		Collections.sort(scopes);
-		methodScope = createMethodScope(chunks, scopes);
+		methodScope = hierarchizeScopes(chunks, scopes);
 		methodScope.removeRedundantOperations(methodContext);
 	}
 
@@ -262,8 +350,9 @@ public class CodeGraph implements ReadonlyCode {
 	/**
 	 * Преобразует список {@link Scope} в {@code MethodScope}, который содержит
 	 * все операции и scope-ы, соблюдая их иерархию.
+	 * @return methodScope, который является вершиной всей иерархии.
 	 */
-	private MethodScope createMethodScope(@Unmodifiable List<Chunk> chunks, List<Scope> scopes) {
+	private MethodScope hierarchizeScopes(@Unmodifiable List<Chunk> chunks, List<Scope> scopes) {
 		var methodScope = new MethodScope(chunks, methodContext);
 
 		int endId = last.getId();
@@ -276,11 +365,11 @@ public class CodeGraph implements ReadonlyCode {
 		for (int id = 0; id <= endId; id++) {
 			current = current.startScopes(scopeQueue, id);
 
-			var operations = chunks.get(id).getOperations();
+			var chunk = chunks.get(id);
 
-			current.addOperations(operations);
+			current.addOperationsFromChunk(chunk);
 
-			for (var operation : operations)
+			for (var operation : chunk.getOperations())
 				operation.resolveLabelNames(current, generator);
 
 			current = current.endIfReached(id);
@@ -290,7 +379,7 @@ public class CodeGraph implements ReadonlyCode {
 	}
 
 
-	// --------------------------------------- Find loops, switches, ifs, elses ----------------------------------------
+	/* --------------------------------------------------- Loops ---------------------------------------------------- */
 
 	/**
 	 * Ищет все циклы и сохраняет их индексы.
@@ -315,6 +404,8 @@ public class CodeGraph implements ReadonlyCode {
 		return loopChunkIds;
 	}
 
+
+	/* -------------------------------------------------- Switches -------------------------------------------------- */
 
 	/** Ищет все switch и возвращает их список */
 	private List<SwitchScope> findSwitches(@Unmodifiable List<Chunk> chunks, Int2ObjectMap<Chunk> chunkMap) {
@@ -387,13 +478,16 @@ public class CodeGraph implements ReadonlyCode {
 		);
 	}
 
+
+	/* ----------------------------------------------- Ifs and elses ------------------------------------------------ */
+
 	/**
 	 * Ищет все if-ы и сохраняет их индексы.
 	 * @param chunks все чанки в методе.
 	 * @return Карту: ключ - id первого чанка, не включающего условие, значение - id чанка после if-а
 	 */
 	private Int2IntMap findIfs(@Unmodifiable List<Chunk> chunks) {
-		List<Entry> ifEntries = new LinkedList<>();
+		List<IfEntry> ifEntries = new LinkedList<>();
 
 		for (Chunk chunk : chunks) {
 			Chunk jumpChunk = chunk.getConditionalChunk();
@@ -406,7 +500,7 @@ public class CodeGraph implements ReadonlyCode {
 					// в нём может быть код, не относящийся к if
 					int startChunkId = chunk.getId() + 1;
 
-					ifEntries.add(new Entry(startChunkId, startChunkId, jumpId));
+					ifEntries.add(new IfEntry(startChunkId, startChunkId, jumpId));
 
 					chunk.initRole(Role.IF_BRANCH);
 				}
@@ -422,15 +516,15 @@ public class CodeGraph implements ReadonlyCode {
 
 		return ifEntries.stream().collect(
 				Int2IntOpenHashMap::new,
-				(map, entry) -> map.put(entry.end, entry.jump),
-				(m1, m2) -> {}
+				(map, ifEntry) -> map.put(ifEntry.end, ifEntry.jump),
+				Int2IntMap::putAll
 		);
 	}
 
 
 	@ToString
 	@AllArgsConstructor
-	private static final class Entry {
+	private static final class IfEntry {
 		/** Индекс чанка, на котором начинается условие */
 		private int start;
 
@@ -442,11 +536,14 @@ public class CodeGraph implements ReadonlyCode {
 	}
 
 
-	/** Объединяет отдельные условия в "and" и "or" условия.
-	 * Изменяет {@code ifEntries} в процессе. */
-	private boolean collapseConditions(@Unmodifiable List<Chunk> chunks, List<Entry> ifEntries) {
+	/**
+	 * Объединяет отдельные условия в "and" и "or" условия. Изменяет {@code ifEntries} в процессе.
+	 * @return {@code true}, если объединено хотя бы одно условие, иначе {@code false}.
+	 */
+	private boolean collapseConditions(@Unmodifiable List<Chunk> chunks, List<IfEntry> ifEntries) {
 		for (var entry2 : ifEntries) {
-			var foundEntry = ifEntries.stream().filter(entry1 -> entry1 != entry2 && entry1.end + 1 == entry2.start).findAny();
+			var foundEntry = ifEntries.stream()
+					.filter(entry1 -> entry1 != entry2 && entry1.end + 1 == entry2.start).findAny();
 
 			if (foundEntry.isPresent()) {
 				var entry1 = foundEntry.get();
@@ -519,7 +616,7 @@ public class CodeGraph implements ReadonlyCode {
 	}
 
 
-	// ----------------------------------------------- After decompiling -----------------------------------------------
+	/* --------------------------------------------- After decompiling ---------------------------------------------- */
 
 	public void beforeVariablesInit() {
 		methodScope.beforeVariablesInit(methodScope);
@@ -534,7 +631,7 @@ public class CodeGraph implements ReadonlyCode {
 
 	/** Инициализирует переменные в методе */
 	public void initVariables() {
-		methodScope.initVariables(visitor.getLocalVarsStart(), chunks);
+		methodScope.initVariables(visitor.getArgumentsSizes());
 	}
 
 

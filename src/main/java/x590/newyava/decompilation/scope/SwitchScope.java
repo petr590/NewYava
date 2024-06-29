@@ -73,6 +73,16 @@ public class SwitchScope extends Scope {
 	}
 
 	@Override
+	protected @Nullable Operation getHeaderOperation() {
+		return value;
+	}
+
+	@Override
+	public boolean isBreakable() {
+		return true;
+	}
+
+	@Override
 	public void addImports(ClassContext context) {
 		super.addImports(context);
 		context.addImportsFor(value);

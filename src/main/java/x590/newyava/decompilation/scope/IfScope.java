@@ -1,10 +1,12 @@
 package x590.newyava.decompilation.scope;
 
 import lombok.Getter;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.Chunk;
+import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.io.DecompilationWriter;
@@ -33,6 +35,11 @@ public final class IfScope extends IfElseScope {
 	public void addImports(ClassContext context) {
 		super.addImports(context);
 		context.addImportsFor(condition);
+	}
+
+	@Override
+	protected @Nullable Operation getHeaderOperation() {
+		return condition;
 	}
 
 	@Override

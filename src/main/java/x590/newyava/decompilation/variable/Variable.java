@@ -16,6 +16,8 @@ import java.util.Set;
  */
 @Getter
 public final class Variable {
+	private final int slotId;
+
 	private @NotNull Type type;
 
 	/** Потенциальные имена переменной. Если поле равно {@code null}, значит имя переменной неизменяемо */
@@ -27,15 +29,16 @@ public final class Variable {
 	/** Итоговое имя переменной */
 	private @Nullable String name;
 
-	private boolean declare;
+	private boolean declared;
 
 	/**
 	 * Если у ссылки на переменную есть название, то оно станет окончательным для этой переменной
 	 */
-	public Variable(VariableReference ref, boolean declare) {
+	public Variable(VariableReference ref, boolean declared) {
+		this.slotId = ref.getSlotId();
 		this.type = ref.getType();
 		this.name = ref.getInitialName();
-		this.declare = declare;
+		this.declared = declared;
 
 		if (name == null) {
 			names = new HashSet<>();
@@ -83,8 +86,8 @@ public final class Variable {
 	}
 
 	public boolean attemptDeclare() {
-		if (!declare) {
-			return declare = true;
+		if (!declared) {
+			return declared = true;
 		}
 
 		return false;

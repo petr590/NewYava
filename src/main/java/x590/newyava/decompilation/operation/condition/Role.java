@@ -10,7 +10,7 @@ import x590.newyava.io.DecompilationWriter;
 import java.util.function.Predicate;
 
 /**
- * Роль чанка. Только для чанков, у которых есть переход на другие чанки
+ * Роль чанка. Только для чанков, у которых есть переход на другие чанки.
  */
 public interface Role {
 
@@ -83,6 +83,7 @@ public interface Role {
 			for (Scope c = currentScope; c != null && c != scope; c = c.getParent()) {
 				if (isScopeAcceptable.test(c)) {
 					labelName = scope.getLabelName(generator);
+					break;
 				}
 			}
 		}
