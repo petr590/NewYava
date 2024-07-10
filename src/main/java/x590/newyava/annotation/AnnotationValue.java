@@ -14,6 +14,10 @@ import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/**
+ * Представляет значение параметра аннотации, которое может быть примитивом,
+ * строкой, классом, enum-ом или одноуровневым массивом, содержащим один из вышеперечисленных типов.
+ */
 public interface AnnotationValue extends GenericWritable<ConstantWriteContext>, Importable {
 	static AnnotationValue of(Object value) {
 		return value.getClass().isArray() ?

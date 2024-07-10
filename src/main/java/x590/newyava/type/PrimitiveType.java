@@ -68,7 +68,8 @@ public sealed interface PrimitiveType extends Type
 			/** Включает в себя boolean, byte, short, char, int */
 			INTEGRAL = IntMultiType.valueOf(ALL_FLAGS),
 
-			BYTE_OR_BOOLEAN = IntMultiType.valueOf(BYTE_FLAG | BOOLEAN_FLAG);
+			BYTE_OR_BOOLEAN = IntMultiType.valueOf(BYTE_FLAG | BOOLEAN_FLAG),
+			INT_OR_BOOLEAN = IntMultiType.valueOf(INT_FLAG | BOOLEAN_FLAG);
 
 	NonIntType
 			LONG = NonIntType.LONG,

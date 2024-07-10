@@ -4,13 +4,11 @@ package x590.newyava.decompilation.scope;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
-import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.Chunk;
+import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.decompilation.operation.condition.ConstCondition;
@@ -78,8 +76,8 @@ public class LoopScope extends Scope {
 	}
 
 	@Override
-	public void removeRedundantOperations(MethodContext context) {
-		super.removeRedundantOperations(context);
+	public void postDecompilation(MethodContext context) {
+		super.postDecompilation(context);
 
 		var operations = this.operations;
 		int last = operations.size() - 1;

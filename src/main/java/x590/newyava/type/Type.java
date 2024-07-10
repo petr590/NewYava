@@ -40,10 +40,6 @@ public interface Type extends ContextualWritable, Importable {
 		return this;
 	}
 
-	static boolean isAssignableUp(Type givenType, Type requiredType) {
-		return isAssignable(givenType, requiredType.wideUp());
-	}
-
 	/** @return тип, соответствующий {@code givenType} и всем супертипам {@code requiredType}.
 	 * @throws TypeCastException если такого типа нет. */
 	static Type assignUp(Type givenType, Type requiredType) {
@@ -61,10 +57,6 @@ public interface Type extends ContextualWritable, Importable {
 	 * преобразованы в данный тип */
 	default Type wideDown() {
 		return this;
-	}
-
-	static boolean isAssignableDown(Type givenType, Type requiredType) {
-		return isAssignable(givenType, requiredType.wideDown());
 	}
 
 	/** @return тип, соответствующий {@code givenType} и всем подтипам {@code requiredType}.

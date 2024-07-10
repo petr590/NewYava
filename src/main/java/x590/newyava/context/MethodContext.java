@@ -4,8 +4,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.Nullable;
-import x590.newyava.decompilation.Chunk;
-import x590.newyava.decompilation.CodeStack;
+import x590.newyava.decompilation.code.Chunk;
+import x590.newyava.decompilation.code.CodeStack;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.descriptor.MethodDescriptor;
@@ -39,6 +39,10 @@ public class MethodContext extends ContextProxy {
 
 	public boolean isConstructor() {
 		return descriptor.isConstructor();
+	}
+
+	public boolean isStaticInitializer() {
+		return descriptor.isStaticInitializer();
 	}
 
 	public VariableReference getVarRef(int slotId) {

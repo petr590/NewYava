@@ -123,8 +123,11 @@ public class DecompilingClass implements Writable {
 			this.recordComponents = fields.stream().filter(Predicate.not(DecompilingField::isStatic))
 					.peek(field -> {
 						if (field.getModifiers() != (ACC_PRIVATE | ACC_FINAL)) {
-							throw new DecompilationException("Illegal modifiers for record component: " +
-									EntryType.FIELD.modifiersToString(field.getModifiers()));
+							throw new DecompilationException(
+									"Illegal modifiers for record component %s: 0x%04x(%s)",
+									field, field.getModifiers(),
+									EntryType.FIELD.modifiersToString(field.getModifiers())
+							);
 						}
 					}).toList();
 
@@ -152,6 +155,7 @@ public class DecompilingClass implements Writable {
 	private final List<DecompilingClass> nestedClasses = new ArrayList<>();
 
 	/** Если {@code true}, то это класс верхнего уровня. */
+	@Getter
 	private boolean topLevel = true;
 
 	public void initNested(@Unmodifiable Map<ClassType, DecompilingClass> classMap) {
@@ -169,16 +173,16 @@ public class DecompilingClass implements Writable {
 		}
 	}
 
-	public boolean keep() {
-		return topLevel;
-	}
-
 
 	/* ----------------------------------------------- decompilation ----------------------------------------------- */
 
 	public void decompile() {
 		methods.forEach(method -> method.decompile(classContext));
 		visibleMethods = methods.stream().filter(method -> method.keep(classContext, recordComponents)).toList();
+	}
+
+	public void afterDecompilation() {
+		methods.forEach(method -> method.afterDecompilation(classContext));
 	}
 
 	public void processVariables() {
@@ -246,9 +250,13 @@ public class DecompilingClass implements Writable {
 		out.record(thisType.getSimpleName());
 
 		if (recordComponents != null) {
+			classContext.enter(); // Внутри recordComponents можно опустить название класса,
+
 			out .record('(')
-					.record(recordComponents, ", ", (field, index) -> field.writeAsRecordComponent(out, classContext))
-					.record(')');
+				.record(recordComponents, ", ", (field, index) -> field.writeAsRecordComponent(out, classContext))
+				.record(')');
+
+			classContext.exit(); // ... а в extends и implements почему-то нельзя
 		}
 
 		out.space();

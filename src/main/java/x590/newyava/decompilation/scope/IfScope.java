@@ -5,7 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.Chunk;
+import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.condition.Condition;

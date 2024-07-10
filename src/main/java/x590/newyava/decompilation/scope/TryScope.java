@@ -2,7 +2,7 @@ package x590.newyava.decompilation.scope;
 
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.Chunk;
+import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.io.DecompilationWriter;
 
 import java.util.List;

@@ -21,11 +21,14 @@ import static x590.newyava.example.annotation.Annotations.*;
 @EnumAnnotation(val = EnumExample.A, arr = {EnumExample.A})
 @ClassAnnotation(val = int.class, arr = {int.class})
 @AnnotationAnnotation(val = @SomeAnnotation, arr = {@SomeAnnotation})
+@RepeatableAnnotation(1)
+@RepeatableAnnotation(2)
+@RepeatableAnnotation(3)
 @SuppressWarnings("all")
 public class AnnotationHangExample {
 	@Test
 	public void run() {
-		Main.run(this);
+		Main.run(AnnotationHangExample.class, RepeatableAnnotation.class);
 	}
 
 	@ClassAnnotation(val = List.class, arr = {Map.class})

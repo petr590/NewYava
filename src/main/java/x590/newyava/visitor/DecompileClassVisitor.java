@@ -7,15 +7,14 @@ import org.objectweb.asm.*;
 import x590.newyava.Decompiler;
 import x590.newyava.DecompilingField;
 import x590.newyava.DecompilingMethod;
+import x590.newyava.Util;
+import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.modifiers.EntryType;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import static x590.newyava.modifiers.Modifiers.*;
 
@@ -48,7 +47,7 @@ public class DecompileClassVisitor extends ClassVisitor {
 	private @Nullable String enclosingMethodName;
 	private @Nullable String enclosingMethodDesc;
 
-	private final List<DecompileFieldVisitor> fieldVisitors = new ArrayList<>();
+	private final Map<FieldDescriptor, DecompileFieldVisitor> fieldVisitors = new LinkedHashMap<>();
 	private final List<DecompileMethodVisitor> methodVisitors = new ArrayList<>();
 	private final List<DecompilingAnnotation> annotations = new ArrayList<>();
 	private final List<ClassType> permittedSubclasses = new ArrayList<>();
@@ -118,11 +117,27 @@ public class DecompileClassVisitor extends ClassVisitor {
 	}
 
 	@Override
-	public FieldVisitor visitField(int modifiers, String name, String descriptor,
+	public RecordComponentVisitor visitRecordComponent(String name, String typeName, @Nullable String signature) {
+		var fieldVisitor = fieldVisitors.computeIfAbsent(
+				FieldDescriptor.of(thisType, name, typeName),
+				desc -> new DecompileFieldVisitor(desc, signature)
+		);
+
+		return fieldVisitor.getRecordComponentVisitor();
+	}
+
+	@Override
+	public FieldVisitor visitField(int modifiers, String name, String typeName,
 	                               @Nullable String signature, @Nullable Object value) {
 
-		var fieldVisitor = new DecompileFieldVisitor(thisType, modifiers, name, descriptor, signature, value);
-		fieldVisitors.add(fieldVisitor);
+		var fieldVisitor = fieldVisitors.computeIfAbsent(
+				FieldDescriptor.of(thisType, name, typeName),
+				desc -> new DecompileFieldVisitor(desc, signature)
+		);
+
+		fieldVisitor.setModifiers(modifiers);
+		fieldVisitor.setConstantValue(value);
+
 		return fieldVisitor;
 	}
 
@@ -130,16 +145,13 @@ public class DecompileClassVisitor extends ClassVisitor {
 	public MethodVisitor visitMethod(int modifiers, String name, String descriptor,
 	                                 @Nullable String signature, String[] exceptions) {
 
-		var methodVisitor = new DecompileMethodVisitor(decompiler, thisType, modifiers, name, descriptor, signature, exceptions);
-		methodVisitors.add(methodVisitor);
-		return methodVisitor;
+		return Util.addAndGetBack(methodVisitors,
+				new DecompileMethodVisitor(decompiler, thisType, modifiers, name, descriptor, signature, exceptions));
 	}
 
 	@Override
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-		var annotation = new DecompilingAnnotation(descriptor);
-		annotations.add(annotation);
-		return annotation;
+		return Util.addAndGetBack(annotations, new DecompilingAnnotation(descriptor));
 	}
 
 	@Override
@@ -162,7 +174,7 @@ public class DecompileClassVisitor extends ClassVisitor {
 	}
 
 	public @Unmodifiable List<DecompilingField> getFields() {
-		return fieldVisitors.stream().map(DecompilingField::new).toList();
+		return fieldVisitors.values().stream().map(DecompilingField::new).toList();
 	}
 
 	public @Unmodifiable List<DecompilingMethod> getMethods() {

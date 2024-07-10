@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.array;
 
+import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
@@ -36,6 +37,7 @@ public class ArrayStoreOperation extends AssignOperation {
 		return new ArrayStoreOperation(context, array, index, value, requiredType);
 	}
 
+	@Getter
 	private final Operation array, index;
 
 	private final Type requiredType;

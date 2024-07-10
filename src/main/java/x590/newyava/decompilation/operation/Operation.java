@@ -4,9 +4,9 @@ import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.Importable;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.CodeGraph;
 import x590.newyava.decompilation.scope.LabelNameGenerator;
 import x590.newyava.decompilation.scope.MethodScope;
 import x590.newyava.decompilation.scope.Scope;
@@ -14,6 +14,7 @@ import x590.newyava.decompilation.variable.VarUsage;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
+import java.util.Deque;
 import java.util.List;
 
 public interface Operation extends Importable {
@@ -69,7 +70,7 @@ public interface Operation extends Importable {
 		return getNestedOperations().stream().anyMatch(Operation::usesAnyVariable);
 	}
 
-	/** Вызывается перед вызовом метода {@link CodeGraph#initVariables()} */
+	/** Вызывается перед вызовом метода {@link x590.newyava.DecompilingMethod#initVariables(Context)} */
 	@MustBeInvokedByOverriders
 	default void beforeVariablesInit(MethodScope methodScope) {
 		getNestedOperations().forEach(operation -> operation.beforeVariablesInit(methodScope));
@@ -90,7 +91,7 @@ public interface Operation extends Importable {
 	 * они имеют фиксированный тип. Используется для выведения типов переменных и констант. */
 	default void inferType(Type requiredType) {}
 
-	/** Объявляет переменный, которые ещё не объявлены.
+	/** Объявляет переменные, которые ещё не объявлены.
 	 * @return {@code true}, если переменная была объявлена в данной операции, иначе {@code false}. */
 	@MustBeInvokedByOverriders
 	default boolean declareVariables() {
@@ -102,6 +103,12 @@ public interface Operation extends Importable {
 
 		return result;
 	}
+
+	/**
+	 * Для {@link Scope} проходится по всем операциям <b>в обратном порядке</b>.
+	 * Инициализирует {@code yield} для всех операций, которые являются {@code break}.
+	 */
+	default void initYield(Scope switchScope, Deque<Operation> pushedOperations) {}
 
 
 	/** @return все вложенные операции для рекурсивного вызова любого метода у всех операций */
@@ -127,6 +134,15 @@ public interface Operation extends Importable {
 	 * как {@link #write(DecompilationWriter, MethodWriteContext)}
 	 */
 	default void writeAsArrayInitializer(DecompilationWriter out, MethodWriteContext context) {
+		write(out, context);
+	}
+
+	/**
+	 * Записывает литерал {@code int} как {@code char}.
+	 * Для всех остальных операций работает точно также,
+	 * как {@link #write(DecompilationWriter, MethodWriteContext)}
+	 */
+	default void writeIntAsChar(DecompilationWriter out, MethodWriteContext context) {
 		write(out, context);
 	}
 }

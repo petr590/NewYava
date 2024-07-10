@@ -2,6 +2,7 @@ package x590.newyava.constant;
 
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
@@ -29,25 +30,25 @@ public final class ClassConstant extends Constant {
 		return new ClassConstant(type);
 	}
 
-	private final Type type;
+	@Getter
+	private final Type typeOfClass;
 
-	@Override
 	public Type getType() {
 		return ClassType.CLASS;
 	}
 
 	@Override
 	public void addImports(ClassContext context) {
-		context.addImport(type);
+		context.addImport(typeOfClass);
 	}
 
 	@Override
 	public void write(DecompilationWriter out, ConstantWriteContext context) {
-		out.record(type, context).record(".class");
+		out.record(typeOfClass, context).record(".class");
 	}
 
 	@Override
 	public String toString() {
-		return "ClassConstant(" + type + ")";
+		return "ClassConstant(" + typeOfClass + ")";
 	}
 }

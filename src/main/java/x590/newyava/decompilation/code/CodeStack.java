@@ -1,9 +1,9 @@
-package x590.newyava.decompilation;
+package x590.newyava.decompilation.code;
 
 import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.Stack;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.Unmodifiable;
+import x590.newyava.decompilation.operation.DummyOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.ProxyOperation;
 import x590.newyava.exception.EmptyStackException;
@@ -12,42 +12,53 @@ import x590.newyava.type.Type;
 import x590.newyava.type.TypeSize;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class CodeStack implements Stack<Operation> {
+	/** Состояние стека */
 	private Deque<Operation> stack = new LinkedList<>();
 
-	/** Преобразует каждую операцию в {@link ProxyOperation}.
-	 * @return неизменяемый список из преобразованных операций. */
-	@SuppressWarnings("unchecked")
-	public @Unmodifiable List<ProxyOperation> makeProxyOperations() {
-		if (stack.isEmpty())
-			return List.of();
+	/** Операции, которые были созданы при вызове метода {@link #pop()} на пустом стеке. */
+	private List<ProxyOperation> popped = new ArrayList<>();
 
-		stack = stack.stream()
-				.map(operation -> operation instanceof ProxyOperation proxy ? proxy : new ProxyOperation(operation))
-				.collect(Collectors.toCollection(LinkedList::new));
 
-		return List.copyOf((Collection<ProxyOperation>)(Collection<?>) stack);
+	/** Сбрасывает поле {@link #stack} и возвращает его предыдущее состояние. */
+	Deque<Operation> getAndResetPushedOperations() {
+		var result = stack;
+		stack = new LinkedList<>();
+		return result;
 	}
+
+
+	/** Сбрасывает поле {@link #popped} и возвращает его предыдущее состояние. */
+	List<ProxyOperation> getAndResetPoppedOperations() {
+		var result = popped;
+		popped = new ArrayList<>();
+		return result;
+	}
+
 
 	@Override
 	public void push(Operation operation) {
 		stack.push(operation);
 	}
 
+	/**
+	 * Если стек не пуст, то снимает операцию с вершины стека и возвращает её.
+	 * Иначе создаёт новую операцию, добавляет её в {@link #popped} и возвращает.
+	 */
 	@Override
 	public Operation pop() {
-		try {
+		if (!stack.isEmpty()) {
 			return stack.pop();
-		} catch (NoSuchElementException ex) {
-			throw new EmptyStackException();
 		}
+
+		var operation = new ProxyOperation(DummyOperation.INSTANCE);
+		popped.add(operation);
+		return operation;
 	}
 
 	/**
 	 * Снимает со стека операцию и проверяет её возвращаемый тип на совместимость с требуемым типом.
-	 * @throws EmptyStackException если стек пуст.
 	 * @throws x590.newyava.exception.TypeCastException если возвращаемый тип операции не совместим с требуемым.
 	 */
 	public Operation popAs(Type requiredType) {

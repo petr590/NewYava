@@ -1,4 +1,4 @@
-package x590.newyava.test;
+package x590.newyava.test.exploring;
 
 import org.junit.Test;
 

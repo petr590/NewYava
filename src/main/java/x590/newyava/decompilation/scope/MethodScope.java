@@ -11,7 +11,7 @@ import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.decompilation.variable.VariableSlotView;
 import x590.newyava.modifiers.Modifiers;
 import x590.newyava.context.MethodContext;
-import x590.newyava.decompilation.Chunk;
+import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.decompilation.operation.FieldOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.OperationUtil;
@@ -46,8 +46,8 @@ public class MethodScope extends Scope {
 	}
 
 	@Override
-	public void removeRedundantOperations(MethodContext context) {
-		super.removeRedundantOperations(context);
+	public void postDecompilation(MethodContext context) {
+		super.postDecompilation(context);
 
 		var operations = this.operations;
 
@@ -91,6 +91,18 @@ public class MethodScope extends Scope {
 					i--;
 				}
 			}
+
+		} else if (context.isStaticInitializer() && context.getThisType().isAnonymous()) {
+			// Инициализация карты для switch(enum)
+			int i = 0;
+
+			for (int s = operations.size(); i < s; i += 2) {
+				if (!OperationUtil.tryInitEnumMap(context, operations.get(i), operations.get(i + 1))) {
+					break;
+				}
+			}
+
+			operations.subList(0, i).clear();
 		}
 	}
 

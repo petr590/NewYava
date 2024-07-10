@@ -1,14 +1,13 @@
 package x590.newyava.modifiers;
 
+import lombok.experimental.UtilityClass;
 import org.objectweb.asm.Opcodes;
 
 /**
  * Список модификаторов
  */
-public class Modifiers {
-
-	private Modifiers() {}
-
+@UtilityClass
+public final class Modifiers {
 	public static final int
 			ACC_VISIBLE      = 0,
 			ACC_PUBLIC       = Opcodes.ACC_PUBLIC,

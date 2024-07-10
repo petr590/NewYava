@@ -4,7 +4,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.FailableConsumer;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.annotation.DecompilingAnnotation;
@@ -12,8 +11,10 @@ import x590.newyava.annotation.DefaultValue;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.context.Context;
-import x590.newyava.decompilation.CodeGraph;
-import x590.newyava.decompilation.ReadonlyCode;
+import x590.newyava.decompilation.code.CodeGraph;
+import x590.newyava.decompilation.code.Code;
+import x590.newyava.decompilation.code.CodeProxy;
+import x590.newyava.decompilation.code.InvalidCode;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
@@ -27,7 +28,6 @@ import x590.newyava.type.ReferenceType;
 import x590.newyava.visitor.DecompileMethodVisitor;
 
 import java.util.List;
-import java.util.Objects;
 
 import static x590.newyava.Literals.*;
 import static x590.newyava.modifiers.Modifiers.*;
@@ -51,12 +51,13 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 
 	private final @Nullable DefaultValue defaultValue;
 
+	/** Код метода. Может быть {@code null}, если метод не имеет кода
+	 * или во время декомпиляции произошло исключение. */
 	@Getter(AccessLevel.NONE)
 	private @Nullable CodeGraph codeGraph;
 
-	/** Сообщение об исключении, произошедшем во время декомпиляции */
-	@Getter(AccessLevel.NONE)
-	private @Nullable String exceptionMessage;
+	/** Прокси, который хранит экземпляр {@link CodeGraph} или {@link InvalidCode}. */
+	private final CodeProxy code;
 
 	public DecompilingMethod(DecompileMethodVisitor visitor) {
 		this.modifiers    = visitor.getModifiers();
@@ -66,16 +67,16 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		this.exceptions   = visitor.getExceptions();
 		this.defaultValue = visitor.getDefaultValue();
 		this.codeGraph    = visitor.getCodeGraph();
+
+		this.code = new CodeProxy(codeGraph != null ? codeGraph : InvalidCode.EMPTY);
 	}
 
-	public @NotNull ReadonlyCode getCode() {
-		return Objects.requireNonNull(codeGraph);
+	public boolean isSynthetic() {
+		return (modifiers & ACC_SYNTHETIC) != 0;
 	}
 
-	public void decompile(ClassContext context) {
-		tryCatchOnCodeGraph(context, codeGraph -> codeGraph.decompile(descriptor, context));
-
-		this.visibleDescriptor = getVisibleDescriptor(context);
+	public Code getCode() {
+		return code;
 	}
 
 	/** Если {@link #codeGraph} не {@code null}, то выполняет {@code action}.
@@ -105,22 +106,31 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 
 		String  name = ex.getClass().getSimpleName(),
 				message = ex.getMessage();
-		exceptionMessage = StringUtils.isEmpty(message) ? name : name + ": " + message;
 
 		codeGraph = null;
+		code.setCode(new InvalidCode(StringUtils.isEmpty(message) ? name : name + ": " + message));
 		ex.setMethodDescriptor(descriptor);
-		ex.printStackTrace();
-//		System.err.println(ex);
+//		ex.printStackTrace();
+		System.err.println(ex);
 	}
 
-	private MethodDescriptor getVisibleDescriptor(ClassContext context) {
+	public void decompile(Context context) {
+		tryCatchOnCodeGraph(context, codeGraph -> codeGraph.decompile(descriptor, context));
+		this.visibleDescriptor = getVisibleDescriptor(context);
+	}
+
+	public void afterDecompilation(Context context) {
+		tryCatchOnCodeGraph(context, CodeGraph::afterDecompilation);
+	}
+
+	private MethodDescriptor getVisibleDescriptor(Context context) {
 		if (descriptor.isConstructor()) {
 			if (context.isEnumClass()) {
 				return descriptor.slice(2);
 			}
 
-			if (codeGraph != null) {
-				var methodScope = codeGraph.getMethodScope();
+			if (code.isValid()) {
+				var methodScope = code.getMethodScope();
 				return descriptor.slice(methodScope.getArgsStart(), methodScope.getArgsEnd());
 			}
 		}
@@ -139,7 +149,7 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 	}
 
 	/** Можно ли оставить метод в классе.
-	 * Должен вызываться только после {@link #decompile(ClassContext)} */
+	 * Должен вызываться только после {@link #decompile(Context)} */
 	public boolean keep(ClassContext context, @Nullable @Unmodifiable List<DecompilingField> recordComponents) {
 		if ((modifiers & ACC_SYNTHETIC) != 0) {
 			return false;
@@ -147,7 +157,7 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 
 		var visDesc = visibleDescriptor;
 
-		if (codeGraph != null && codeGraph.isEmpty()) {
+		if (code.isValid() && code.getMethodScope().isEmpty()) {
 			// Пустой static {}
 			if (visDesc.isStaticInitializer()) {
 				return false;
@@ -157,7 +167,6 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 				// Одиночный пустой конструктор
 				if (visDesc.arguments().isEmpty() &&
 					context.findMethods(method -> method.getDescriptor().isConstructor()).count() == 1) {
-
 					return false;
 				}
 
@@ -181,10 +190,10 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 					!visDesc.equals(enumType, "values", ArrayType.forType(enumType));
 		}
 
-		if ((context.getClassModifiers() & ACC_RECORD) != 0 && codeGraph != null) {
+		if ((context.getClassModifiers() & ACC_RECORD) != 0 && code.isValid()) {
 
 			// Автосгенерированные методы hashCode, equals и toString в record
-			if (codeGraph.getMethodScope().isRecordInvokedynamic()) {
+			if (code.getMethodScope().isRecordInvokedynamic()) {
 				return false;
 			}
 
@@ -194,11 +203,8 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 
 				var fieldDescriptor = new FieldDescriptor(hostClass, visDesc.name(), visDesc.returnType());
 
-				if (recordComponents.stream().anyMatch(field -> field.getDescriptor().equals(fieldDescriptor)) &&
-					codeGraph.getMethodScope().isGetterOf(fieldDescriptor)) {
-
-					return false;
-				}
+				return recordComponents.stream().noneMatch(field -> field.getDescriptor().equals(fieldDescriptor)) ||
+						!code.getMethodScope().isGetterOf(fieldDescriptor);
 			}
 		}
 
@@ -225,7 +231,7 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 	public void addImports(ClassContext context) {
 		context .addImportsFor(descriptor).addImportsFor(annotations)
 				.addImportsFor(exceptions).addImportsFor(defaultValue)
-				.addImportsFor(codeGraph);
+				.addImportsFor(code);
 	}
 
 	@Override
@@ -237,7 +243,7 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		writeModifiers(out, context);
 
 		boolean isStatic = (modifiers & ACC_STATIC) != 0;
-		var variables = codeGraph == null ? null : codeGraph.getMethodScope().getVariables();
+		var variables = code.isValid() ? code.getMethodScope().getVariables() : null;
 
 		visibleDescriptor.write(out, context, isStatic, variables);
 
@@ -249,13 +255,13 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 			out.record(" default ").record(defaultValue.getAnnotationValue(), new ConstantWriteContext(context, descriptor.returnType(), true));
 		}
 
-		if (codeGraph != null && exceptionMessage == null) {
-			out.space().record(codeGraph, context);
+		if (code.isValid()) {
+			out.space().record(code, context);
 		} else {
 			out.record(';');
 
-			if (exceptionMessage != null) {
-				out.record(" /* ").record(exceptionMessage).record(" */");
+			if (code.caughtException()) {
+				out.space().record(code, context);
 			}
 		}
 	}

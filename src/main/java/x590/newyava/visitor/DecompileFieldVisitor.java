@@ -1,55 +1,56 @@
 package x590.newyava.visitor;
 
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.RecordComponentVisitor;
+import x590.newyava.Util;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.constant.Constant;
 import x590.newyava.decompilation.operation.LdcOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.descriptor.FieldDescriptor;
-import x590.newyava.type.ClassType;
-import x590.newyava.type.Type;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Getter
 public class DecompileFieldVisitor extends FieldVisitor {
+	@Setter(AccessLevel.PACKAGE)
+	private int modifiers;
 
-	private final int modifiers;
 	private final FieldDescriptor descriptor;
 	private final @Nullable String signature;
-	private final @Nullable Object constantValue;
-	private final List<DecompilingAnnotation> annotations = new ArrayList<>();
 
-	public DecompileFieldVisitor(ClassType hostClass, int modifiers, String name, String typeName,
-	                             @Nullable String signature, @Nullable Object constantValue) {
+	@Setter(AccessLevel.PACKAGE)
+	private @Nullable Object constantValue;
 
+	private final Set<DecompilingAnnotation> annotations = new LinkedHashSet<>();
+
+	@Getter(lazy = true)
+	private final RecordComponentVisitor recordComponentVisitor = new DecompileRecordComponentVisitor(annotations);
+
+	public DecompileFieldVisitor(FieldDescriptor descriptor, @Nullable String signature) {
 		super(Opcodes.ASM9);
 
-		this.modifiers = modifiers;
-		this.descriptor = new FieldDescriptor(hostClass, name, Type.valueOf(typeName));
+		this.descriptor = descriptor;
 		this.signature = signature;
-		this.constantValue = constantValue;
 	}
 
 	public @Nullable Operation getInitializer() {
 		return constantValue == null ? null : new LdcOperation(Constant.fromObject(constantValue));
 	}
 
-	public @Unmodifiable List<DecompilingAnnotation> getAnnotations() {
-		return Collections.unmodifiableList(annotations);
+	public @Unmodifiable Set<DecompilingAnnotation> getAnnotations() {
+		return Collections.unmodifiableSet(annotations);
 	}
 
 	@Override
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-		var annotation = new DecompilingAnnotation(descriptor);
-		annotations.add(annotation);
-		return annotation;
+		return Util.addAndGetBack(annotations, new DecompilingAnnotation(descriptor));
 	}
 }

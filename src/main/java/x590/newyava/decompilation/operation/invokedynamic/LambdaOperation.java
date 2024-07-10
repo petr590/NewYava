@@ -1,13 +1,12 @@
 package x590.newyava.decompilation.operation.invokedynamic;
 
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
+import x590.newyava.decompilation.code.InvalidCode;
 import x590.newyava.decompilation.operation.variable.ILoadOperation;
-import x590.newyava.modifiers.Modifiers;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.ReadonlyCode;
+import x590.newyava.decompilation.code.Code;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.decompilation.operation.Priority;
@@ -31,7 +30,7 @@ public class LambdaOperation implements Operation {
 
 	private final List<Operation> indyArgs;
 
-	private @Nullable ReadonlyCode code;
+	private Code code;
 
 	public LambdaOperation(MethodContext context, IncompleteMethodDescriptor indyDescriptor,
 	                       MethodDescriptor implDescriptor) {
@@ -42,16 +41,16 @@ public class LambdaOperation implements Operation {
 		this.code = findCode(context, implDescriptor);
 	}
 
-	private static @Nullable ReadonlyCode findCode(MethodContext context, MethodDescriptor implDescriptor) {
+	private static Code findCode(MethodContext context, MethodDescriptor implDescriptor) {
 		if (implDescriptor.hostClass().equals(context.getThisType())) {
 			var foundMethod = context.findMethod(implDescriptor);
 
-			if (foundMethod.isPresent() && (foundMethod.get().getModifiers() & Modifiers.ACC_SYNTHETIC) != 0) {
+			if (foundMethod.isPresent() && foundMethod.get().isSynthetic()) {
 				return foundMethod.get().getCode();
 			}
 		}
 
-		return null;
+		return InvalidCode.EMPTY;
 	}
 
 
@@ -69,7 +68,7 @@ public class LambdaOperation implements Operation {
 	public void beforeVariablesInit(MethodScope methodScope) {
 		Operation.super.beforeVariablesInit(methodScope);
 
-		if (code != null) {
+		if (code.isValid()) {
 			code.getMethodScope().setOuterScope(methodScope);
 
 			var varTable = code.getVarTable();
@@ -104,29 +103,30 @@ public class LambdaOperation implements Operation {
 
 	private void simplifyLambda() {
 		if (lambdaSimplified) return;
+
 		lambdaSimplified = true;
 
-		if (code != null) {
-			var arrayDescriptor = OperationUtil.recognizeArrayLambda(implDescriptor, code);
 
-			if (arrayDescriptor != null) {
-				implDescriptor = arrayDescriptor;
-				code = null;
+		if (!code.isValid()) return;
 
-			} else {
-				var descriptorAndObject = OperationUtil.recognizeFunctionLambda(implDescriptor, code, indyArgs);
+		var arrayDescriptor = OperationUtil.recognizeArrayLambda(implDescriptor, code);
+		if (arrayDescriptor != null) {
+			implDescriptor = arrayDescriptor;
+			code = InvalidCode.EMPTY;
+			return;
 
-				if (descriptorAndObject != null) {
-					var descriptor = descriptorAndObject.first();
-					var object = descriptorAndObject.second();
+		}
 
-					implDescriptor = descriptor;
-					code = null;
+		var descriptorAndObject = OperationUtil.recognizeFunctionLambda(implDescriptor, code, indyArgs);
+		if (descriptorAndObject != null) {
+			var descriptor = descriptorAndObject.first();
+			var object = descriptorAndObject.second();
 
-					indyArgs.clear();
-					indyArgs.add(object);
-				}
-			}
+			implDescriptor = descriptor;
+			code = InvalidCode.EMPTY;
+
+			indyArgs.clear();
+			indyArgs.add(object);
 		}
 	}
 
@@ -141,11 +141,16 @@ public class LambdaOperation implements Operation {
 	public void write(DecompilationWriter out, MethodWriteContext context) {
 		simplifyLambda();
 
-		if (code != null) {
+		if (code.isValid()) {
+			// this не передаётся явно в метод лямбды
+			int offset = !indyArgs.isEmpty() && indyArgs.get(0).isThisRef() ? 1 : 0;
+			int indySlots = indyDescriptor.slots();
+
 			var variables = code.getMethodScope().getVariables();
 
 			List<String> names = variables.stream()
-					.skip(indyDescriptor.slots())
+					.skip(indySlots)
+					.limit(implDescriptor.slots() - indySlots + offset)
 					.filter(Objects::nonNull).map(Variable::getName)
 					.toList();
 
@@ -181,6 +186,10 @@ public class LambdaOperation implements Operation {
 			}
 
 			out.record("::").record(implDescriptor.isConstructor() ? "new" : implDescriptor.name());
+
+			if (code.caughtException()) {
+				out.space().record(code, context);
+			}
 		}
 	}
 

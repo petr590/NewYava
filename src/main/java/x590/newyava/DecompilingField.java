@@ -1,8 +1,12 @@
 package x590.newyava;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
@@ -18,7 +22,7 @@ import x590.newyava.modifiers.EntryType;
 import x590.newyava.type.Type;
 import x590.newyava.visitor.DecompileFieldVisitor;
 
-import java.util.List;
+import java.util.Set;
 
 import static x590.newyava.modifiers.Modifiers.*;
 import static x590.newyava.Literals.*;
@@ -32,7 +36,7 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 	private final FieldDescriptor descriptor;
 
-	private final @Unmodifiable List<DecompilingAnnotation> annotations;
+	private final @Unmodifiable Set<DecompilingAnnotation> annotations;
 
 	private @Nullable Operation initializer;
 
@@ -60,6 +64,10 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 	public boolean isStatic() {
 		return (modifiers & ACC_STATIC) != 0;
+	}
+
+	public boolean isSynthetic() {
+		return (modifiers & ACC_SYNTHETIC) != 0;
 	}
 
 	/** Устанавливает инициализатор поля, если он не установлен.
@@ -92,6 +100,39 @@ public class DecompilingField implements ContextualWritable, Importable {
 			initializer.inferType(descriptor.type());
 			initializer.allowImplicitCast();
 		}
+	}
+
+
+	/* -------------------------------------------------- Enum map -------------------------------------------------- */
+
+	private @Nullable Int2ObjectMap<FieldDescriptor> enumMap;
+
+	public @Nullable @UnmodifiableView Int2ObjectMap<FieldDescriptor> getEnumMap() {
+		return enumMap == null ? null : Int2ObjectMaps.unmodifiable(enumMap);
+	}
+
+
+	/** Инициализирует {@link #enumMap}, если он ещё не инициализирован, и добавляет в него
+	 * переданный дескриптор по id. Если в {@link #enumMap} уже есть дескриптор, то
+	 * проверяет совпадение класса и типа.
+	 * @return {@code true}, если дескриптор добавлен, иначе {@code false}. */
+	public boolean setEnumEntry(int id, FieldDescriptor descriptor) {
+		if (enumMap == null) {
+			enumMap = new Int2ObjectOpenHashMap<>();
+			enumMap.put(id, descriptor);
+			return true;
+		}
+
+		var existsDescriptor = enumMap.values().iterator().next();
+
+		if (existsDescriptor.hostClass().equals(descriptor.hostClass()) &&
+			existsDescriptor.type().equals(descriptor.type())) {
+
+			enumMap.put(id, descriptor);
+			return true;
+		}
+
+		return false;
 	}
 
 	/* ---------------------------------------------------- write --------------------------------------------------- */
@@ -186,5 +227,10 @@ public class DecompilingField implements ContextualWritable, Importable {
 	public void writeAsRecordComponent(DecompilationWriter out, Context context) {
 		DecompilingAnnotation.writeAnnotations(out, context, annotations, true);
 		out.recordSp(descriptor.type(), context).record(descriptor.name());
+	}
+
+	@Override
+	public String toString() {
+		return descriptor.toString();
 	}
 }

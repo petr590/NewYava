@@ -89,6 +89,9 @@ public class Decompiler {
 				.map(value -> {
 					try (var in = resourceGetter.apply(value)) {
 						return new DecompilingClass(this, new ClassReader(in));
+					} catch (Throwable throwable) {
+						System.err.printf("Exception while creating class %s\n", value);
+						throw throwable;
 					}
 				}).collect(Collectors.toMap(DecompilingClass::getThisType, clazz -> clazz));
 
@@ -97,6 +100,7 @@ public class Decompiler {
 		classes.forEach(tryCatch(clazz -> clazz.initNested(classMap), "initNested"));
 
 		classes.forEach(tryCatch(DecompilingClass::decompile, "decompile"));
+		classes.forEach(tryCatch(DecompilingClass::afterDecompilation, "afterDecompilation"));
 		classes.forEach(tryCatch(DecompilingClass::processVariables, "processVariables"));
 
 		classes.forEach(tryCatch(DecompilingClass::addImports, "addImports"));
@@ -105,7 +109,7 @@ public class Decompiler {
 
 		try (var writer = new DecompilationWriter(writerFactory)) {
 			Streams.failableStream(classes.stream())
-					.filter(DecompilingClass::keep)
+					.filter(DecompilingClass::isTopLevel)
 					.forEach(clazz -> {
 						try {
 							writer.openWriter(clazz.getThisType().getName());

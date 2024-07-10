@@ -2,6 +2,7 @@ package x590.newyava.decompilation.operation;
 
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.constant.IntConstant;
+import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.io.DecompilationWriter;
@@ -24,7 +25,10 @@ public class TernaryOperator implements Operation {
 		this.operand1 = operand1;
 		this.operand2 = operand2;
 
-		this.returnType = Type.assignUp(operand1.getReturnType(), operand2.getReturnType());
+		this.returnType = Type.assign(
+				operand1.getReturnType().wideUp(),
+				operand2.getReturnType().wideUp()
+		);
 	}
 
 	@Override
@@ -57,6 +61,11 @@ public class TernaryOperator implements Operation {
 	}
 
 	@Override
+	public void addImports(ClassContext context) {
+		context.addImportsFor(condition).addImportsFor(operand1).addImportsFor(operand2);
+	}
+
+	@Override
 	public Priority getPriority() {
 		return isCondition ? condition.getPriority() : Priority.TERNARY;
 	}
@@ -74,5 +83,11 @@ public class TernaryOperator implements Operation {
 					.record(operand1, context, priority, Associativity.LEFT).record(" : ")
 					.record(operand2, context, priority, Associativity.LEFT);
 		}
+	}
+
+	@Override
+	public String toString() {
+		return String.format("TernaryOperator %08x(%s %s %s)",
+				hashCode(), condition, operand1, operand2);
 	}
 }

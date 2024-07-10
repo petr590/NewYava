@@ -1,4 +1,4 @@
-package x590.newyava.test;
+package x590.newyava.test.decompiler;
 
 import org.jetbrains.annotations.Unmodifiable;
 import org.junit.After;
@@ -41,7 +41,7 @@ public class AllExamplesTest {
 	private final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 	private final StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
 
-	private List<String> options(String outputDir) {
+	private static List<String> options(String outputDir) {
 		return List.of(
 				"-d", outputDir,
 				"-Xlint:unchecked",

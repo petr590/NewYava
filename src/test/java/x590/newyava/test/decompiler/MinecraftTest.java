@@ -1,4 +1,4 @@
-package x590.newyava.test;
+package x590.newyava.test.decompiler;
 
 import org.jetbrains.annotations.Unmodifiable;
 import org.junit.Test;
@@ -15,12 +15,12 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public class MinecraftTest {
-	private static final String
+	static final String
 			SRC_DIR = "/home/winch/IdeaProjects/MCP-Reborn/build/classes/java/main",
 			DST_DIR = "/tmp/minecraft";
 
 
-	private static @Unmodifiable List<String> getCompiledClassNames() {
+	static @Unmodifiable List<String> getCompiledClassNames() {
 		try (Stream<Path> paths = Files.walk(Paths.get(SRC_DIR))) {
 			return paths.map(Path::toString)
 					.filter(path -> path.endsWith(".class"))
@@ -30,6 +30,11 @@ public class MinecraftTest {
 		} catch (IOException ex) {
 			throw new UncheckedIOException(ex);
 		}
+	}
+
+	/** @param className имя класса в формате {@code "java.lang.Object"} или {@code "java/lang/Object"} */
+	static @Unmodifiable String getCompiledClassName(String className) {
+		return Path.of(SRC_DIR, className.replace('.', '/')).toString();
 	}
 
 	@Test

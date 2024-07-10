@@ -1,11 +1,11 @@
 package x590.newyava.decompilation.operation;
 
-import x590.newyava.decompilation.CodeStack;
+import lombok.experimental.UtilityClass;
+import x590.newyava.decompilation.code.CodeStack;
 import x590.newyava.type.TypeSize;
 
-public class Dup {
-	private Dup() {}
-
+@UtilityClass
+public final class Dup {
 	public static void dup(CodeStack stack, TypeSize size) {
 		var value = stack.popOneOrTwo(size);
 		stack.pushOneOrTwo(value);

@@ -15,6 +15,7 @@ import x590.newyava.type.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Представляет исключение, которое кладётся на стек в начале блока catch.
@@ -26,11 +27,12 @@ public class CatchOperation implements Operation {
 	@Setter
 	private int endId = -1;
 
+	@Getter
 	private List<ClassType> exceptionTypes = new ArrayList<>();
 
 	/** Добавляет тип исключения в список. */
 	public void add(ClassType exceptionType) {
-		exceptionTypes.add(exceptionType);
+		exceptionTypes.add(Objects.requireNonNull(exceptionType));
 	}
 
 	/** Завершает инициализацию, делая {@link #exceptionTypes} неизменяемым. */
@@ -38,6 +40,11 @@ public class CatchOperation implements Operation {
 		exceptionTypes = Collections.unmodifiableList(exceptionTypes);
 	}
 
+	public boolean isFinally() {
+		return exceptionTypes.isEmpty();
+	}
+
+	@Getter
 	private VariableReference varRef;
 
 	/** Инициализирует переменную, в которую сохраняется исключение. */
@@ -78,5 +85,11 @@ public class CatchOperation implements Operation {
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
 		out.record(exceptionTypes, context, " | ").space().record(varRef.getName());
+	}
+
+	@Override
+	public String toString() {
+		return String.format("CatchOperation %08x(endId = %d, exceptionTypes = %s)",
+				hashCode(), endId, exceptionTypes);
 	}
 }

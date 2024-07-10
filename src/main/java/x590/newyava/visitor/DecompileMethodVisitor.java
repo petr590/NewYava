@@ -9,10 +9,11 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.*;
 import x590.newyava.Decompiler;
+import x590.newyava.Util;
 import x590.newyava.modifiers.Modifiers;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.annotation.DefaultValue;
-import x590.newyava.decompilation.CodeGraph;
+import x590.newyava.decompilation.code.CodeGraph;
 import x590.newyava.decompilation.instruction.*;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
@@ -74,15 +75,16 @@ public class DecompileMethodVisitor extends MethodVisitor {
 		return codeGraph;
 	}
 
+
+	/* ------------------------------------------------ Annotations ------------------------------------------------- */
+
 	public @Unmodifiable List<DecompilingAnnotation> getAnnotations() {
 		return Collections.unmodifiableList(annotations);
 	}
 
 	@Override
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-		var annotation = new DecompilingAnnotation(descriptor);
-		annotations.add(annotation);
-		return annotation;
+		return Util.addAndGetBack(annotations, new DecompilingAnnotation(descriptor));
 	}
 
 	@Override
@@ -90,7 +92,52 @@ public class DecompileMethodVisitor extends MethodVisitor {
 		return defaultValue = new DefaultValue();
 	}
 
-	/* ---------------------------------------------------- code ---------------------------------------------------- */
+//	@Override
+//	public void visitParameter(String name, int access) {
+//		System.out.printf("visitParameter(%s, %d)\n", name, access);
+//	}
+//
+//	@Override
+//	public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
+//		System.out.printf("visitTypeAnnotation(%d, %s, %s, %b)\n", typeRef, typePath, descriptor, visible);
+//		return null;
+//	}
+//
+//	@Override
+//	public void visitAnnotableParameterCount(int parameterCount, boolean visible) {
+//		System.out.printf("visitAnnotableParameterCount(%d, %b)\n", parameterCount, visible);
+//	}
+//
+//	@Override
+//	public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
+//		System.out.printf("visitParameterAnnotation(%d, %s, %b)\n", parameter, descriptor, visible);
+//		return null;
+//	}
+//
+////	@Override
+////	public void visitAttribute(Attribute attribute) {
+////		super.visitAttribute(attribute);
+////	}
+//
+//	@Override
+//	public AnnotationVisitor visitInsnAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
+//		System.out.printf("visitInsnAnnotation(%d, %s, %s, %b)\n", typeRef, typePath, descriptor, visible);
+//		return null;
+//	}
+//
+//	@Override
+//	public AnnotationVisitor visitTryCatchAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
+//		System.out.printf("visitTryCatchAnnotation(%d, %s, %s, %b)\n", typeRef, typePath, descriptor, visible);
+//		return null;
+//	}
+//
+//	@Override
+//	public AnnotationVisitor visitLocalVariableAnnotation(int typeRef, TypePath typePath, Label[] start, Label[] end, int[] index, String descriptor, boolean visible) {
+//		System.out.printf("visitLocalVariableAnnotation(%d, %s, %s, %b)\n", typeRef, typePath, descriptor, visible);
+//		return null;
+//	}
+
+	/* ---------------------------------------------------- Code ---------------------------------------------------- */
 
 	@Override
 	public void visitCode() {

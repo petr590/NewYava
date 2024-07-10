@@ -1,6 +1,7 @@
 package x590.newyava.type;
 
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.exception.InvalidTypeException;
 
 import java.util.List;
@@ -10,7 +11,7 @@ public interface ReferenceType extends Type {
 
 	@Nullable ReferenceType getSuperType();
 
-	List<? extends ReferenceType> getInterfaces();
+	@Unmodifiable List<? extends ReferenceType> getInterfaces();
 
 	default boolean isNested() {
 		return false;

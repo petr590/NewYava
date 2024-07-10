@@ -1,4 +1,4 @@
-package x590.newyava.decompilation;
+package x590.newyava.decompilation.code;
 
 import it.unimi.dsi.fastutil.ints.*;
 import it.unimi.dsi.fastutil.objects.*;
@@ -40,7 +40,7 @@ import java.util.function.Function;
  * Хранит код и проводит его декомпиляцию.
  */
 @RequiredArgsConstructor
-public class CodeGraph implements ReadonlyCode {
+public class CodeGraph implements Code {
 
 	private final DecompileMethodVisitor visitor;
 
@@ -150,6 +150,16 @@ public class CodeGraph implements ReadonlyCode {
 		return Objects.requireNonNull(methodScope);
 	}
 
+	@Override
+	public boolean isValid() {
+		return true;
+	}
+
+	@Override
+	public boolean caughtException() {
+		return false;
+	}
+
 	public boolean isEmpty() {
 		return methodScope.isEmpty();
 	}
@@ -181,13 +191,57 @@ public class CodeGraph implements ReadonlyCode {
 				tryEnd = chunkMap.get(labels.getInt(block.end)).getId(),
 				catchStart = chunkMap.get(labels.getInt(block.handler)).getId();
 
+			// Нашли try, который совпадает с другим catch
+			if (block.type == null &&
+				result.values().stream().anyMatch(catches -> catches.containsKey(tryStart))) {
+				continue; // Пока что проигнорируем его
+			}
+
+			var sameCatchEntry = result.entrySet().stream()
+					.filter(tryCatches -> tryCatches.getValue().containsKey(catchStart))
+					.findAny();
+
+			// Если catch совпадает с другим catch,
+			if (sameCatchEntry.isPresent()) {
+				// ... то объединяем два try в один
+				var anotherTry = sameCatchEntry.get().getKey();
+
+				var unitedTry = IntIntPair.of(
+						Math.min(tryStart, anotherTry.leftInt()),
+						Math.max(tryEnd, anotherTry.rightInt())
+				);
+
+				if (!anotherTry.equals(unitedTry)) {
+					result.remove(anotherTry);
+
+					var catches = sameCatchEntry.get().getValue();
+
+					result.compute(unitedTry, (key, otherCatches) -> {
+						if (otherCatches != null)
+							catches.putAll(otherCatches);
+
+						return catches;
+					});
+				}
+
+				continue;
+			}
+
 			var tryBlock = IntIntPair.of(tryStart, tryEnd);
 
 			var catchBlock = result
 					.computeIfAbsent(tryBlock, tb -> new Int2ObjectOpenHashMap<>())
 					.computeIfAbsent(catchStart, cs -> new CatchOperation());
 
-			catchBlock.add(block.type);
+			if (block.type != null) {
+				catchBlock.add(block.type);
+			}
+		}
+
+		for (var catches : result.values()) {
+			for (var catchOp : catches.values()) {
+				catchOp.finalizeExceptionTypesInit();
+			}
 		}
 
 		return result;
@@ -245,7 +299,7 @@ public class CodeGraph implements ReadonlyCode {
 
 	/** Главный метод приложения. Именно здесь происходит вся магия.
 	 * Декомпилирует все операции, создаёт {@link Scope}-ы и инициализирует {@link #methodScope}. */
-	public void decompile(MethodDescriptor descriptor, ClassContext context) {
+	public void decompile(MethodDescriptor descriptor, Context context) {
 		Int2ObjectMap<Chunk> chunkMap = readChunkMap();
 		@Unmodifiable List<Chunk> chunks = chunkMap.values().stream().sorted().toList();
 
@@ -286,9 +340,13 @@ public class CodeGraph implements ReadonlyCode {
 		Int2IntMap elseChunkIds = findElses(chunks, ifChunkIds);
 		addScopes(scopes, chunks, elseChunkIds, ElseScope::new);
 
+		// И строим иерархию Scope-ов
 		Collections.sort(scopes);
 		methodScope = hierarchizeScopes(chunks, scopes);
-		methodScope.removeRedundantOperations(methodContext);
+
+		linkChunkStackStates(chunks);
+
+		methodScope.postDecompilation(methodContext);
 	}
 
 
@@ -379,6 +437,11 @@ public class CodeGraph implements ReadonlyCode {
 	}
 
 
+	private void linkChunkStackStates(@Unmodifiable List<Chunk> chunks) {
+		chunks.forEach(chunk -> chunk.linkStackState(chunks));
+	}
+
+
 	/* --------------------------------------------------- Loops ---------------------------------------------------- */
 
 	/**
@@ -447,7 +510,8 @@ public class CodeGraph implements ReadonlyCode {
 							entries.get(i).getKey().getId(),
 							entries.get(i + 1).getKey().getId()
 					),
-					entries.get(i).getValue()
+					entries.get(i).getValue(),
+					false
 			));
 		}
 
@@ -458,13 +522,14 @@ public class CodeGraph implements ReadonlyCode {
 		var minEndId = cases.stream()
 				.map(Scope::getEndChunk).filter(Chunk::canTakeRole)
 				.map(Chunk::getConditionalChunk).filter(Objects::nonNull)
-				.mapToInt(Chunk::getId).filter(id -> id >= lastId)
+				.mapToInt(Chunk::getId).filter(id -> id > lastId)
 				.max();
 
-		if (minEndId.isPresent() && lastId != minEndId.getAsInt()) {
+		if (minEndId.isPresent()) {
 			cases.add(new SwitchScope.CaseScope(
 					chunks.subList(lastId, minEndId.getAsInt()),
-					lastEntry.getValue()
+					lastEntry.getValue(),
+					true
 			));
 		}
 
@@ -617,6 +682,10 @@ public class CodeGraph implements ReadonlyCode {
 
 
 	/* --------------------------------------------- After decompiling ---------------------------------------------- */
+
+	public void afterDecompilation() {
+		methodScope.afterDecompilation(methodContext);
+	}
 
 	public void beforeVariablesInit() {
 		methodScope.beforeVariablesInit(methodScope);

@@ -1,11 +1,11 @@
 package x590.newyava.decompilation.instruction;
 
+import lombok.experimental.UtilityClass;
+
 import static org.objectweb.asm.Opcodes.*;
 
+@UtilityClass
 public class InsnUtil {
-
-	private InsnUtil() {}
-
 	public static String opcodeToString(int opcode) {
 		return switch (opcode) {
 			case NOP -> "nop";
