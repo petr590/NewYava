@@ -2,17 +2,26 @@ package x590.newyava.decompilation.operation;
 
 import com.google.common.collect.Lists;
 import it.unimi.dsi.fastutil.Pair;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import x590.newyava.DecompilingField;
+import x590.newyava.context.Context;
+import x590.newyava.decompilation.operation.array.ArrayLoadOperation;
+import x590.newyava.decompilation.operation.array.ArrayStoreOperation;
+import x590.newyava.decompilation.operation.invoke.InvokeNonstaticOperation;
 import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
 import x590.newyava.decompilation.operation.variable.ILoadOperation;
+import x590.newyava.decompilation.scope.CatchScope;
+import x590.newyava.decompilation.scope.TryScope;
 import x590.newyava.decompilation.variable.Variable;
-import x590.newyava.modifiers.Modifiers;
 import x590.newyava.context.MethodContext;
-import x590.newyava.decompilation.ReadonlyCode;
+import x590.newyava.decompilation.code.Code;
 import x590.newyava.decompilation.operation.array.NewArrayOperation;
 import x590.newyava.decompilation.operation.invoke.InvokeStaticOperation;
 import x590.newyava.decompilation.operation.terminal.ReturnValueOperation;
+import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
@@ -21,9 +30,8 @@ import x590.newyava.type.Type;
 import java.util.*;
 import java.util.regex.Pattern;
 
-public class OperationUtil {
-	private OperationUtil() {}
-
+@UtilityClass
+public final class OperationUtil {
 	/**
 	 * Читает аргументы со стека в обратном порядке (так как на стек они кладутся в прямом порядке).
 	 * @param argTypes требуемые типы аргументов.
@@ -64,7 +72,7 @@ public class OperationUtil {
 	 * Этот метод распознаёт такие выражения и возвращает соответствующий дескриптор.
 	 * @return найденный дескриптор или {@code null}
 	 */
-	public static @Nullable MethodDescriptor recognizeArrayLambda(MethodDescriptor descriptor, ReadonlyCode code) {
+	public static @Nullable MethodDescriptor recognizeArrayLambda(MethodDescriptor descriptor, Code code) {
 		var operations = code.getMethodScope().getOperations();
 
 		if (operations.size() != 1 ||
@@ -98,7 +106,7 @@ public class OperationUtil {
 	 * @return найденный дескриптор и новый аргумент инструкции invokedynamic или {@code null}
 	 */
 	public static @Nullable Pair<MethodDescriptor, Operation> recognizeFunctionLambda(
-			MethodDescriptor descriptor, ReadonlyCode code, @Unmodifiable List<Operation> indyArgs
+			MethodDescriptor descriptor, Code code, @Unmodifiable List<Operation> indyArgs
 	) {
 		var operations = code.getMethodScope().getOperations();
 
@@ -156,7 +164,7 @@ public class OperationUtil {
 
 			var foundField = context.findField(descriptor);
 
-			if (foundField.isPresent() && (foundField.get().getModifiers() & Modifiers.ACC_SYNTHETIC) != 0) {
+			if (foundField.isPresent() && foundField.get().isSynthetic()) {
 				foundField.get().makeOuterInstance();
 				return true;
 			}
@@ -179,7 +187,7 @@ public class OperationUtil {
 
 			String varName = matcher.group(1);
 
-			if (foundField.isPresent() && (foundField.get().getModifiers() & Modifiers.ACC_SYNTHETIC) != 0) {
+			if (foundField.isPresent() && foundField.get().isSynthetic()) {
 				foundField.get().makeOuterVariable(varName);
 				return true;
 			}
@@ -204,6 +212,7 @@ public class OperationUtil {
 		return operation;
 	}
 
+	/** @return {@code true}, если операция является инициализацией поля из переменной. */
 	public static boolean isDefaultFieldInitializer(Operation operation) {
 		return operation instanceof FieldOperation fieldOperation &&
 				fieldOperation.isSetter() &&
@@ -211,7 +220,8 @@ public class OperationUtil {
 				fieldOperation.getValue() instanceof ILoadOperation;
 	}
 
-	/** Добавляет операцию к списку операций и возвращает результат. Не изменяет переданный список. */
+	/** Добавляет операцию в начало списка операций и возвращает новый список.
+	 * Не изменяет переданный список. */
 	public static @Unmodifiable List<? extends Operation> addBefore(
 			Operation object, @Unmodifiable List<? extends Operation> operations
 	) {
@@ -219,5 +229,68 @@ public class OperationUtil {
 		result.add(object);
 		result.addAll(operations);
 		return Collections.unmodifiableList(result);
+	}
+
+
+	private static final String SWITCH_MAP_PREFIX = "$SwitchMap$";
+
+	/**
+	 * Если операции являются try-catch, причём try содержит
+	 */
+	public static boolean tryInitEnumMap(Context context, Operation operation1, Operation operation2) {
+		if (operation1 instanceof TryScope tryScope &&
+			operation2 instanceof CatchScope catchScope &&
+			catchScope.isEmpty() &&
+			catchScope.getCatchOperation().getExceptionTypes().equals(List.of(ClassType.NO_SUCH_FIELD_ERROR))) {
+
+			var operations = tryScope.getOperations();
+
+			if (operations.size() == 1 &&
+				operations.get(0) instanceof ArrayStoreOperation astoreOp &&
+
+				astoreOp.getArray() instanceof FieldOperation array &&
+				array.isGetter() && array.isStatic() &&
+				array.getDescriptor().name().startsWith(SWITCH_MAP_PREFIX) &&
+
+				astoreOp.getIndex() instanceof InvokeNonstaticOperation invokeOp &&
+				invokeOp.getObject() instanceof FieldOperation enumConstant &&
+				enumConstant.isGetter() && enumConstant.isStatic() &&
+
+				invokeOp.getDescriptor().equals(enumConstant.getDescriptor().hostClass(), "ordinal", PrimitiveType.INT) &&
+				array.getDescriptor().hostClass().equals(context.getThisType())) {
+
+				var id = LdcOperation.getIntConstant(astoreOp.getValue());
+				if (id == null) return false;
+
+				var foundField = context.findField(array.getDescriptor());
+				if (foundField.isEmpty() || !foundField.get().isSynthetic()) return false;
+
+				return foundField.get().setEnumEntry(id.getValue(), enumConstant.getDescriptor());
+			}
+		}
+
+		return false;
+	}
+
+
+	public static @Nullable Pair<Operation, Int2ObjectMap<FieldDescriptor>> getEnumMap(Context context, Operation operation) {
+		if (operation instanceof ArrayLoadOperation aloadOp &&
+
+			aloadOp.getArray() instanceof FieldOperation enumMapGetter &&
+			enumMapGetter.isGetter() && enumMapGetter.isStatic() &&
+
+			aloadOp.getIndex() instanceof InvokeNonstaticOperation invokeOp &&
+			invokeOp.getDescriptor().equalsIgnoreClass("ordinal", PrimitiveType.INT)) {
+
+			var descriptor = enumMapGetter.getDescriptor();
+
+			var enumMap = context.findClass(descriptor.hostClass());
+			var o2 = enumMap.flatMap(clazz -> clazz.getClassContext().findField(descriptor));
+			var o3 = o2.map(DecompilingField::getEnumMap).orElse(null);
+
+			return o3 == null ? null : Pair.of(invokeOp.getObject(), o3);
+		}
+
+		return null;
 	}
 }

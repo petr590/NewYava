@@ -1,7 +1,9 @@
 package x590.newyava.type;
 
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.exception.DecompilationException;
@@ -11,6 +13,7 @@ import x590.newyava.io.SignatureReader;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.annotation.Repeatable;
 import java.util.*;
 
 /**
@@ -31,6 +34,8 @@ public class ClassType implements ReferenceType {
 			SERIALIZABLE = valueOf(Serializable.class),
 			THROWABLE    = valueOf(Throwable.class),
 			ANNOTATION   = valueOf(Annotation.class),
+			REPEATABLE   = valueOf(Repeatable.class),
+			NO_SUCH_FIELD_ERROR = valueOf(NoSuchFieldError.class),
 
 			BYTE      = valueOf(Byte.class),
 			SHORT     = valueOf(Short.class),
@@ -52,20 +57,19 @@ public class ClassType implements ReferenceType {
 	/** Полное имя класса, например {@code "java.lang.Object"} */
 	private String name;
 
-	/** Имя класса, например {@code "Object"}.
-	 * Пустое для анонимных классов. */
+	/** Имя класса, например {@code "Object"}. */
 	private String simpleName;
 
 	/** Имя пакета класса, например {@code "java.lang"} */
 	private final String packageName;
 
-	private boolean isEnclosedInMethod;
+	private boolean isEnclosedInMethod, isAnonymous;
 
 	private @Nullable ClassType outer;
 	private @Nullable Set<ClassType> innerClasses;
 
 	private @Nullable ClassType superClass;
-	private @Nullable List<ClassType> interfaces;
+	private @Nullable @Unmodifiable List<ClassType> interfaces;
 
 	private ClassType(String binName) {
 		if (!isValidName(binName)) {
@@ -200,11 +204,6 @@ public class ClassType implements ReferenceType {
 		return outer != null;
 	}
 
-	@Override
-	public boolean isAnonymous() {
-		return isEnclosedInMethod && simpleName.isEmpty();
-	}
-
 
 	/** @return {@code true}, если этот класс объявлен внутри переданного класса
 	 * на любом уровне вложенности, т.е. если есть иерархия:
@@ -233,7 +232,7 @@ public class ClassType implements ReferenceType {
 	}
 
 	@Override
-	public List<? extends ReferenceType> getInterfaces() {
+	public @Unmodifiable List<? extends ReferenceType> getInterfaces() {
 		return interfaces == null ? Collections.emptyList() : interfaces;
 	}
 
@@ -254,7 +253,7 @@ public class ClassType implements ReferenceType {
 		}
 	}
 
-	private void checkOrUpdateInterfaces(List<ClassType> interfaces) {
+	private void checkOrUpdateInterfaces(@Unmodifiable List<ClassType> interfaces) {
 		if (this.interfaces == null) {
 			this.interfaces = interfaces;
 
@@ -268,7 +267,7 @@ public class ClassType implements ReferenceType {
 
 
 	/** Вызывает {@link #checkOrUpdateNested(String, String, boolean)}
-	 * с параметром {@code isAnonymous = true} */
+	 * с параметром {@code isEnclosedInMethod = true} */
 	public static void checkOrUpdateNested(String innerName, String outerName) {
 		checkOrUpdateNested(innerName, outerName, false);
 	}
@@ -278,14 +277,14 @@ public class ClassType implements ReferenceType {
 	 * Иначе проверяет, что внешний класс совпадает.
 	 * @param innerName бинарное имя вложенного класса.
 	 * @param outerName бинарное имя внешнего класса.
-	 * @param isAnonymous является ли класс анонимным.
+	 * @param isEnclosedInMethod является ли класс анонимным.
 	 * @throws DecompilationException при несовпадении внешнего класса с переданным.
 	 */
-	public static void checkOrUpdateNested(String innerName, String outerName, boolean isAnonymous) {
-		valueOf(innerName).checkOrUpdateOuter(outerName, isAnonymous);
+	public static void checkOrUpdateNested(String innerName, String outerName, boolean isEnclosedInMethod) {
+		valueOf(innerName).checkOrUpdateOuter(outerName, isEnclosedInMethod);
 	}
 
-	private void checkOrUpdateOuter(String outerName, boolean isAnonymous) {
+	private void checkOrUpdateOuter(String outerName, boolean isEnclosedInMethod) {
 		if (outer != null) {
 			if (outer.binName.equals(outerName)) {
 				return;
@@ -304,7 +303,8 @@ public class ClassType implements ReferenceType {
 			isNestedSeparator(thisBinSN.charAt(outerBinSN.length()))) {
 
 			this.simpleName = getInnerSimpleName(outerBinSN);
-			this.isEnclosedInMethod = isAnonymous;
+			this.isEnclosedInMethod = isEnclosedInMethod;
+			this.isAnonymous = isEnclosedInMethod && StringUtils.isNumeric(simpleName);
 
 			outer.addInnerClass(this);
 			updateName();
@@ -315,15 +315,18 @@ public class ClassType implements ReferenceType {
 	}
 
 	private String getInnerSimpleName(String outerBinSimpleName) {
-		String simpleName = binSimpleName.substring(outerBinSimpleName.length() + 1);
+		var binSimpleName = this.binSimpleName;
 
-		int i = 0;
-		for (int len = simpleName.length(); i < len; i++) {
-			if (!Character.isDigit(simpleName.charAt(i)))
+		int i = outerBinSimpleName.length() + 1;
+		int len = binSimpleName.length();
+
+		for (; i < len; i++) {
+			if (!Character.isDigit(binSimpleName.charAt(i)))
 				break;
 		}
 
-		return simpleName.substring(i);
+		// Если имя состоит только из цифр, то возвращаем его
+		return binSimpleName.substring(i < len ? i : outerBinSimpleName.length() + 1);
 	}
 
 

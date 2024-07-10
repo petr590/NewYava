@@ -2,7 +2,7 @@ package x590.newyava.decompilation.scope;
 
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.Chunk;
+import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.decompilation.operation.TernaryOperator;
 import x590.newyava.io.DecompilationWriter;
 
@@ -18,28 +18,30 @@ public final class ElseScope extends IfElseScope {
 	protected void onEnd() {
 		super.onEnd();
 
-		if (getParent() != null && leftOperation != null) {
-			var operations = getParent().operations;
-			int size = operations.size();
+		if (getParent() == null || !isEmpty() || pushedOperations.isEmpty()) {
+			return;
+		}
 
-			if (size >= 2 &&
-				operations.get(size - 1) == this &&
-				operations.get(size - 2) instanceof IfScope ifScope &&
-				ifScope.getEndChunk().getId() + 1 == this.getStartChunk().getId()) {
+		var operations = getParent().operations;
+		int size = operations.size();
 
-				var ifLeftOperation = ifScope.getLeftOperation();
+		if (size >= 2 &&
+			operations.get(size - 1) == this &&
+			operations.get(size - 2) instanceof IfScope ifScope &&
+			ifScope.isEmpty() &&
+			ifScope.getEndChunk().getId() + 1 == this.getStartChunk().getId() &&
+			!ifScope.getPushedOperations().isEmpty()) {
 
-				if (ifLeftOperation != null) {
-					leftOperation.setOperation(new TernaryOperator(
-							ifScope.getCondition(),
-							ifLeftOperation.getOperation(),
-							leftOperation.getOperation()
-					));
+			// Поздравляю, мы нашли тернарник!
+			pushedOperations.push(new TernaryOperator(
+					ifScope.getCondition(),
+					ifScope.getPushedOperations().pop(),
+					pushedOperations.pop()
+			));
 
-					operations.remove(size - 1);
-					operations.remove(size - 2);
-				}
-			}
+			// Удаляем IfScope и ElseScope из родительского Scope
+			operations.remove(size - 1);
+			operations.remove(size - 2);
 		}
 	}
 

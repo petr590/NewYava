@@ -1,15 +1,14 @@
 package x590.newyava.constant;
 
+import lombok.experimental.UtilityClass;
 import org.apache.commons.text.translate.*;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Map;
 
-public class JavaEscapeUtils {
-
-	private JavaEscapeUtils() {}
-
+@UtilityClass
+public final class JavaEscapeUtils {
 	public static final AggregateTranslator ESCAPE_JAVA_STRING = new AggregateTranslator(
 			new LookupTranslator(Map.of("\"", "\\\"",  "\\", "\\\\")),
 			new LookupTranslator(EntityArrays.JAVA_CTRL_CHARS_ESCAPE),
@@ -28,6 +27,10 @@ public class JavaEscapeUtils {
 
 	public static String escapeChar(char ch) {
 		return ESCAPE_JAVA_CHAR.translate(String.valueOf(ch));
+	}
+
+	public static String wrapChar(char ch) {
+		return "'" + escapeChar(ch) + "'";
 	}
 
 

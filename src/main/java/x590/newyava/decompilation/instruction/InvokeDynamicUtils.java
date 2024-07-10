@@ -1,14 +1,14 @@
 package x590.newyava.decompilation.instruction;
 
+import lombok.experimental.UtilityClass;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 
 import java.lang.invoke.*;
 import java.lang.runtime.ObjectMethods;
 
+@UtilityClass
 public class InvokeDynamicUtils {
-	private InvokeDynamicUtils() {}
-
 	static final String STRING_CONCAT_METHOD = "makeConcatWithConstants";
 
 	static final Handle STRING_CONCAT_BOOTSTRAP = new Handle(

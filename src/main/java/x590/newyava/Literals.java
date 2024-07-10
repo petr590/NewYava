@@ -1,12 +1,12 @@
 package x590.newyava;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * Список литералов Java (неполный)
  */
-public class Literals {
-
-	private Literals() {}
-
+@UtilityClass
+public final class Literals {
 	public static final String
 			LIT_CLASS = "class",
 			LIT_PUBLIC = "public",

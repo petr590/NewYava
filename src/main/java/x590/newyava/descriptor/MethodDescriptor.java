@@ -230,6 +230,12 @@ public record MethodDescriptor(
 				this.arguments.equals(arguments);
 	}
 
+	public boolean equalsIgnoreClass(String name, Type returnType) {
+		return  this.name.equals(name) &&
+				this.returnType.equals(returnType) &&
+				this.arguments.isEmpty();
+	}
+
 	@Override
 	public String toString() {
 		return String.format("%s %s.%s(%s)", returnType, hostClass, name,

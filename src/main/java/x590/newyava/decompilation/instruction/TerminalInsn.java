@@ -10,8 +10,8 @@ import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.terminal.ReturnValueOperation;
 import x590.newyava.decompilation.operation.terminal.ReturnVoidOperation;
 import x590.newyava.decompilation.operation.terminal.ThrowOperation;
-import x590.newyava.type.AnyObjectType;
 import x590.newyava.type.PrimitiveType;
+import x590.newyava.type.Types;
 
 import java.util.Collections;
 import java.util.List;
@@ -50,7 +50,7 @@ public enum TerminalInsn implements FlowControlInsn {
 			case LRETURN -> new ReturnValueOperation(context, PrimitiveType.LONG);
 			case FRETURN -> new ReturnValueOperation(context, PrimitiveType.FLOAT);
 			case DRETURN -> new ReturnValueOperation(context, PrimitiveType.DOUBLE);
-			case ARETURN -> new ReturnValueOperation(context, AnyObjectType.INSTANCE);
+			case ARETURN -> new ReturnValueOperation(context, Types.ANY_OBJECT_TYPE);
 			case RETURN  -> ReturnVoidOperation.INSTANCE;
 			case ATHROW  -> new ThrowOperation(context);
 		};

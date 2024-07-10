@@ -1,4 +1,4 @@
-package x590.newyava.decompilation;
+package x590.newyava.decompilation.code;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
@@ -14,15 +14,16 @@ import org.objectweb.asm.Label;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.instruction.FlowControlInsn;
 import x590.newyava.decompilation.instruction.Instruction;
+import x590.newyava.decompilation.operation.ProxyOperation;
 import x590.newyava.decompilation.operation.variable.CatchOperation;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.ProxyOperation;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.decompilation.operation.condition.JumpOperation;
 import x590.newyava.decompilation.operation.condition.Role;
 import x590.newyava.decompilation.operation.condition.SwitchOperation;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.decompilation.variable.VariableSlotView;
+import x590.newyava.exception.DecompilationException;
 import x590.newyava.type.PrimitiveType;
 
 import java.util.*;
@@ -54,12 +55,18 @@ public class Chunk implements Comparable<Chunk> {
 	/** Инструкция контроля потока в конце чанка или {@code null}, если такой инструкции нет */
 	private @Nullable FlowControlInsn flowControlInsn;
 
+	/** Список void-операций в чанке */
 	@Getter
 	private final List<Operation> operations = new ArrayList<>();
 
-	/** Прокси всех операций, оставшихся на стеке после декомпиляции чанка. */
+
+	/** Операции, которые принимает данный чанк. */
+	private List<ProxyOperation> poppedOperations;
+
+	
+	/** Операции, оставшиеся на стеке после декомпиляции чанка. */
 	@Getter
-	private @Unmodifiable List<ProxyOperation> leftOperations;
+	private Deque<Operation> pushedOperations;
 
 
 	/** Операция условного/безусловного перехода в конце чанка или {@code null}, если такой операции нет.
@@ -138,17 +145,16 @@ public class Chunk implements Comparable<Chunk> {
 	/**
 	 * Преобразует инструкции в операции, включая инструкцию перехода.
 	 * @param catchMaps список карт, где ключ - id чанка, на котором начинается блок {@code catch},
-	 *                  значение - все типы исключений, которые ловит этот блок.
+	 *                  значение - операция исключения, которое ловит этот блок.
 	 */
 	void decompile(MethodContext methodContext, Collection<Int2ObjectMap<CatchOperation>> catchMaps) {
 		methodContext.setCurrentChunk(this);
 
-		var foundCatch = catchMaps.stream()
-				.map(map -> map.get(id))
-				.filter(Objects::nonNull)
-				.findAny();
+		var stack = methodContext.getStack();
 
-		foundCatch.ifPresent(catchOperation -> methodContext.getStack().push(catchOperation));
+		catchMaps.stream().map(map -> map.get(id))
+				.filter(Objects::nonNull).findAny()
+				.ifPresent(stack::push);
 
 
 		for (int i = 0, s = instructions.size(); i < s; i++) {
@@ -168,7 +174,7 @@ public class Chunk implements Comparable<Chunk> {
 
 			if (operation != null) {
 				if (operation.getReturnType() != PrimitiveType.VOID) {
-					methodContext.getStack().push(operation);
+					stack.push(operation);
 				} else {
 					operations.add(operation);
 				}
@@ -188,7 +194,9 @@ public class Chunk implements Comparable<Chunk> {
 			}
 		}
 
-		leftOperations = methodContext.getStack().makeProxyOperations();
+		poppedOperations = stack.getAndResetPoppedOperations();
+		pushedOperations = stack.getAndResetPushedOperations();
+
 		methodContext.setCurrentChunk(null);
 	}
 
@@ -200,6 +208,31 @@ public class Chunk implements Comparable<Chunk> {
 			this.condition = jumpOperation.getCondition();
 			this.conditionalChunk = chunks.get(labels.getInt(jumpOperation.getLabel()));
 		}
+	}
+
+
+	/** Связывает операции между чанками. */
+	void linkStackState(@Unmodifiable List<Chunk> chunks) {
+		int chunkId = id - 1;
+
+		for (ProxyOperation popped : poppedOperations) {
+			for (;;) {
+				if (chunkId < 0) {
+					throw new DecompilationException("All chunks are over during stack state linking");
+				}
+
+				var pushedOps = chunks.get(chunkId).pushedOperations;
+
+				if (!pushedOps.isEmpty()) {
+					popped.setOperation(pushedOps.pop());
+					break;
+				}
+
+				chunkId -= 1;
+			}
+		}
+
+		poppedOperations.clear();
 	}
 
 

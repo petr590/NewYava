@@ -14,6 +14,32 @@ public class BitExample {
 		return (short)~x;
 	}
 
+	public short bitAnd(short x, short y) {
+		return (short)(x & y);
+	}
+
+	public short bitOr(short x, short y) {
+		return (short)(x | y);
+	}
+
+	public short bitXor(short x, short y) {
+		return (short)(x ^ y);
+	}
+
+
+	public boolean bitAnd(boolean x, boolean y) {
+		return x & y;
+	}
+
+	public boolean bitOr(boolean x, boolean y) {
+		return x | y;
+	}
+
+	public boolean bitXor(boolean x, boolean y) {
+		return x ^ y;
+	}
+
+
 	public int bitNot(int x) {
 		return ~x;
 	}

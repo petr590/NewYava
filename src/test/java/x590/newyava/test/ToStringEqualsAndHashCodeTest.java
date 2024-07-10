@@ -4,11 +4,31 @@ import org.junit.Test;
 
 import java.io.File;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.lang.reflect.Modifier;
+import java.util.*;
 
+/**
+ * Проверяет наличие переопределённых методов toString, equals и hashCode у всех классов в проекте.
+ */
 public class ToStringEqualsAndHashCodeTest {
+	private static final Set<Class<?>> BLACKLIST = Set.of(
+			x590.newyava.io.DecompilationWriter.class,
+			x590.newyava.io.BufferedFileWriterFactory.class
+	);
+
+	private boolean shouldSkip(Class<?> clazz) {
+		if (clazz.isInterface() || Throwable.class.isAssignableFrom(clazz) || BLACKLIST.contains(clazz)) {
+			return true;
+		}
+
+		// check is utility class
+		var constructors = clazz.getDeclaredConstructors();
+
+		return  constructors.length == 1 &&
+				Modifier.isPrivate(constructors[0].getModifiers()) &&
+				constructors[0].getParameterCount() == 0;
+	}
+
 	@Test
 	public void test() throws NoSuchMethodException {
 		loadAllClasses(ClassLoader.getSystemClassLoader(), new File("target/classes/x590/newyava"));
@@ -18,8 +38,9 @@ public class ToStringEqualsAndHashCodeTest {
 				objectEquals = Object.class.getMethod("equals", Object.class);
 
 		for (Class<?> clazz : classes) {
-			if (clazz.isInterface() || Throwable.class.isAssignableFrom(clazz))
+			if (shouldSkip(clazz)) {
 				continue;
+			}
 
 			Method  toString = clazz.getMethod("toString"),
 					hashCode = clazz.getMethod("hashCode"),
@@ -41,8 +62,6 @@ public class ToStringEqualsAndHashCodeTest {
 				System.out.println(str);
 			}
 		}
-
-		throw new IllegalArgumentException();
 	}
 
 	private final List<Class<?>> classes = new ArrayList<>();

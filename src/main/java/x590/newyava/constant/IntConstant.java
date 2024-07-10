@@ -52,9 +52,16 @@ public final class IntConstant extends Constant implements Comparable<IntConstan
 	public void write(DecompilationWriter out, ConstantWriteContext context) {
 		out.record(
 				context.getType() == PrimitiveType.BOOLEAN ? String.valueOf(value != 0) :
-				context.getType() == PrimitiveType.CHAR ? "'" + JavaEscapeUtils.escapeChar((char)value) + "'" :
+				context.getType() == PrimitiveType.CHAR ? JavaEscapeUtils.wrapChar((char)value) :
 						String.valueOf(value)
 		);
+	}
+
+	@Override
+	public void writeIntAsChar(DecompilationWriter out, ConstantWriteContext context) {
+		out.record((char)value == value ?
+				JavaEscapeUtils.wrapChar((char)value) :
+				String.valueOf(value));
 	}
 
 	@Override

@@ -1,7 +1,9 @@
 package x590.newyava.type;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
@@ -14,44 +16,40 @@ import java.util.Map;
 /**
  * Массив какого-либо другого типа.
  */
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class ArrayType implements ReferenceType {
 
 	private static final Map<Type, ArrayType> ARRAYS_POOL = new HashMap<>();
 
-	private static final List<ClassType> INTERFACES = List.of(ClassType.COMPARABLE, ClassType.SERIALIZABLE);
+	private static final @Unmodifiable List<ClassType> INTERFACES =
+			List.of(ClassType.COMPARABLE, ClassType.SERIALIZABLE);
 
 	@Getter
+	@EqualsAndHashCode.Include
 	private final Type type;
 
 	@Getter
+	@EqualsAndHashCode.Include
 	private final int nestLevel;
 
 	private final String braces;
 
 	private @Nullable String varName;
 
-	public static ArrayType parse(SignatureReader reader) {
-		int nestLevel = 0;
-
-		while (reader.next() == '[') {
-			nestLevel++;
-		}
-
-		return forType(Type.parse(reader.dec()), nestLevel);
-	}
-
 	public static ArrayType forType(Type type, int nestLevel) {
-		if (type instanceof ArrayType arrayType) {
-			return forType(arrayType.getMemberType(), arrayType.nestLevel + nestLevel);
-		}
-
-		return nestLevel == 1 ? forType0(type) : new ArrayType(type, nestLevel);
+		return type instanceof ArrayType arrayType ?
+				forType0(arrayType.getMemberType(), arrayType.nestLevel + nestLevel) :
+				forType0(type, nestLevel);
 	}
 
 	public static ArrayType forType(Type type) {
 		return type instanceof ArrayType arrayType ?
-				forType(arrayType.getMemberType(), arrayType.nestLevel + 1) :
+				forType0(arrayType.getMemberType(), arrayType.nestLevel + 1) :
 				forType0(type);
+	}
+
+	private static ArrayType forType0(Type type, int nestLevel) {
+		return nestLevel == 1 ? forType0(type) : new ArrayType(type, nestLevel);
 	}
 
 	private static ArrayType forType0(Type type) {
@@ -65,10 +63,21 @@ public class ArrayType implements ReferenceType {
 		return result;
 	}
 
+	public static ArrayType parse(SignatureReader reader) {
+		int nestLevel = 0;
+
+		while (reader.next() == '[') {
+			nestLevel++;
+		}
+
+		return forType(Type.parse(reader.dec()), nestLevel);
+	}
+
 	private ArrayType(Type type, int nestLevel) {
+		assert !(type instanceof ArrayType);
 		this.type = type;
 		this.nestLevel = nestLevel;
-		this.braces = "[]".repeat(nestLevel);
+		this.braces = "[]".repeat(nestLevel).intern();
 	}
 
 	@Override
@@ -77,7 +86,7 @@ public class ArrayType implements ReferenceType {
 	}
 
 	@Override
-	public List<? extends ReferenceType> getInterfaces() {
+	public @Unmodifiable List<? extends ReferenceType> getInterfaces() {
 		return INTERFACES;
 	}
 
@@ -124,14 +133,6 @@ public class ArrayType implements ReferenceType {
 	@Override
 	public void write(DecompilationWriter out, Context context) {
 		out.record(type, context).record(braces);
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		return this == obj ||
-				obj instanceof ArrayType other &&
-				nestLevel == other.nestLevel &&
-				type.equals(other.type);
 	}
 
 	@Override

@@ -1,26 +1,29 @@
 package x590.newyava.annotation;
 
 import lombok.EqualsAndHashCode;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
+import x590.newyava.constant.ClassConstant;
+import x590.newyava.context.AnnotationWriteContext;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
-import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.ObjIntConsumer;
 import java.util.stream.Collectors;
 
 @EqualsAndHashCode(callSuper = false)
 public class DecompilingAnnotation extends AnnotationVisitor implements AnnotationValue {
-	private final ReferenceType annotationType;
+	private final ClassType annotationType;
 
 	private final List<Parameter> parameters = new ArrayList<>();
 
@@ -72,8 +75,54 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Annotati
 		context.addImportsFor(annotationType).addImportsFor(parameters);
 	}
 
+	private AnnotationValue getValue() {
+		return parameters.stream()
+				.filter(parameter -> parameter.name().equals("value"))
+				.findFirst().map(Parameter::value).orElse(null);
+	}
+
+	private @Nullable List<DecompilingAnnotation> getRepeatableAnnotations(ConstantWriteContext context) {
+		if (parameters.size() == 1) {
+			var parameter = parameters.get(0);
+
+			if (parameter.name().equals("value") &&
+				parameter.value() instanceof ArrayValue arrayValue &&
+				!arrayValue.getValues().isEmpty() &&
+				arrayValue.getValues().stream().allMatch(value -> value instanceof DecompilingAnnotation)) {
+
+				var annotation = (DecompilingAnnotation) arrayValue.getValues().get(0);
+
+				var foundRepeatableAnnotation =
+						context.findClass(annotation.annotationType).flatMap(
+								clazz -> clazz.getAnnotations().stream()
+										.filter(ann -> ann.annotationType.equals(ClassType.REPEATABLE))
+										.findAny()
+						);
+
+				if (foundRepeatableAnnotation.isPresent() &&
+					foundRepeatableAnnotation.get().getValue() instanceof ClassConstant clazz &&
+					clazz.getTypeOfClass().equals(annotationType)) {
+
+					@SuppressWarnings("unchecked")
+					var result = (List<DecompilingAnnotation>) (List<?>) arrayValue.getValues();
+					return result;
+				}
+			}
+		}
+
+		return null;
+	}
+
 	@Override
 	public void write(DecompilationWriter out, ConstantWriteContext context) {
+		var annotations = getRepeatableAnnotations(context);
+
+		if (annotations != null && context instanceof AnnotationWriteContext annotationContext) {
+			out.record(annotations, context,
+					annotationContext.isInline() ? " " : "\n" + out.getIndent());
+			return;
+		}
+
 		out.record('@').record(annotationType, context);
 
 		if (!parameters.isEmpty()) {
@@ -89,12 +138,21 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Annotati
 		}
 	}
 
+
+	public String toString() {
+		return parameters.isEmpty() ?
+				"@" + annotationType :
+				String.format("@%s(%s)", annotationType,
+						parameters.stream().map(Object::toString).collect(Collectors.joining(", ")));
+	}
+
 	/**
 	 * Записывает аннотации. Каждая аннотация записывается с новой строки с учётом отступа.
 	 */
-	public static void writeAnnotations(DecompilationWriter out, Context context,
-	                                    @Unmodifiable List<DecompilingAnnotation> annotations) {
-
+	public static void writeAnnotations(
+			DecompilationWriter out, Context context,
+	        @Unmodifiable Collection<? extends DecompilingAnnotation> annotations
+	) {
 		writeAnnotations(out, context, annotations, false);
 	}
 
@@ -103,24 +161,18 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Annotati
 	 * @param inline если {@code true}, то все аннотации записываются через пробел.
 	 * Иначе каждая аннотация записывается с новой строки с учётом отступа.
 	 */
-	public static void writeAnnotations(DecompilationWriter out, Context context,
-	                                    @Unmodifiable List<DecompilingAnnotation> annotations,
-	                                    boolean inline) {
+	public static void writeAnnotations(
+			DecompilationWriter out, Context context,
+	        @Unmodifiable Collection<? extends DecompilingAnnotation> annotations,
+	        boolean inline
+	) {
 
-		var constantWriteContext = new ConstantWriteContext(context);
+		var annotationWriteContext = new AnnotationWriteContext(context, inline);
 
 		ObjIntConsumer<DecompilingAnnotation> writer = inline ?
-				(annotation, index) -> out.record(annotation, constantWriteContext).space() :
-				(annotation, index) -> out.record(annotation, constantWriteContext).ln().indent();
+				(annotation, index) -> out.record(annotation, annotationWriteContext).space() :
+				(annotation, index) -> out.record(annotation, annotationWriteContext).ln().indent();
 
 		out.record(annotations, writer);
-	}
-
-
-	public String toString() {
-		return parameters.isEmpty() ?
-				"@" + annotationType :
-				String.format("@%s(%s)", annotationType,
-						parameters.stream().map(Object::toString).collect(Collectors.joining(", ")));
 	}
 }

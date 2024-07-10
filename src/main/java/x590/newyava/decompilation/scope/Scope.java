@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Getter;
+import org.apache.commons.collections4.iterators.ReverseListIterator;
 import org.jetbrains.annotations.*;
 import x590.newyava.Log;
 import x590.newyava.RemoveIfNotUsed;
@@ -12,7 +13,7 @@ import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.Chunk;
+import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.OperationUtil;
 import x590.newyava.decompilation.operation.Priority;
@@ -350,9 +351,20 @@ public class Scope implements Operation, Comparable<Scope> {
 	}
 
 
-	/** Удаляет лишние операции, такие как {@code return} в конце void-метода или вызов пустого суперконструктора. */
-	public void removeRedundantOperations(MethodContext context) {
-		scopes.forEach(scope -> scope.removeRedundantOperations(context));
+	/** Удаляет лишние операции, такие как {@code return} в конце void-метода,
+	 * а также распознаёт специальные конструкции, сгенерированные компилятором,
+	 * например, {@code switch(enum)}.
+	 * Вызывается <i>сразу</i> после декомпиляции данного метода. */
+	@MustBeInvokedByOverriders
+	public void postDecompilation(MethodContext context) {
+		scopes.forEach(scope -> scope.postDecompilation(context));
+	}
+
+	/** Завершает то, что невозможно было сделать в {@link #postDecompilation(MethodContext)}.
+	 * Вызывается после декомпиляции <i>всех</i> классов. */
+	@MustBeInvokedByOverriders
+	public void afterDecompilation(MethodContext context) {
+		scopes.forEach(scope -> scope.afterDecompilation(context));
 	}
 
 
@@ -390,6 +402,14 @@ public class Scope implements Operation, Comparable<Scope> {
 
 		// Одиночный "or", так как супер-метод должен вызываться всегда.
 		return result | Operation.super.declareVariables();
+	}
+
+
+	@Override
+	public void initYield(Scope switchScope, Deque<Operation> ignored) {
+		for (var iter = new ReverseListIterator<>(operations); iter.hasNext(); ) {
+			iter.next().initYield(switchScope, getEndChunk().getPushedOperations());
+		}
 	}
 
 	@Override
@@ -492,7 +512,7 @@ public class Scope implements Operation, Comparable<Scope> {
 	/**
 	 * Записывает заголовок scope.
 	 * @return {@code true}, если заголовок записан.
-	 * После него будет записан пробел при наличии фигурных скобок.
+	 * В таком случае после заголовка будет записан пробел при наличии фигурных скобок.
 	 */
 	protected boolean writeHeader(DecompilationWriter out, MethodWriteContext context) {
 		return false;

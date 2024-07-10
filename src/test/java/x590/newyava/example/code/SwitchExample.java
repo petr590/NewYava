@@ -3,9 +3,6 @@ package x590.newyava.example.code;
 import org.junit.Test;
 import x590.newyava.example.Main;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.RetentionPolicy;
-
 @SuppressWarnings("all")
 public class SwitchExample {
 	@Test
@@ -80,27 +77,7 @@ public class SwitchExample {
 //			default -> System.out.println(str);
 //		}
 //	}
-
-	public void switchEnum(RetentionPolicy policy, ElementType type) { // Тут try/catch в static {}, пока до этого не дошли
-		switch (policy) {
-			case RUNTIME -> System.out.println("runtime");
-			case CLASS -> {
-				System.out.println("class");
-				return;
-			}
-			case SOURCE -> {
-				return;
-			}
-			default -> throw null;
-		}
-
-		switch (type) {
-			case FIELD -> System.out.println("field");
-			case METHOD -> System.out.println("method");
-			default -> System.out.println("another");
-		}
-	}
-
+//
 //	public void switchString2(String v1) { // Emulation
 //		String v2 = v1;
 //		int v3 = -1;
@@ -117,4 +94,40 @@ public class SwitchExample {
 //				System.out.println(0);
 //		}
 //	}
+//
+//	public void switchEnum(RetentionPolicy policy, ElementType type) {
+//		switch (policy) {
+//			case RUNTIME -> System.out.println("runtime");
+//			case CLASS -> {
+//				System.out.println("class");
+//				return;
+//			}
+//			case SOURCE -> {
+//				return;
+//			}
+//			default -> throw null;
+//		}
+//
+//		switch (type) {
+//			case FIELD -> System.out.println("field");
+//			case METHOD -> System.out.println("method");
+//			default -> System.out.println("another");
+//		}
+//	}
+
+	public String switchExpression(int x) {
+		return switch (x) {
+			case -1 -> throw new IllegalArgumentException();
+			case 0 -> "Zero";
+			case 1 -> "One";
+			default -> {
+				if (x > 0) {
+					System.out.println("Another");
+					yield "gg";
+				}
+
+				yield Math.random() > 0.5 ? "Other" : "Another";
+			}
+		};
+	}
 }

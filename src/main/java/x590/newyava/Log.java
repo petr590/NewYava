@@ -1,12 +1,12 @@
 package x590.newyava;
 
+import lombok.experimental.UtilityClass;
 import org.intellij.lang.annotations.PrintFormat;
 
 import java.io.PrintStream;
 
-public class Log {
-	private Log() {}
-
+@UtilityClass
+public final class Log {
 	private record Printer(PrintStream out, String level) {
 
 		public void print(String message) {

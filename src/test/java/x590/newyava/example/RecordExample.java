@@ -9,9 +9,11 @@ import java.lang.annotation.Target;
 import java.util.List;
 
 @SuppressWarnings("unused")
-public record RecordExample(int i, long l, float f, double d,
-                            @Nullable String s,
-                            @FieldAnnotation List<String> list) {
+public record RecordExample(
+		int i, long l, float f, double d,
+        @Nullable String s,
+        @FieldAnnotation @RecordComponentAnnotation List<String> list
+) {
 	private static final int CONSTANT = 1;
 
 	public RecordExample() {
@@ -34,4 +36,8 @@ public record RecordExample(int i, long l, float f, double d,
 	@Target(ElementType.FIELD)
 	@Retention(RetentionPolicy.RUNTIME)
 	private @interface FieldAnnotation {}
+
+	@Target(ElementType.RECORD_COMPONENT)
+	@Retention(RetentionPolicy.RUNTIME)
+	private @interface RecordComponentAnnotation {}
 }

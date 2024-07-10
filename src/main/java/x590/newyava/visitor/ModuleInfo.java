@@ -76,20 +76,27 @@ public class ModuleInfo extends ModuleVisitor implements ContextualWritable, Imp
 
 		out.record(LIT_MODULE + " ").record(name).record(" {").incIndent();
 
+		var requires = this.requires.stream().filter(RequireEntry::notMandated).toList();
+
 		out.record(requires, context).lnIf(!requires.isEmpty());
 		out.record(exports, context).lnIf(!exports.isEmpty());
 		out.record(opens, context).lnIf(!opens.isEmpty());
-		out.<ClassType>record(uses, (use, i) -> writeUse(out, use, context)).lnIf(!uses.isEmpty());
+		out.record(uses, useEntryWriter(out, context)).lnIf(!uses.isEmpty());
 		out.record(provides, context).lnIf(!provides.isEmpty());
 
 		out.decIndent().record('}');
 	}
 
-	private static void writeUse(DecompilationWriter out, ClassType use, Context context) {
-		out.ln().indent().record(LIT_USES + " ").record(use, context).record(';');
+	private static ObjIntConsumer<ClassType> useEntryWriter(DecompilationWriter out, Context context) {
+		return (ClassType use, int i) ->
+				out.ln().indent().record(LIT_USES + " ").record(use, context).record(';');
 	}
 
 	private record RequireEntry(String module, int modifiers) implements ContextualWritable {
+		public boolean notMandated() {
+			return (modifiers & ACC_MANDATED) == 0;
+		}
+
 		@Override
 		public void write(DecompilationWriter out, Context context) {
 			out.ln().indent().record(LIT_REQUIRES + " ");

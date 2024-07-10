@@ -10,18 +10,26 @@ public class TernaryOperatorExample {
 		Main.run(this);
 	}
 
-	public String b2s(boolean a) {
+	public String ternary(boolean a) {
 		return a ? "1" : "2";
 	}
 
-	public String b2s(boolean a, boolean b) {
+	public String nestedTernary1(boolean a, boolean b) {
 		return a ? b ? "1" : "2" : "3";
 	}
 
-	public String b2s(boolean a, boolean b, boolean c) {
+	public String nestedTernary2(boolean a, boolean b) {
+		return a ? "1" : b ? "2" : "3";
+	}
+
+	public String nestedTernary3(boolean a, boolean b, boolean c) {
 		return a ?
 				b ? "1" : "2" :
 				c ? "3" : "4";
+	}
+
+	public boolean complexCondition(boolean a, boolean b, boolean c) {
+		return a && b || c;
 	}
 
 	public boolean isNull(Object obj) {

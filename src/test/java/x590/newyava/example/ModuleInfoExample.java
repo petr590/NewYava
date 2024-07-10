@@ -14,7 +14,7 @@ public class ModuleInfoExample {
 	public void run() throws FileNotFoundException, IOException {
 		new Decompiler(Config.defaultConfig()).run(
 				Stream.of("module-info"),
-				Decompiler.fileResourceGetter("/tmp/module-test/bin")
+				Decompiler.fileResourceGetter("target/module-example-classes/")
 		);
 	}
 }

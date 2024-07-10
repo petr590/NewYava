@@ -2,10 +2,7 @@ package x590.newyava.example.annotation;
 
 import x590.newyava.example.enums.EnumExample;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.lang.annotation.*;
 
 public final class Annotations {
 
@@ -94,4 +91,18 @@ public final class Annotations {
 	}
 
 	public @interface SomeAnnotation {}
+
+
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
+	@Retention(RetentionPolicy.CLASS)
+	@Repeatable(RepeatableAnnotationContainer.class)
+	public @interface RepeatableAnnotation {
+		int value();
+	}
+
+	@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PACKAGE})
+	@Retention(RetentionPolicy.CLASS)
+	public @interface RepeatableAnnotationContainer {
+		RepeatableAnnotation[] value();
+	}
 }

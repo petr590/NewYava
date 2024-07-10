@@ -47,7 +47,6 @@ public abstract class InvokeNonstaticOperation extends InvokeOperation {
 			out.record(object, context, getPriority()).record('.');
 		}
 
-
 		writeNameAndArgs(out, context);
 	}
 

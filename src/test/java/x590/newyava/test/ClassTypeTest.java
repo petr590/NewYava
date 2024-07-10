@@ -6,8 +6,6 @@ import org.junit.Test;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.type.ClassType;
 
-import java.util.List;
-
 public class ClassTypeTest {
 
 	@Test

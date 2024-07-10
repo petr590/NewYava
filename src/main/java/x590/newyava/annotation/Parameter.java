@@ -8,7 +8,7 @@ import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
-record Parameter(String name, Type type, AnnotationValue value) implements ContextualWritable, Importable {
+record Parameter (String name, Type type, AnnotationValue value) implements ContextualWritable, Importable {
 	@Override
 	public void addImports(ClassContext context) {
 		context.addImportsFor(value);

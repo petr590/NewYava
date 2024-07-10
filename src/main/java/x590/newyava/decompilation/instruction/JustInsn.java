@@ -124,13 +124,13 @@ public class JustInsn implements Instruction {
 			case IUSHR -> new BinaryOperation(context, USHR, PrimitiveType.INT, PrimitiveType.INT);
 			case LUSHR -> new BinaryOperation(context, USHR, PrimitiveType.LONG, PrimitiveType.INT);
 
-			case IAND -> new BinaryOperation(context, AND, PrimitiveType.INT);
+			case IAND -> new BinaryOperation(context, AND, PrimitiveType.INT_OR_BOOLEAN);
 			case LAND -> new BinaryOperation(context, AND, PrimitiveType.LONG);
 
-			case IOR -> new BinaryOperation(context, OR, PrimitiveType.INT);
+			case IOR -> new BinaryOperation(context, OR, PrimitiveType.INT_OR_BOOLEAN);
 			case LOR -> new BinaryOperation(context, OR, PrimitiveType.LONG);
 
-			case IXOR -> new BinaryOperation(context, XOR, PrimitiveType.INT);
+			case IXOR -> new BinaryOperation(context, XOR, PrimitiveType.INT_OR_BOOLEAN);
 			case LXOR -> new BinaryOperation(context, XOR, PrimitiveType.LONG);
 
 			case I2L -> CastOperation.wide(context, PrimitiveType.INT, PrimitiveType.LONG);

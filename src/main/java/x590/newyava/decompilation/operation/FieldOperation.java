@@ -103,6 +103,10 @@ public class FieldOperation extends AssignOperation {
 		return value != null;
 	}
 
+	public boolean isStatic() {
+		return instance == null;
+	}
+
 	@Override
 	public void inferType(Type ignored) {
 		super.inferType(ignored);

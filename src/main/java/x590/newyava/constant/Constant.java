@@ -1,6 +1,8 @@
 package x590.newyava.constant;
 
 import x590.newyava.annotation.AnnotationValue;
+import x590.newyava.context.ConstantWriteContext;
+import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
 
@@ -48,5 +50,9 @@ public abstract sealed class Constant implements AnnotationValue
 	/** @return {@code true}, если значение константы равно переданному значению, иначе {@code false} */
 	public boolean valueEquals(int value) {
 		return false;
+	}
+
+	public void writeIntAsChar(DecompilationWriter out, ConstantWriteContext context) {
+		write(out, context);
 	}
 }

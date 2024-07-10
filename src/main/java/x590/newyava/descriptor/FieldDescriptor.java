@@ -16,6 +16,10 @@ public record FieldDescriptor(ClassType hostClass, String name, Type type)
 		return new FieldDescriptor(ClassType.valueOf(className), name, Type.valueOf(typeName));
 	}
 
+	public static FieldDescriptor of(ClassType hostClass, String name, String typeName) {
+		return new FieldDescriptor(hostClass, name, Type.valueOf(typeName));
+	}
+
 	@Override
 	public void addImports(ClassContext context) {
 		context.addImport(type);
@@ -32,6 +36,16 @@ public record FieldDescriptor(ClassType hostClass, String name, Type type)
 				this.name.equals(name) &&
 				this.type.equals(type);
 	}
+
+//	@Override
+//	public boolean equals(Object obj) {
+//		if (this == obj) return true;
+//		if (!(obj instanceof FieldDescriptor other)) return false;
+//		if (!hostClass.equals(other.hostClass)) return false;
+//		if (!name.equals(other.name)) return false;
+//		if (!type.equals(other.type)) return false;
+//		return true;
+//	}
 
 
 	@Override

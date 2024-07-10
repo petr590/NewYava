@@ -44,6 +44,10 @@ public class LdcOperation implements Operation {
 		value.write(out, new ConstantWriteContext(context, returnType, implicitCastAllowed));
 	}
 
+	@Override
+	public void writeIntAsChar(DecompilationWriter out, MethodWriteContext context) {
+		value.writeIntAsChar(out, new ConstantWriteContext(context, returnType, implicitCastAllowed));
+	}
 
 	/** @return экземпляр {@link IntConstant}, если операция
 	 * является константой {@code int}, иначе {@code null} */

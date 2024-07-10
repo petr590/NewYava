@@ -4,8 +4,9 @@ import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 
 /**
- * Любой тип. Используется переменной, когда её тип ещё неизвестен.
+ * @deprecated используйте {@link Types#ANY_TYPE}.
  */
+@Deprecated(since = "0.8", forRemoval = true)
 public enum AnyType implements Type {
 	INSTANCE;
 
