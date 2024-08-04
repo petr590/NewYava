@@ -32,17 +32,14 @@ public class MinecraftTest {
 		}
 	}
 
-	/** @param className имя класса в формате {@code "java.lang.Object"} или {@code "java/lang/Object"} */
-	static @Unmodifiable String getCompiledClassName(String className) {
-		return Path.of(SRC_DIR, className.replace('.', '/')).toString();
-	}
-
 	@Test
 	public void run() {
-		new Decompiler(Config.defaultConfig(), new BufferedFileWriterFactory(DST_DIR))
-				.run(getCompiledClassNames().stream(), Decompiler.fileResourceGetter(""));
-
-//		new Decompiler(Config.defaultConfig(), new BufferedFileWriterFactory(DST_DIR))
-//				.run(Stream.of("/home/winch/IdeaProjects/MCP-Reborn/build/classes/java/main/net/minecraft/world/level/levelgen/structure/structures/MineshaftPieces$MineShaftStairs"), Decompiler.fileResourceGetter(""));
+		new Decompiler(
+				Config.builder().skipStackTrace(true).ignoreVariableTable(true).indent("\t").build(),
+				new BufferedFileWriterFactory(DST_DIR)
+		).run(
+				getCompiledClassNames().stream(),
+				Decompiler.fileResourceGetter("")
+		);
 	}
 }

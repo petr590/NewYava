@@ -5,26 +5,62 @@ import x590.newyava.Config;
 import x590.newyava.Decompiler;
 import x590.newyava.io.BufferedFileWriterFactory;
 
+import java.nio.file.Path;
 import java.util.stream.Stream;
 
 public class MinecraftBugTest {
-	@Test
+	private void run(String className) {
+		new Decompiler(
+				Config.builder().ignoreVariableTable(true).indent("\t").build(),
+				new BufferedFileWriterFactory(MinecraftTest.DST_DIR)
+		).run(
+				Stream.of(getCompiledClassName(className)),
+				Decompiler.fileResourceGetter("")
+		);
+	}
+
+	/**
+	 * @param className имя класса в формате {@code "java.lang.Object"} или {@code "java/lang/Object"}
+	 * @return путь к классу (без расширения ".class")
+	 */
+	private static String getCompiledClassName(String className) {
+		return Path.of(MinecraftTest.SRC_DIR, className.replace('.', '/')).toString();
+	}
+
+
+//	@Test
 	@Bug
 	public void bug1() {
-		new Decompiler(Config.defaultConfig(), new BufferedFileWriterFactory(MinecraftTest.DST_DIR))
-				.run(
-						Stream.of(MinecraftTest.getCompiledClassName("net/minecraft/server/players/StoredUserList")),
-						Decompiler.fileResourceGetter("")
-				);
+		run("net.minecraft.server.players.StoredUserList");
 	}
 
 //	@Test
 	@Bug(State.FIXED)
 	public void bug2() {
-		new Decompiler(Config.defaultConfig(), new BufferedFileWriterFactory(MinecraftTest.DST_DIR))
-				.run(
-						Stream.of(MinecraftTest.getCompiledClassName("net/minecraft/advancements/AdvancementRequirements")),
-						Decompiler.fileResourceGetter("")
-				);
+		run("net.minecraft.advancements.AdvancementRequirements");
+	}
+
+//	@Test
+	@Bug
+	public void bug3() {
+		run("net.minecraft.client.Minecraft");
+	}
+
+//	@Test
+	@Bug(State.FIXED)
+	public void bug4() {
+		run("net.minecraft.server.level.DistanceManager");
+	}
+	
+	@Test
+	@Bug
+	public void bug5() {
+		run("net.minecraft.server.rcon.thread.QueryThreadGs4");
+	}
+
+//	@Test
+	@Bug(State.FIXED)
+	public void bug6() {
+		run("net.minecraft.network.VarLong");
 	}
 }

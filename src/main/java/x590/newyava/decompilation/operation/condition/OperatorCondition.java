@@ -1,6 +1,7 @@
 package x590.newyava.decompilation.operation.condition;
 
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
@@ -14,6 +15,7 @@ import x590.newyava.type.Type;
 
 import java.util.List;
 
+@Getter
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class OperatorCondition implements Condition {
 
@@ -62,7 +64,7 @@ public class OperatorCondition implements Condition {
 	}
 
 	@RequiredArgsConstructor
-	private enum Operator {
+	public enum Operator {
 		AND("&&", Priority.LOGICAL_AND),
 		OR("||", Priority.LOGICAL_OR);
 

@@ -6,6 +6,7 @@ import x590.newyava.*;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.modifiers.Modifiers;
+import x590.newyava.type.ClassArrayType;
 import x590.newyava.type.ClassType;
 
 import java.util.List;
@@ -33,13 +34,25 @@ public interface Context {
 	/** @return {@code true} если данный класс импортирован, иначе {@code false}. */
 	boolean imported(ClassType classType);
 
-	/** @return поле, найденное в классе или пустой Optional */
+
+	/** @return поле, найденное по указанному дескриптору или пустой Optional */
 	Optional<DecompilingField> findField(FieldDescriptor descriptor);
 
-	/** @return метод, найденный в классе или пустой Optional */
+	/** @return метод, найденный по указанному дескриптору или пустой Optional */
 	Optional<DecompilingMethod> findMethod(MethodDescriptor descriptor);
 
 	/** @return класс, найденный среди всех декомпилируемых данным декомпилятором классов
 	 * или пустой Optional */
-	Optional<DecompilingClass> findClass(@Nullable ClassType classType);
+	Optional<DecompilingClass> findClass(@Nullable ClassArrayType type);
+
+
+	/** @return поле, найденное по указанному дескриптору или пустой Optional */
+	Optional<? extends IField> findIField(FieldDescriptor descriptor);
+
+	/** @return метод, найденный по указанному дескриптору или пустой Optional */
+	Optional<? extends IMethod> findIMethod(MethodDescriptor descriptor);
+
+	/** @return класс, найденный среди всех декомпилируемых данным декомпилятором классов
+	 * или пустой Optional */
+	Optional<? extends IClass> findIClass(@Nullable ClassArrayType type);
 }

@@ -2,14 +2,14 @@ package x590.newyava.decompilation.operation.invokedynamic;
 
 import org.jetbrains.annotations.Unmodifiable;
 import org.jetbrains.annotations.UnmodifiableView;
-import x590.newyava.constant.JavaEscapeUtils;
+import x590.newyava.util.JavaEscapeUtils;
 import x590.newyava.constant.StringConstant;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.operation.LdcOperation;
+import x590.newyava.decompilation.operation.other.LdcOperation;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.OperationUtil;
+import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.io.DecompilationWriter;
@@ -63,7 +63,7 @@ public class StringConcatOperation implements Operation {
 						);
 					}
 
-					operands.add(OperationUtil.unwrapStringValueOfObject(args.pop()));
+					operands.add(OperationUtils.unwrapStringValueOfObject(args.pop()));
 				}
 
 				case '\2' -> {

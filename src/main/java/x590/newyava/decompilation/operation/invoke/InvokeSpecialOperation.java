@@ -3,21 +3,18 @@ package x590.newyava.decompilation.operation.invoke;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.DecompilingClass;
-import x590.newyava.decompilation.operation.variable.ILoadOperation;
-import x590.newyava.decompilation.variable.VariableReference;
-import x590.newyava.modifiers.Modifiers;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.operation.NewOperation;
+import x590.newyava.decompilation.operation.other.NewOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
+import x590.newyava.decompilation.operation.variable.ILoadOperation;
+import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.io.DecompilationWriter;
-import x590.newyava.type.ClassType;
-import x590.newyava.type.PrimitiveType;
-import x590.newyava.type.ReferenceType;
-import x590.newyava.type.Type;
+import x590.newyava.modifiers.Modifiers;
+import x590.newyava.type.*;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +29,7 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 	/** Представляет собой объект {@code super} или {@code Interface.super}. */
 	private record SuperObject(
 			@Getter VariableReference varRef,
-			@Getter ReferenceType returnType,
+			@Getter ClassArrayType returnType,
 			boolean isInterface
 	) implements ILoadOperation {
 		@Override
@@ -75,7 +72,7 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 							descriptor.hostClass(),
 							invokeType == InvokeType.SUPER_INTERFACE
 					);
-		};
+		}
 	}
 
 
@@ -87,8 +84,8 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 					hostClass.equals(context.getSuperType()) ? InvokeType.SUPER : InvokeType.SUPER_INTERFACE;
 
 		} else if (descriptor.isConstructor() &&
-				object instanceof NewOperation newOperation &&
-				context.popIfSame(newOperation)) {
+				object instanceof NewOperation newOp &&
+				context.popIfSame(newOp)) {
 
 			return InvokeType.NEW;
 		}
@@ -110,12 +107,19 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 
 	// Enum.<init>(String, int)
 	private static final MethodDescriptor DEFAULT_ENUM_CONSTRUCTOR =
-			new MethodDescriptor(ClassType.ENUM, MethodDescriptor.INIT, PrimitiveType.VOID,
-					List.of(ClassType.STRING, PrimitiveType.INT));
+			MethodDescriptor.constructor(ClassType.ENUM, List.of(ClassType.STRING, PrimitiveType.INT));
 
 	private boolean isDefaultEnumConstructor(MethodContext context) {
 		return (context.getClassModifiers() & Modifiers.ACC_ENUM) != 0 &&
 				descriptor.equals(DEFAULT_ENUM_CONSTRUCTOR);
+	}
+
+	public boolean isNew() {
+		return invokeType == InvokeType.NEW;
+	}
+
+	public boolean isNew(MethodDescriptor descriptor) {
+		return isNew() && this.descriptor.equals(descriptor);
 	}
 
 
@@ -229,7 +233,7 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 		} else {
 			var visibleArgs = Optional.ofNullable(nestedClass)
 					.or(() -> context.findClass(getNestedClassType()))
-					.flatMap(clazz -> clazz.getClassContext().findMethod(descriptor))
+					.flatMap(clazz -> clazz.findMethod(descriptor))
 					.map(method -> arguments.subList(method.getArgsStart(), method.getArgsEnd()))
 					.orElse(arguments);
 

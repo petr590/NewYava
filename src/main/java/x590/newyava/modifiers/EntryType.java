@@ -6,8 +6,8 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.RemoveIfNotUsed;
 
-import static x590.newyava.modifiers.Modifiers.*;
 import static x590.newyava.Literals.*;
+import static x590.newyava.modifiers.Modifiers.*;
 
 /**
  * Тип сущности, у которой есть модификаторы доступа.

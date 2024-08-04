@@ -1,12 +1,13 @@
 package x590.newyava.decompilation.operation.invoke;
 
 import lombok.Getter;
+import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.OperationUtil;
+import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
@@ -25,6 +26,7 @@ public abstract class InvokeNonstaticOperation extends InvokeOperation {
 	}
 
 	@Override
+	@MustBeInvokedByOverriders
 	public void inferType(Type ignored) {
 		super.inferType(ignored);
 		object.inferType(descriptor.hostClass());
@@ -32,7 +34,7 @@ public abstract class InvokeNonstaticOperation extends InvokeOperation {
 
 	@Override
 	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return OperationUtil.addBefore(object, super.getNestedOperations());
+		return OperationUtils.addBefore(object, super.getNestedOperations());
 	}
 
 	@Override

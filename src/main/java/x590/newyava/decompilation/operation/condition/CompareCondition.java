@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.condition;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -8,6 +9,8 @@ import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.*;
+import x590.newyava.decompilation.operation.other.ConstNullOperation;
+import x590.newyava.decompilation.operation.other.LdcOperation;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
@@ -18,9 +21,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CompareCondition implements Condition {
 
+	@Getter
 	private final CompareType compareType;
 
+	private final Type requiredType;
+
 	// Именно такой порядок, так как сначала со стека снимается второй операнд, затем первый
+	@Getter
 	private final Operation operand2, operand1;
 
 	public CompareCondition(MethodContext context, CompareType compareType) {
@@ -31,28 +38,36 @@ public class CompareCondition implements Condition {
 		if (operand instanceof CmpOperation cmp) {
 			this.operand1 = cmp.getOperand1();
 			this.operand2 = cmp.getOperand2();
+			this.requiredType = cmp.getRequiredType();
 		} else {
 			this.operand1 = operand;
 			this.operand2 = new LdcOperation(IntConstant.ZERO);
+			this.requiredType = PrimitiveType.INTEGRAL;
 		}
 	}
 
 	public static CompareCondition icmp(MethodContext context, CompareType compareType) {
-		return new CompareCondition(compareType,
+		return new CompareCondition(
+				compareType, PrimitiveType.INTEGRAL,
 				context.popAs(PrimitiveType.INTEGRAL),
-				context.popAs(PrimitiveType.INTEGRAL));
+				context.popAs(PrimitiveType.INTEGRAL)
+		);
 	}
 
 	public static CompareCondition acmp(MethodContext context, CompareType compareType) {
-		return new CompareCondition(compareType,
+		return new CompareCondition(
+				compareType, Types.ANY_OBJECT_TYPE,
 				context.popAs(Types.ANY_OBJECT_TYPE),
-				context.popAs(Types.ANY_OBJECT_TYPE));
+				context.popAs(Types.ANY_OBJECT_TYPE)
+		);
 	}
 
 	public static CompareCondition acmpNull(MethodContext context, CompareType compareType) {
-		return new CompareCondition(compareType,
+		return new CompareCondition(
+				compareType, Types.ANY_OBJECT_TYPE,
 				ConstNullOperation.INSTANCE,
-				context.popAs(Types.ANY_OBJECT_TYPE));
+				context.popAs(Types.ANY_OBJECT_TYPE)
+		);
 	}
 
 
@@ -63,7 +78,7 @@ public class CompareCondition implements Condition {
 		if (opposite != null)
 			return opposite;
 
-		var opposite = new CompareCondition(compareType.getOpposite(), operand2, operand1);
+		var opposite = new CompareCondition(compareType.getOpposite(), requiredType, operand2, operand1);
 		opposite.opposite = this;
 
 		return this.opposite = opposite;
@@ -71,8 +86,27 @@ public class CompareCondition implements Condition {
 
 	@Override
 	public void inferType(Type ignored) {
-		operand1.inferType(operand2.getReturnType());
-		operand2.inferType(operand1.getReturnType());
+		operand1.inferType(requiredType);
+		operand2.inferType(requiredType);
+
+		if (operand2.getImplicitType().equals(requiredType)) {
+			operand1.allowImplicitCast();
+		} else {
+			operand2.allowImplicitCast();
+		}
+	}
+
+	/** @return {@code true}, если операция является простой проверкой {@code boolean} на
+	 * {@code true} или {@code false}, т.е. имеет вид {@code x} или {@code !x} */
+	public boolean isPlainBoolean() {
+		return  operand1.getReturnType() == PrimitiveType.BOOLEAN &&
+				(compareType == CompareType.EQUALS || compareType == CompareType.NOT_EQUALS) &&
+				(operand2 == ConstCondition.FALSE ||
+						operand2 instanceof LdcOperation ldc && ldc.getValue() == IntConstant.ZERO);
+	}
+
+	public boolean isNot() {
+		return isPlainBoolean() && compareType == CompareType.EQUALS;
 	}
 
 	@Override
@@ -87,27 +121,25 @@ public class CompareCondition implements Condition {
 
 	@Override
 	public Priority getPriority() {
-		return compareType.getPriority();
+		return isPlainBoolean() ?
+				compareType == CompareType.EQUALS ? Priority.UNARY : operand1.getPriority() :
+				compareType.getPriority();
 	}
 
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
-		if (operand1.getReturnType() == PrimitiveType.BOOLEAN) {
-
-			if ((compareType == CompareType.EQUALS || compareType == CompareType.NOT_EQUALS) &&
-				operand2 instanceof LdcOperation ldc && ldc.getValue() == IntConstant.ZERO) {
-
-				if (compareType == CompareType.EQUALS)
-					out.record('!');
-
+		if (isPlainBoolean()) {
+			if (compareType == CompareType.EQUALS) {
+				out.record('!').record(operand1, context, Priority.UNARY, Associativity.LEFT);
+			} else {
 				out.record(operand1, context, compareType.getPriority(), Associativity.LEFT);
-				return;
 			}
-		}
 
-		out .record(operand1, context, compareType.getPriority(), Associativity.LEFT)
-			.wrapSpaces(compareType.getOperator())
-			.record(operand2, context, compareType.getPriority(), Associativity.RIGHT);
+		} else {
+			out .record(operand1, context, compareType.getPriority(), Associativity.LEFT)
+				.wrapSpaces(compareType.getOperator())
+				.record(operand2, context, compareType.getPriority(), Associativity.RIGHT);
+		}
 	}
 
 	@Override

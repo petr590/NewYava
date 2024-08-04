@@ -1,6 +1,7 @@
 package x590.newyava.decompilation.operation;
 
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.Importable;
 import x590.newyava.context.ClassContext;
@@ -16,15 +17,24 @@ import x590.newyava.type.Type;
 
 import java.util.Deque;
 import java.util.List;
+import java.util.Optional;
 
 public interface Operation extends Importable {
 
-	/** Возвращаемый тип операции, может быть void */
+	/** Возвращаемый тип операции, может быть void. */
 	Type getReturnType();
+
+	/** Неявный возвращаемый тип операции. */
+	default Type getImplicitType() {
+		return getReturnType();
+	}
 
 	/** Разрешает неявное приведение к более широкому типу.
 	 * Должен вызываться из метода {@link #inferType(Type)} */
 	default void allowImplicitCast() {}
+
+	/** Запрещает опускать явное приведение констант к {@code byte} или {@code short}. */
+	default void denyByteShortImplicitCast() {}
 
 	/** Вызывается при инициализации {@link Scope} */
 	default void resolveLabelNames(Scope currentScope, LabelNameGenerator generator) {}
@@ -61,8 +71,13 @@ public interface Operation extends Importable {
 		return false;
 	}
 
+	/** @return {@code true}, если операция является {@code throw} */
+	default boolean isThrow() {
+		return false;
+	}
 
-	/* --------------------------------------------- Recursive methods --------------------------------------------- */
+
+	/* ---------------------------------------- Variables recursive methods ----------------------------------------- */
 
 	/** @return {@code true} если операция или одна из вложенных операций использует
 	 * какие-либо локальные переменные (читает/записывает) */
@@ -70,11 +85,15 @@ public interface Operation extends Importable {
 		return getNestedOperations().stream().anyMatch(Operation::usesAnyVariable);
 	}
 
-	/** Вызывается перед вызовом метода {@link x590.newyava.DecompilingMethod#initVariables(Context)} */
+
+	/** Вызывается перед вызовом метода {@link x590.newyava.DecompilingMethod#initVariables(Context)
+	 * DecompilingMethod.initVariables(Context)}.
+	 * @apiNote возможно объединение с методом {@link Scope#afterDecompilation(MethodContext)} */
 	@MustBeInvokedByOverriders
 	default void beforeVariablesInit(MethodScope methodScope) {
 		getNestedOperations().forEach(operation -> operation.beforeVariablesInit(methodScope));
 	}
+
 
 	/** @return способ <b>первого</b> использования переменной в указанном слоте.
 	 * Если переменная не используется, то метод возвращает {@link VarUsage#NONE}. */
@@ -85,11 +104,13 @@ public interface Operation extends Importable {
 				.findFirst().orElse(VarUsage.NONE);
 	}
 
+
 	/** Выводит типы переменных. Должен вызываться рекурсивно для всех дочерних операций.
 	 * Обновляет возвращаемый тип операции, если он изменяем.
 	 * @param requiredType требуемый тип операции. Игнорируется большинством операций, так как
 	 * они имеют фиксированный тип. Используется для выведения типов переменных и констант. */
 	default void inferType(Type requiredType) {}
+
 
 	/** Объявляет переменные, которые ещё не объявлены.
 	 * @return {@code true}, если переменная была объявлена в данной операции, иначе {@code false}. */
@@ -102,6 +123,44 @@ public interface Operation extends Importable {
 		}
 
 		return result;
+	}
+
+
+	/** Инициализирует возможные имена переменных */
+	@MustBeInvokedByOverriders
+	default void initPossibleVarNames() {
+		getNestedOperations().forEach(Operation::initPossibleVarNames);
+	}
+
+
+	/** @return возможное имя переменной (например, для вызова метода {@code getName()}
+	 * может вернуть {@code "name"}) */
+	default Optional<String> getPossibleVarName() {
+		return Optional.empty();
+	}
+
+
+	/** Добавляет имя переменной, которую представляет операция */
+	default void addPossibleVarName(@Nullable String name) {}
+
+
+	/* ----------------------------------------- Another recursive methods ------------------------------------------ */
+
+	/**
+	 * Для {@link x590.newyava.decompilation.operation.other.FieldOperation FieldOperation}
+	 * добавляет инициализатор к нестатическому полю, если это возможно.
+	 * @return {@code true} в случае успеха, иначе {@code false}.
+	 */
+	default boolean initInstanceField(MethodContext context) {
+		return false;
+	}
+
+	/**
+	 * @return для {@link x590.newyava.decompilation.operation.other.FieldOperation FieldOperation}
+	 * возвращает {@code true}, если нестатическое поле инициализировано.
+	 */
+	default boolean isInstanceFieldInitialized() {
+		return false;
 	}
 
 	/**
@@ -143,6 +202,15 @@ public interface Operation extends Importable {
 	 * как {@link #write(DecompilationWriter, MethodWriteContext)}
 	 */
 	default void writeIntAsChar(DecompilationWriter out, MethodWriteContext context) {
+		write(out, context);
+	}
+
+	/**
+	 * Записывает литералы {@code int} и {@code long} в hex-формате.
+	 * Для всех остальных операций работает точно также,
+	 * как {@link #write(DecompilationWriter, MethodWriteContext)}
+	 */
+	default void writeHex(DecompilationWriter out, MethodWriteContext context) {
 		write(out, context);
 	}
 }

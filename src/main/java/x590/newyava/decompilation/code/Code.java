@@ -1,9 +1,9 @@
 package x590.newyava.decompilation.code;
 
-import x590.newyava.io.ContextualWritable;
 import x590.newyava.Importable;
 import x590.newyava.decompilation.scope.MethodScope;
 import x590.newyava.decompilation.variable.VariableTableView;
+import x590.newyava.io.ContextualWritable;
 
 /** Код метода */
 public interface Code extends ContextualWritable, Importable {

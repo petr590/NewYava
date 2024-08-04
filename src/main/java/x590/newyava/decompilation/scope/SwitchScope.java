@@ -2,25 +2,30 @@ package x590.newyava.decompilation.scope;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import lombok.Getter;
-import lombok.ToString;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.code.Chunk;
-import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.OperationUtil;
-import x590.newyava.decompilation.operation.Priority;
+import x590.newyava.decompilation.operation.*;
 import x590.newyava.decompilation.operation.condition.GotoOperation;
 import x590.newyava.decompilation.operation.condition.Role;
+import x590.newyava.decompilation.operation.emptyscope.EmptySwitchScopeOperation;
+import x590.newyava.decompilation.operation.emptyscope.EmptyableScopeOperation;
+import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
+import x590.newyava.decompilation.operation.terminal.ThrowOperation;
 import x590.newyava.descriptor.FieldDescriptor;
+import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 import x590.newyava.type.Types;
+import x590.newyava.util.Utils;
 
 import java.util.*;
 import java.util.function.ObjIntConsumer;
@@ -30,9 +35,13 @@ public class SwitchScope extends Scope {
 
 	private Type requiredType = PrimitiveType.INT;
 
+	private final List<CaseScope> cases;
 
-	@Getter
-	private final @Unmodifiable List<CaseScope> cases;
+	private final @UnmodifiableView List<CaseScope> casesView;
+
+	public @UnmodifiableView List<CaseScope> getCases() {
+		return casesView;
+	}
 
 	private final boolean arrowStyle;
 
@@ -42,14 +51,15 @@ public class SwitchScope extends Scope {
 		this.value = value;
 
 
-		int pastTheLastId = chunks.get(chunks.size() - 1).getId() + 1;
+		int pastTheLastId = Utils.getLast(chunks).getId() + 1;
 
 		this.arrowStyle = cases.subList(0, cases.size() - 1) // Пропускаем последний
 				.stream().allMatch(caseScope -> canUseArrowStyle(caseScope, pastTheLastId));
 
 		cases.forEach(caseScope -> caseScope.switchScope = this);
 
-		this.cases = Collections.unmodifiableList(cases);
+		this.cases = cases;
+		this.casesView = Collections.unmodifiableList(cases);
 
 		for (CaseScope caseScope : cases) {
 			var endChunk = caseScope.getEndChunk();
@@ -62,6 +72,18 @@ public class SwitchScope extends Scope {
 				}
 			}
 		}
+	}
+
+	public static EmptyableScopeOperation create(Operation value, List<CaseScope> cases, @Unmodifiable List<Chunk> allChunks) {
+		return cases.isEmpty() ?
+				new EmptySwitchScopeOperation(value) :
+				new SwitchScope(
+						value, cases,
+						allChunks.subList(
+								cases.get(0).getStartChunk().getId(),
+								Utils.getLast(cases).getEndChunk().getId() + 1
+						)
+				);
 	}
 
 	private static boolean canUseArrowStyle(CaseScope caseScope, int pastTheLastId) {
@@ -91,6 +113,11 @@ public class SwitchScope extends Scope {
 			cases.forEach(CaseScope::usePushed);
 			getEndChunk().getPushedOperations().push(this);
 
+			if (cases.get(0).isGeneratedDefaultException()) {
+				operations.remove(cases.get(0));
+				cases.remove(0);
+			}
+
 			returnType = cases.stream()
 					.map(CaseScope::getReturnType)
 					.filter(type -> type != PrimitiveType.VOID)
@@ -104,7 +131,7 @@ public class SwitchScope extends Scope {
 	public void afterDecompilation(MethodContext context) {
 		super.afterDecompilation(context);
 
-		var valueAndEnumMap = OperationUtil.getEnumMap(context, value);
+		var valueAndEnumMap = OperationUtils.getEnumMap(context, value);
 
 		if (valueAndEnumMap != null) {
 			value = valueAndEnumMap.first();
@@ -150,17 +177,15 @@ public class SwitchScope extends Scope {
 			.decIndent().ln().indent().record('}');
 	}
 
-	@ToString(includeFieldNames = false, callSuper = true)
 	public static class CaseScope extends Scope {
 		private final @Nullable Collection<IntConstant> constants;
 
 		private final boolean last;
 
 		@Getter
-		@ToString.Exclude
 		private SwitchScope switchScope;
 
-		protected Deque<Operation> pushedOperations;
+		protected @Nullable Deque<Operation> pushedOperations;
 
 		@Getter
 		private Type returnType = PrimitiveType.VOID;
@@ -179,7 +204,8 @@ public class SwitchScope extends Scope {
 				returnType = pushedOperations.peek().getReturnType();
 			}
 
-			if (last && (operations.isEmpty() || !(operations.get(0) instanceof GotoOperation))) {
+			if (last && !Utils.isLast(operations,
+					operation -> operation instanceof GotoOperation || operation.isTerminal())) {
 				var gotoOp = new GotoOperation(null);
 				gotoOp.initRole(Role.breakScope(switchScope));
 				operations.add(gotoOp);
@@ -187,55 +213,58 @@ public class SwitchScope extends Scope {
 		}
 
 		private boolean canUseInExpression() {
-			return !pushedOperations.isEmpty() || getEndChunk().isTerminal();
+			assert pushedOperations != null;
+			return !pushedOperations.isEmpty() || getEndChunk().isThrow();
 		}
 
 		private void usePushed() {
+			assert pushedOperations != null;
 			if (!pushedOperations.isEmpty()) {
 				initYield(switchScope, pushedOperations);
 			}
+		}
+
+		private static final MethodDescriptor DEFAULT_EXCEPTION_DESCRIPTOR = new MethodDescriptor(
+				ClassType.valueOf(IncompatibleClassChangeError.class),
+				MethodDescriptor.INIT,
+				PrimitiveType.VOID
+		);
+
+		private boolean isGeneratedDefaultException() {
+			return constants == null &&
+					Utils.isSingle(operations,
+							operation ->
+									operation instanceof ThrowOperation throwOp &&
+									throwOp.getException() instanceof InvokeSpecialOperation invokeSpecial &&
+									invokeSpecial.isNew(DEFAULT_EXCEPTION_DESCRIPTOR)
+					);
 		}
 
 		@Override
 		public void postDecompilation(MethodContext context) {
 			super.postDecompilation(context);
 
-//			int lastIndex = operations.size() - 1;
-//
-//			if (switchScope.arrowStyle && lastIndex >= 0 &&
-//				operations.get(lastIndex) instanceof GotoOperation gotoOp &&
-//				gotoOp.getRole().isBreakOf(switchScope)) {
-//
-//				operations.remove(lastIndex);
-//			}
+			int lastIndex = operations.size() - 1;
+
+			if (switchScope.arrowStyle && lastIndex >= 0 &&
+				operations.get(lastIndex) instanceof GotoOperation gotoOp &&
+				gotoOp.getRole().isBreakOf(switchScope)) {
+
+				operations.remove(lastIndex);
+			}
 		}
 
 		public void write(DecompilationWriter out, MethodWriteContext context) {
 			writeHeader(out, context);
 
 			out.incIndent();
+			writeBody(out, context);
 
-			if (switchScope.arrowStyle) {
-				if (operations.isEmpty()) {
-					out.record(" {}").decIndent();
-					return;
-				}
-
-				if (operations.size() > 1 || operations.get(0).isScopeLike() || operations.get(0).isReturn()) {
-					out.record(" {");
-					writeBody(out, context);
-					out.decIndent().ln().indent().record('}');
-					return;
-				}
+			if (!switchScope.arrowStyle && !last) {
+				out.ln().indent();
 			}
 
-			var operation = operations.get(0);
-
-			if (operation instanceof GotoOperation gotoOp && gotoOp.getRole().isYieldOf(switchScope)) {
-				operation = gotoOp.getRole().getYieldValue();
-			}
-
-			out.space().record(operation, context, Priority.ZERO).record(';').decIndent();
+			out.decIndent();
 		}
 
 		@Override
@@ -248,7 +277,7 @@ public class SwitchScope extends Scope {
 			ObjIntConsumer<IntConstant> writer;
 
 			if (switchScope.enumMap == null) {
-				var constantWriteContext = new ConstantWriteContext(context, PrimitiveType.INT, false);
+				var constantWriteContext = new ConstantWriteContext(context, PrimitiveType.INT, false, true);
 				writer = (constant, index) -> constant.write(out, constantWriteContext);
 
 			} else {
@@ -270,6 +299,53 @@ public class SwitchScope extends Scope {
 			}
 
 			return true;
+		}
+
+
+		@Override
+		protected void writeBody(DecompilationWriter out, MethodWriteContext context) {
+			if (switchScope.arrowStyle) {
+				if (operations.isEmpty()) {
+					out.record(" {}");
+					return;
+				}
+
+				if (operations.size() > 1 || operations.get(0).isScopeLike() || operations.get(0).isReturn()) {
+					out.record(" {");
+					super.writeBody(out, context);
+					out.decIndent()
+						.ln().indent().record('}')
+						.incIndent();
+					return;
+				}
+
+			} else {
+				if (operations.isEmpty()) {
+					return;
+				}
+
+				if (operations.size() > 1 || operations.get(0).isScopeLike()) {
+					super.writeBody(out, context);
+					return;
+				}
+			}
+
+			var operation = operations.get(0);
+
+			if (operation instanceof GotoOperation gotoOp && gotoOp.getRole().isYieldOf(switchScope)) {
+				operation = gotoOp.getRole().getYieldValue();
+			}
+
+			out.space().record(operation, context, Priority.ZERO).record(';');
+		}
+
+		@Override
+		public String toString() {
+			return String.format(
+					"CaseScope(%d - %d, constants: %s, returnType: %s)",
+					getStartChunk().getId(), getEndChunk().getId(),
+					constants, returnType
+			);
 		}
 	}
 }

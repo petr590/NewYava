@@ -11,8 +11,8 @@ import x590.newyava.constant.LongConstant;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.operation.ConstNullOperation;
-import x590.newyava.decompilation.operation.LdcOperation;
+import x590.newyava.decompilation.operation.other.ConstNullOperation;
+import x590.newyava.decompilation.operation.other.LdcOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.exception.DecompilationException;
@@ -33,6 +33,12 @@ public class NewArrayOperation implements Operation {
 
 	private final @Nullable List<Operation> initializers;
 
+	private final @UnmodifiableView List<Operation> initializersView;
+
+	public @UnmodifiableView List<Operation> getInitializers() {
+		return initializersView;
+	}
+
 	private boolean useInitializersList;
 
 	public NewArrayOperation(MethodContext context, ArrayType arrayType) {
@@ -48,6 +54,10 @@ public class NewArrayOperation implements Operation {
 
 		this.initializers = indexConst == null ? null :
 				createInitializers(indexConst.getValue(), arrayType.getElementType());
+
+		this.initializersView = initializers == null ?
+				Collections.emptyList() :
+				Collections.unmodifiableList(initializers);
 
 		this.useInitializersList = indexConst != null && indexConst.getValue() == 0;
 	}

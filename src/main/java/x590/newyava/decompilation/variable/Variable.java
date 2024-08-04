@@ -2,14 +2,13 @@ package x590.newyava.decompilation.variable;
 
 import lombok.AccessLevel;
 import lombok.Getter;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.type.Type;
+import x590.newyava.util.Utils;
 
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Переменная. Содержит тип и имя. Изменяемый класс.
@@ -18,13 +17,11 @@ import java.util.Set;
 public final class Variable {
 	private final int slotId;
 
-	private @NotNull Type type;
+	private Type type;
 
 	/** Потенциальные имена переменной. Если поле равно {@code null}, значит имя переменной неизменяемо */
 	@Getter(AccessLevel.NONE)
-	private final @Nullable Set<String> names;
-
-	private final @UnmodifiableView Set<String> namesView;
+	private final @Nullable Set<String> possibleNames;
 
 	/** Итоговое имя переменной */
 	private @Nullable String name;
@@ -39,19 +36,7 @@ public final class Variable {
 		this.type = ref.getType();
 		this.name = ref.getInitialName();
 		this.declared = declared;
-
-		if (name == null) {
-			names = new HashSet<>();
-			namesView = Collections.unmodifiableSet(names);
-		} else {
-			names = null;
-			namesView = Collections.emptySet();
-		}
-	}
-
-	@Override
-	public String toString() {
-		return String.format("Variable(%s %s)", type, name);
+		this.possibleNames = name == null ? new HashSet<>() : null;
 	}
 
 	public void assignUp(Type requiredType) {
@@ -64,7 +49,7 @@ public final class Variable {
 
 	/** @return {@code true}, если имя переменной неизменяемо */
 	public boolean isNameFixed() {
-		return names == null;
+		return possibleNames == null;
 	}
 
 	/** @throws IllegalStateException если имя переменной неизменяемо */
@@ -75,15 +60,56 @@ public final class Variable {
 		this.name = name;
 	}
 
-	/** Добавляет потенциальное имя переменной */
-	public void addName(String name) {
-		if (names != null)
-			names.add(name);
+	/** Добавляет потенциальное имя переменной.
+	 * Если имя неизменяемо или {@code name == null}, то ничего не делает. */
+	public void addPossibleName(@Nullable String name) {
+		if (possibleNames != null && name != null)
+			possibleNames.add(name);
 	}
 
-	public @UnmodifiableView Set<String> getNames() {
-		return namesView;
+	/**
+	 * @return базовое имя переменной (может повторяться у нескольких переменных).
+	 */
+	public String getBaseName() {
+		if (possibleNames != null && !possibleNames.isEmpty()) {
+			return possibleNames.stream()
+					.reduce(Variable::getMatchingEnding)
+					.filter(Predicate.not(String::isEmpty))
+					.orElse(type.getVarName());
+		}
+
+		return type.getVarName();
 	}
+
+
+	public static String getMatchingEnding(String str1, String str2) {
+		int p1 = str1.length() - 1,
+			p2 = str2.length() - 1;
+
+		int capacity = Math.min(p1, p2) + 1;
+		if (capacity == 0)
+			return "";
+
+		var builder = new StringBuilder(capacity);
+
+		for (; p1 >= 0 && p2 >= 0; p1--, p2--) {
+			char c1 = str1.charAt(p1),
+				 c2 = str2.charAt(p2);
+
+			if (c1 == Character.toUpperCase(c2)) {
+				builder.append(c1);
+
+			} else if (Character.toUpperCase(c1) == c2) {
+				builder.append(c2);
+
+			} else {
+				break;
+			}
+		}
+
+		return Utils.toLowerCamelCase(builder.reverse().toString());
+	}
+
 
 	public boolean attemptDeclare() {
 		if (!declared) {
@@ -91,5 +117,10 @@ public final class Variable {
 		}
 
 		return false;
+	}
+
+	@Override
+	public String toString() {
+		return String.format("Variable(%s %s)", type, name);
 	}
 }

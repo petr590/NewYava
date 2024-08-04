@@ -14,6 +14,7 @@ import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
+import x590.newyava.util.Utils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -75,7 +76,7 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Annotati
 		context.addImportsFor(annotationType).addImportsFor(parameters);
 	}
 
-	private AnnotationValue getValue() {
+	private @Nullable AnnotationValue getValueParameter() {
 		return parameters.stream()
 				.filter(parameter -> parameter.name().equals("value"))
 				.findFirst().map(Parameter::value).orElse(null);
@@ -100,7 +101,7 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Annotati
 						);
 
 				if (foundRepeatableAnnotation.isPresent() &&
-					foundRepeatableAnnotation.get().getValue() instanceof ClassConstant clazz &&
+					foundRepeatableAnnotation.get().getValueParameter() instanceof ClassConstant clazz &&
 					clazz.getTypeOfClass().equals(annotationType)) {
 
 					@SuppressWarnings("unchecked")
@@ -128,7 +129,7 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Annotati
 		if (!parameters.isEmpty()) {
 			out.record('(');
 
-			if (parameters.size() == 1 && parameters.get(0).name().equals("value")) {
+			if (Utils.isSingle(parameters, parameter -> parameter.name().equals("value"))) {
 				out.record(parameters.get(0).value(), context);
 			} else {
 				out.record(parameters, context, ", ");

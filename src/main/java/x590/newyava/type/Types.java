@@ -44,6 +44,11 @@ public final class Types {
 		INSTANCE;
 
 		@Override
+		public String getVarName() {
+			return "var";
+		}
+
+		@Override
 		public String toString() {
 			return "<any-type>";
 		}
@@ -51,6 +56,11 @@ public final class Types {
 
 	private enum AnyObjectType implements IAnyType, ReferenceType {
 		INSTANCE;
+
+		@Override
+		public String getVarName() {
+			return "objVar";
+		}
 
 		@Override
 		public @Nullable ReferenceType getSuperType() {

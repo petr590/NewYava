@@ -1,13 +1,13 @@
 package x590.newyava.decompilation.instruction;
 
 import x590.newyava.context.MethodContext;
+import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
 import x590.newyava.decompilation.operation.invoke.InvokeStaticOperation;
-import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.invoke.InvokeVIOperation;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.UnknownOpcodeException;
-import x590.newyava.type.ReferenceType;
+import x590.newyava.type.ClassArrayType;
 
 import static org.objectweb.asm.Opcodes.*;
 
@@ -21,7 +21,7 @@ public record MethodInsn(int opcode, String hostClass, String name, String argsA
 
 	@Override
 	public Operation toOperation(MethodContext context) {
-		var descriptor = MethodDescriptor.of(ReferenceType.valueOf(hostClass), name, argsAndReturnType);
+		var descriptor = MethodDescriptor.of(ClassArrayType.valueOf(hostClass), name, argsAndReturnType);
 
 		return switch (opcode) {
 			case INVOKESPECIAL   -> InvokeSpecialOperation.valueOf(context, descriptor);

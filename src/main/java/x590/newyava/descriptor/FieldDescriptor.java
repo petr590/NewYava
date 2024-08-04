@@ -1,12 +1,12 @@
 package x590.newyava.descriptor;
 
-import x590.newyava.io.ContextualWritable;
 import x590.newyava.Importable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
+import x590.newyava.io.ContextualWritable;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.type.ClassArrayType;
 import x590.newyava.type.ClassType;
-import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
 
 public record FieldDescriptor(ClassType hostClass, String name, Type type)
@@ -31,21 +31,11 @@ public record FieldDescriptor(ClassType hostClass, String name, Type type)
 	}
 
 
-	public boolean equals(ReferenceType hostClass, String name, Type type) {
+	public boolean equals(ClassArrayType hostClass, String name, Type type) {
 		return  this.hostClass.equals(hostClass) &&
 				this.name.equals(name) &&
 				this.type.equals(type);
 	}
-
-//	@Override
-//	public boolean equals(Object obj) {
-//		if (this == obj) return true;
-//		if (!(obj instanceof FieldDescriptor other)) return false;
-//		if (!hostClass.equals(other.hostClass)) return false;
-//		if (!name.equals(other.name)) return false;
-//		if (!type.equals(other.type)) return false;
-//		return true;
-//	}
 
 
 	@Override

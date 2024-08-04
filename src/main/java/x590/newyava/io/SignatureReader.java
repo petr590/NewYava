@@ -1,7 +1,6 @@
 package x590.newyava.io;
 
 import lombok.RequiredArgsConstructor;
-import org.jetbrains.annotations.NotNull;
 import x590.newyava.exception.InvalidTypeException;
 
 import java.io.EOFException;
@@ -15,7 +14,7 @@ public class SignatureReader extends Reader {
 	private int pos;
 
 	@Override
-	public int read(char @NotNull[] buffer, int off, int len) {
+	public int read(char[] buffer, int off, int len) {
 		int pos = this.pos;
 		int length = src.length();
 

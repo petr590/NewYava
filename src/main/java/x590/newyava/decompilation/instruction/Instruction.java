@@ -9,10 +9,10 @@ import x590.newyava.decompilation.operation.Operation;
  */
 public interface Instruction {
 
-	// Remove if not used
+	/** @return код инструкции. */
 	int getOpcode();
 
-	/** Преобразует инструкцию в операцию */
+	/** Преобразует инструкцию в операцию. */
 	@Nullable Operation toOperation(MethodContext context);
 
 	/** Дополнительный метод, который преобразует текущую и следующую инструкции в одну операцию.
@@ -24,7 +24,7 @@ public interface Instruction {
 	/**
 	 * @return {@code true} если поток выполнения может
 	 * продолжиться (а может и не продолжиться) после этой инструкции.
-	 * После некоторых инструкций, таких как {@code goto} и {@code return}, поток прерывается
+	 * После некоторых инструкций, таких как {@code goto} и {@code return}, поток прерывается.
 	 */
 	default boolean canStay() {
 		return true;

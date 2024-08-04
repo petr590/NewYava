@@ -2,9 +2,9 @@ package x590.newyava.decompilation.instruction;
 
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.MethodContext;
+import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.variable.IIncOperation;
 import x590.newyava.decompilation.operation.variable.LoadOperation;
-import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.variable.StoreOperation;
 import x590.newyava.exception.UnknownOpcodeException;
 import x590.newyava.type.PrimitiveType;
@@ -49,6 +49,6 @@ public record VarInsn(int opcode, int slotId) implements Instruction {
 
 	@Override
 	public String toString() {
-		return String.format("VarInsn(%s, slot=%d)", InsnUtil.opcodeToString(opcode), slotId);
+		return String.format("VarInsn(%s, slot=%d)", InsnUtils.opcodeToString(opcode), slotId);
 	}
 }

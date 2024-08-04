@@ -4,7 +4,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import org.jetbrains.annotations.UnmodifiableView;
 import org.objectweb.asm.Label;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.SpecialOperation;
+import x590.newyava.decompilation.operation.other.SpecialOperation;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 

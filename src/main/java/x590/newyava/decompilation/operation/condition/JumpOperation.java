@@ -1,10 +1,9 @@
 package x590.newyava.decompilation.operation.condition;
 
 import lombok.Getter;
-import org.jetbrains.annotations.NotNull;
 import org.objectweb.asm.Label;
 import x590.newyava.context.ClassContext;
-import x590.newyava.decompilation.operation.SpecialOperation;
+import x590.newyava.decompilation.operation.other.SpecialOperation;
 import x590.newyava.decompilation.scope.LabelNameGenerator;
 import x590.newyava.decompilation.scope.Scope;
 import x590.newyava.type.PrimitiveType;
@@ -33,7 +32,7 @@ public abstract class JumpOperation implements SpecialOperation {
 
 
 	@Getter
-	private @NotNull Role role = Role.UNKNOWN;
+	private Role role = Role.UNKNOWN;
 
 	/**
 	 * Инициализирует роль операции.

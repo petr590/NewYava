@@ -6,8 +6,8 @@ import lombok.Setter;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.decompilation.code.CodeStack;
-import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.type.Type;
 import x590.newyava.type.TypeSize;
@@ -57,7 +57,7 @@ public class MethodContext extends ContextProxy {
 		return stack.popAs(size);
 	}
 
-	public Operation peek() {
+	public @Nullable Operation peek() {
 		return stack.peek();
 	}
 

@@ -4,7 +4,7 @@ import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.SpecialOperation;
+import x590.newyava.decompilation.operation.other.SpecialOperation;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 

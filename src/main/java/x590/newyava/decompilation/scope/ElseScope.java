@@ -3,14 +3,24 @@ package x590.newyava.decompilation.scope;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.code.Chunk;
-import x590.newyava.decompilation.operation.TernaryOperator;
+import x590.newyava.decompilation.operation.emptyscope.EmptyScopeOperation;
+import x590.newyava.decompilation.operation.emptyscope.EmptyableScopeOperation;
+import x590.newyava.decompilation.operation.OperationUtils;
+import x590.newyava.decompilation.operation.operator.TernaryOperator;
 import x590.newyava.io.DecompilationWriter;
 
 import java.util.List;
 
 public final class ElseScope extends IfElseScope {
 
-	public ElseScope(@Unmodifiable List<Chunk> chunks) {
+	/** @return экземпляр {@link ElseScope}, если список чанков не пуст, иначе {@link EmptyScopeOperation}. */
+	public static EmptyableScopeOperation create(@Unmodifiable List<Chunk> chunks) {
+		return chunks.isEmpty() ?
+				new EmptyScopeOperation("else") :
+				new ElseScope(chunks);
+	}
+
+	private ElseScope(@Unmodifiable List<Chunk> chunks) {
 		super(chunks, 0);
 	}
 
@@ -43,6 +53,12 @@ public final class ElseScope extends IfElseScope {
 			operations.remove(size - 1);
 			operations.remove(size - 2);
 		}
+	}
+
+	@Override
+	public boolean removeLastContinueOfLoop(LoopScope loop) {
+		OperationUtils.removeLastContinueOfLoop(this, loop);
+		return true;
 	}
 
 	@Override

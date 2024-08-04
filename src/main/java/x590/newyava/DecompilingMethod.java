@@ -11,8 +11,8 @@ import x590.newyava.annotation.DefaultValue;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.context.Context;
-import x590.newyava.decompilation.code.CodeGraph;
 import x590.newyava.decompilation.code.Code;
+import x590.newyava.decompilation.code.CodeGraph;
 import x590.newyava.decompilation.code.CodeProxy;
 import x590.newyava.decompilation.code.InvalidCode;
 import x590.newyava.descriptor.FieldDescriptor;
@@ -36,7 +36,7 @@ import static x590.newyava.modifiers.Modifiers.*;
  * Декомпилируемый метод
  */
 @Getter
-public class DecompilingMethod implements ContextualWritable, Importable {
+public class DecompilingMethod implements IMethod, ContextualWritable, Importable {
 	private final int modifiers;
 
 	/** Формальный дескриптор */
@@ -98,20 +98,32 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 
 	/** Обрабатывает исключение. Если {@link Config#failOnDecompilationException()} равно {@code true},
 	 * то выбрасывает это исключение ещё раз, иначе записывает в консоль стектрейс. */
-	private void handleException(DecompilationException ex, Context context) {
+	private void handleException(DecompilationException exception, Context context) {
 		if (context.getConfig().failOnDecompilationException()) {
-			ex.setMethodDescriptor(descriptor);
-			throw ex;
+			exception.setMethodDescriptor(descriptor);
+			throw exception;
 		}
+
+		Throwable ex = exception.getCause() != null ? exception.getCause() : exception;
 
 		String  name = ex.getClass().getSimpleName(),
 				message = ex.getMessage();
 
+		int size = codeGraph == null ? 0 : codeGraph.getSize();
+
 		codeGraph = null;
 		code.setCode(new InvalidCode(StringUtils.isEmpty(message) ? name : name + ": " + message));
-		ex.setMethodDescriptor(descriptor);
-//		ex.printStackTrace();
-		System.err.println(ex);
+
+		exception.setMethodDescriptor(descriptor);
+
+		if (context.getConfig().skipStackTrace()) {
+			System.err.println(StringUtils.isEmpty(message) ?
+					name + "| In method " + descriptor + "| " + size :
+					name + "| In method " + descriptor + "| " + size + "| " + message
+			);
+		} else {
+			ex.printStackTrace();
+		}
 	}
 
 	public void decompile(Context context) {
@@ -252,7 +264,7 @@ public class DecompilingMethod implements ContextualWritable, Importable {
 		}
 
 		if (defaultValue != null) {
-			out.record(" default ").record(defaultValue.getAnnotationValue(), new ConstantWriteContext(context, descriptor.returnType(), true));
+			defaultValue.write(out, new ConstantWriteContext(context, descriptor.returnType(), true, true));
 		}
 
 		if (code.isValid()) {

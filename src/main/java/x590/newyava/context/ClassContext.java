@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.*;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
+import x590.newyava.type.ClassArrayType;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.Type;
 
@@ -57,17 +58,17 @@ public class ClassContext implements Context {
 
 	/* -------------------------------------------------- Imports --------------------------------------------------- */
 	/** Кандидаты на импорт */
-	private Multiset<ClassType> importCandidates = HashMultiset.create();
+	private @Nullable Multiset<ClassType> importCandidates = HashMultiset.create();
 
 	/** Простые имена классов, объявленных в данном классе, а также имя данного класса.
 	 * Нельзя импортировать классы с такими же именами. */
 	private final Set<String> declaredClassesNames = new HashSet<>();
 
 	/** Конечные импорты. Для вложенных классов равно {@code null}. */
-	private Set<ClassType> imports;
+	private @Nullable Set<ClassType> imports;
 
 	/** Импорты {@link #getThisType()} и всех его внешних классов */
-	private Set<ClassType> thisClassImports;
+	private @Nullable Set<ClassType> thisClassImports;
 
 	/** Контекст внешнего класса. Если он не равен {@code null}, то к нему делегируются вся работа с импортами. */
 	private @Nullable ClassContext outer;
@@ -117,6 +118,8 @@ public class ClassContext implements Context {
 		if (classType.getTopLevelClass().equals(getThisType())) {
 			declaredClassesNames.add(classType.getSimpleName());
 		}
+
+		assert importCandidates != null;
 
 		if (classType.isNested() && !getConfig().importNestedClasses()) {
 			importCandidates.add(classType.getTopLevelClass());
@@ -168,6 +171,8 @@ public class ClassContext implements Context {
 			throw new IllegalStateException("Imports already computed");
 
 		imports = new HashSet<>();
+
+		assert importCandidates != null;
 
 		var grouped = importCandidates.entrySet().stream()
 				.collect(Collectors.groupingBy(entry -> entry.getElement().getSimpleName()));
@@ -225,32 +230,57 @@ public class ClassContext implements Context {
 	/** @return {@code true}, если класс импортирован. */
 	@Override
 	public boolean imported(ClassType classType) {
-		return getImports().contains(classType) ||
-				thisClassImports.contains(classType) ||
+		if (getImports().contains(classType)) return true;
+
+		assert thisClassImports != null;
+
+		return thisClassImports.contains(classType) ||
 				(entered && thisClassImports.contains(classType.getOuter()));
 	}
 
 
 	/* ---------------------------------------------------- find ---------------------------------------------------- */
+
 	@Override
 	public Optional<DecompilingField> findField(FieldDescriptor descriptor) {
-		return decompilingClass.getFields().stream()
-				.filter(field -> field.getDescriptor().equals(descriptor)).findAny();
+		return descriptor.hostClass().equals(getThisType()) ?
+				decompilingClass.findField(descriptor) :
+				findClass(descriptor.hostClass()).flatMap(clazz -> clazz.findField(descriptor));
 	}
 
 	@Override
 	public Optional<DecompilingMethod> findMethod(MethodDescriptor descriptor) {
-		return decompilingClass.getMethods().stream()
-				.filter(method -> method.getDescriptor().equals(descriptor)).findAny();
+		return descriptor.hostClass().equals(getThisType()) ?
+				decompilingClass.findMethod(descriptor) :
+				findClass(descriptor.hostClass()).flatMap(clazz -> clazz.findMethod(descriptor));
 	}
 
+	/** @return поток всех методов данного класса, которые соответствуют предикату. */
 	public Stream<DecompilingMethod> findMethods(Predicate<DecompilingMethod> predicate) {
-		return decompilingClass.getMethods().stream()
-				.filter(predicate);
+		return decompilingClass.getMethods().stream().filter(predicate);
 	}
 
 	@Override
-	public Optional<DecompilingClass> findClass(@Nullable ClassType classType) {
-		return decompiler.findClass(classType);
+	public Optional<DecompilingClass> findClass(@Nullable ClassArrayType type) {
+		return decompiler.findClass(type);
+	}
+
+	@Override
+	public Optional<? extends IField> findIField(FieldDescriptor descriptor) {
+		return descriptor.hostClass().equals(getThisType()) ?
+				decompilingClass.findField(descriptor) :
+				findIClass(descriptor.hostClass()).flatMap(clazz -> clazz.findField(descriptor));
+	}
+
+	@Override
+	public Optional<? extends IMethod> findIMethod(MethodDescriptor descriptor) {
+		return descriptor.hostClass().equals(getThisType()) ?
+				decompilingClass.findMethod(descriptor) :
+				findIClass(descriptor.hostClass()).flatMap(clazz -> clazz.findMethod(descriptor));
+	}
+
+	@Override
+	public Optional<? extends IClass> findIClass(@Nullable ClassArrayType type) {
+		return decompiler.findIClass(type);
 	}
 }

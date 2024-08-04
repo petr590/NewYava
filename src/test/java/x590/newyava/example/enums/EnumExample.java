@@ -15,4 +15,13 @@ public enum EnumExample {
 	public static void main(String[] args) {
 		Main.run(EnumExample.class);
 	}
+
+	@Override
+	public String toString() {
+		return switch (this) {
+			case A -> "a";
+			case B -> "b";
+			case C -> "c";
+		};
+	}
 }

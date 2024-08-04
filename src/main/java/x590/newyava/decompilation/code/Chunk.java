@@ -6,7 +6,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -14,17 +13,18 @@ import org.objectweb.asm.Label;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.instruction.FlowControlInsn;
 import x590.newyava.decompilation.instruction.Instruction;
-import x590.newyava.decompilation.operation.ProxyOperation;
-import x590.newyava.decompilation.operation.variable.CatchOperation;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.other.ProxyOperation;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.decompilation.operation.condition.JumpOperation;
 import x590.newyava.decompilation.operation.condition.Role;
 import x590.newyava.decompilation.operation.condition.SwitchOperation;
+import x590.newyava.decompilation.operation.variable.CatchOperation;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.decompilation.variable.VariableSlotView;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.type.PrimitiveType;
+import x590.newyava.util.Utils;
 
 import java.util.*;
 
@@ -61,7 +61,7 @@ public class Chunk implements Comparable<Chunk> {
 
 
 	/** Операции, которые принимает данный чанк. */
-	private List<ProxyOperation> poppedOperations;
+	private @Nullable List<ProxyOperation> poppedOperations;
 
 	
 	/** Операции, оставшиеся на стеке после декомпиляции чанка. */
@@ -135,8 +135,8 @@ public class Chunk implements Comparable<Chunk> {
 			throw new IllegalStateException("Instruction " + instruction + " is after flow control instruction");
 		}
 
-		if (instruction instanceof FlowControlInsn flow) {
-			flowControlInsn = flow;
+		if (instruction instanceof FlowControlInsn flowControl) {
+			flowControlInsn = flowControl;
 		} else {
 			instructions.add(instruction);
 		}
@@ -215,7 +215,7 @@ public class Chunk implements Comparable<Chunk> {
 	void linkStackState(@Unmodifiable List<Chunk> chunks) {
 		int chunkId = id - 1;
 
-		for (ProxyOperation popped : poppedOperations) {
+		for (ProxyOperation popped : Objects.requireNonNull(poppedOperations)) {
 			for (;;) {
 				if (chunkId < 0) {
 					throw new DecompilationException("All chunks are over during stack state linking");
@@ -277,11 +277,16 @@ public class Chunk implements Comparable<Chunk> {
 
 	/** @return {@code true}, если чанк оканчивается терминальной операцией */
 	public boolean isTerminal() {
-		return !operations.isEmpty() && operations.get(operations.size() - 1).isTerminal();
+		return Utils.isLast(operations, Operation::isTerminal);
+	}
+
+	/** @return {@code true}, если чанк оканчивается операцией {@code throw} */
+	public boolean isThrow() {
+		return Utils.isLast(operations, Operation::isThrow);
 	}
 
 	@Override
-	public int compareTo(@NotNull Chunk other) {
+	public int compareTo(Chunk other) {
 		return this.id - other.id;
 	}
 

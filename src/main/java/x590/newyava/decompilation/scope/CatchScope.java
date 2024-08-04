@@ -3,11 +3,13 @@ package x590.newyava.decompilation.scope;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import x590.newyava.RemoveIfNotUsed;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.terminal.ThrowOperation;
 import x590.newyava.decompilation.operation.variable.CatchOperation;
@@ -25,9 +27,13 @@ public class CatchScope extends Scope {
 	@Getter
 	private final CatchOperation catchOperation;
 
-	public CatchScope(@Unmodifiable List<Chunk> chunks, CatchOperation catchOperation) {
+	@RemoveIfNotUsed
+	private final TryScope tryScope;
+
+	public CatchScope(@Unmodifiable List<Chunk> chunks, CatchOperation catchOperation, TryScope tryScope) {
 		super(chunks);
 		this.catchOperation = catchOperation;
+		this.tryScope = tryScope;
 	}
 
 	@Override
@@ -45,17 +51,20 @@ public class CatchScope extends Scope {
 	public void postDecompilation(MethodContext context) {
 		super.postDecompilation(context);
 
-		int lastIndex = operations.size() - 1;
-
-		if (lastIndex >= 0 &&
-			operations.get(lastIndex) instanceof ThrowOperation throwOp &&
-			throwOp.getException() instanceof ILoadOperation iload &&
-			iload.getSlotId() == catchOperation.getVarRef().getSlotId()) {
-
-			operations.remove(lastIndex);
+		if (catchOperation.isFinally()) {
+			removeLastOperationIf(
+					operation -> operation instanceof ThrowOperation throwOp &&
+							throwOp.getException() instanceof ILoadOperation iload &&
+							iload.getSlotId() == catchOperation.getVarRef().getSlotId()
+			);
 		}
 	}
 
+	@Override
+	public boolean removeLastContinueOfLoop(LoopScope loop) {
+		OperationUtils.removeLastContinueOfLoop(this, loop);
+		return true;
+	}
 
 	@Override
 	public void addImports(ClassContext context) {

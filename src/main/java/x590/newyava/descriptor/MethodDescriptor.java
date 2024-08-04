@@ -13,13 +13,11 @@ import x590.newyava.decompilation.variable.Variable;
 import x590.newyava.exception.InvalidDescriptorException;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.io.SignatureReader;
-import x590.newyava.type.PrimitiveType;
-import x590.newyava.type.ReferenceType;
-import x590.newyava.type.Type;
-import x590.newyava.type.TypeSize;
+import x590.newyava.type.*;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 
@@ -30,7 +28,7 @@ import java.util.stream.Collectors;
  *                 Не то же самое, что и {@link #fromIndex}.
  */
 public record MethodDescriptor(
-		ReferenceType hostClass,
+		ClassArrayType hostClass,
 		String name,
 		Type returnType,
 		@Unmodifiable List<Type> arguments,
@@ -59,15 +57,15 @@ public record MethodDescriptor(
 		}
 	}
 
-	public MethodDescriptor(ReferenceType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
+	public MethodDescriptor(ClassArrayType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
 		this(hostClass, name, returnType, arguments, 0, 0);
 	}
 
-	public MethodDescriptor(ReferenceType hostClass, String name, Type returnType) {
+	public MethodDescriptor(ClassArrayType hostClass, String name, Type returnType) {
 		this(hostClass, name, returnType, List.of());
 	}
 
-	public static MethodDescriptor of(ReferenceType hostClass, String name, String argsAndReturnType) {
+	public static MethodDescriptor of(ClassArrayType hostClass, String name, String argsAndReturnType) {
 		var reader = new SignatureReader(argsAndReturnType);
 
 		List<Type> arguments = Type.parseMethodArguments(reader);
@@ -78,7 +76,15 @@ public record MethodDescriptor(
 	}
 
 	public static MethodDescriptor of(Handle handle) {
-		return of(ReferenceType.valueOf(handle.getOwner()), handle.getName(), handle.getDesc());
+		return of(ClassArrayType.valueOf(handle.getOwner()), handle.getName(), handle.getDesc());
+	}
+
+	public static MethodDescriptor constructor(ClassArrayType hostClass) {
+		return constructor(hostClass, List.of());
+	}
+
+	public static MethodDescriptor constructor(ClassArrayType hostClass, @Unmodifiable List<Type> arguments) {
+		return new MethodDescriptor(hostClass, INIT, PrimitiveType.VOID, arguments);
 	}
 
 	public static int slots(@Unmodifiable List<Type> arguments) {
@@ -184,7 +190,7 @@ public record MethodDescriptor(
 			if (arguments.get(index).getSize() == TypeSize.LONG)
 				offset++;
 
-			return name;
+			return Objects.requireNonNull(name);
 		}
 	}
 
@@ -216,14 +222,14 @@ public record MethodDescriptor(
 	}
 
 
-	public boolean equals(ReferenceType hostClass, String name, Type returnType) {
+	public boolean equals(ClassArrayType hostClass, String name, Type returnType) {
 		return  this.hostClass.equals(hostClass) &&
 				this.name.equals(name) &&
 				this.returnType.equals(returnType) &&
 				this.arguments.isEmpty();
 	}
 
-	public boolean equals(ReferenceType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
+	public boolean equals(ClassArrayType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
 		return  this.hostClass.equals(hostClass) &&
 				this.name.equals(name) &&
 				this.returnType.equals(returnType) &&

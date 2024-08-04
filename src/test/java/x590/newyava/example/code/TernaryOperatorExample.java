@@ -1,5 +1,6 @@
 package x590.newyava.example.code;
 
+import org.jetbrains.annotations.Nullable;
 import org.junit.Test;
 import x590.newyava.example.Main;
 
@@ -32,7 +33,7 @@ public class TernaryOperatorExample {
 		return a && b || c;
 	}
 
-	public boolean isNull(Object obj) {
+	public boolean isNull(@Nullable Object obj) {
 		return obj == null;
 	}
 
@@ -40,5 +41,13 @@ public class TernaryOperatorExample {
 
 	public void bug1(boolean x) {
 		bar(x ? 5 : 10);
+	}
+
+	public boolean andCondition(double x, double y, @Nullable Object o) {
+		return x > y ? isNull(o) : false;
+	}
+
+	public boolean orCondition(double x, double y, @Nullable Object o) {
+		return x > y ? true : isNull(o);
 	}
 }

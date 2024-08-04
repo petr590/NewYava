@@ -11,19 +11,26 @@ import x590.newyava.constant.FloatConstant;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.constant.LongConstant;
 import x590.newyava.context.MethodContext;
-import x590.newyava.decompilation.operation.Dup;
 import x590.newyava.decompilation.operation.*;
 import x590.newyava.decompilation.operation.array.ArrayLengthOperation;
 import x590.newyava.decompilation.operation.array.ArrayLoadOperation;
 import x590.newyava.decompilation.operation.array.ArrayStoreOperation;
 import x590.newyava.decompilation.operation.condition.CmpOperation;
+import x590.newyava.decompilation.operation.monitor.MonitorEnterOperation;
+import x590.newyava.decompilation.operation.monitor.MonitorExitOperation;
+import x590.newyava.decompilation.operation.operator.BinaryOperator;
+import x590.newyava.decompilation.operation.operator.UnaryOperator;
+import x590.newyava.decompilation.operation.other.CastOperation;
+import x590.newyava.decompilation.operation.other.ConstNullOperation;
+import x590.newyava.decompilation.operation.other.LdcOperation;
+import x590.newyava.decompilation.operation.other.PopOperation;
 import x590.newyava.exception.UnknownOpcodeException;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.TypeSize;
 import x590.newyava.type.Types;
 
-import static x590.newyava.decompilation.operation.Operator.*;
 import static org.objectweb.asm.Opcodes.*;
+import static x590.newyava.decompilation.operation.operator.OperatorType.*;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class JustInsn implements Instruction {
@@ -85,53 +92,53 @@ public class JustInsn implements Instruction {
 			case DUP2_X2 -> { Dup.dupX1(context.getStack(), TypeSize.LONG, TypeSize.LONG); yield null; }
 			case DUP_X2  -> { Dup.dupX2(context.getStack()); yield null; }
 
-			case IADD -> new BinaryOperation(context, ADD, PrimitiveType.INT);
-			case LADD -> new BinaryOperation(context, ADD, PrimitiveType.LONG);
-			case FADD -> new BinaryOperation(context, ADD, PrimitiveType.FLOAT);
-			case DADD -> new BinaryOperation(context, ADD, PrimitiveType.DOUBLE);
+			case IADD -> new BinaryOperator(context, ADD, PrimitiveType.INT);
+			case LADD -> new BinaryOperator(context, ADD, PrimitiveType.LONG);
+			case FADD -> new BinaryOperator(context, ADD, PrimitiveType.FLOAT);
+			case DADD -> new BinaryOperator(context, ADD, PrimitiveType.DOUBLE);
 
-			case ISUB -> new BinaryOperation(context, SUB, PrimitiveType.INT);
-			case LSUB -> new BinaryOperation(context, SUB, PrimitiveType.LONG);
-			case FSUB -> new BinaryOperation(context, SUB, PrimitiveType.FLOAT);
-			case DSUB -> new BinaryOperation(context, SUB, PrimitiveType.DOUBLE);
+			case ISUB -> new BinaryOperator(context, SUB, PrimitiveType.INT);
+			case LSUB -> new BinaryOperator(context, SUB, PrimitiveType.LONG);
+			case FSUB -> new BinaryOperator(context, SUB, PrimitiveType.FLOAT);
+			case DSUB -> new BinaryOperator(context, SUB, PrimitiveType.DOUBLE);
 
-			case IMUL -> new BinaryOperation(context, MUL, PrimitiveType.INT);
-			case LMUL -> new BinaryOperation(context, MUL, PrimitiveType.LONG);
-			case FMUL -> new BinaryOperation(context, MUL, PrimitiveType.FLOAT);
-			case DMUL -> new BinaryOperation(context, MUL, PrimitiveType.DOUBLE);
+			case IMUL -> new BinaryOperator(context, MUL, PrimitiveType.INT);
+			case LMUL -> new BinaryOperator(context, MUL, PrimitiveType.LONG);
+			case FMUL -> new BinaryOperator(context, MUL, PrimitiveType.FLOAT);
+			case DMUL -> new BinaryOperator(context, MUL, PrimitiveType.DOUBLE);
 
-			case IDIV -> new BinaryOperation(context, DIV, PrimitiveType.INT);
-			case LDIV -> new BinaryOperation(context, DIV, PrimitiveType.LONG);
-			case FDIV -> new BinaryOperation(context, DIV, PrimitiveType.FLOAT);
-			case DDIV -> new BinaryOperation(context, DIV, PrimitiveType.DOUBLE);
+			case IDIV -> new BinaryOperator(context, DIV, PrimitiveType.INT);
+			case LDIV -> new BinaryOperator(context, DIV, PrimitiveType.LONG);
+			case FDIV -> new BinaryOperator(context, DIV, PrimitiveType.FLOAT);
+			case DDIV -> new BinaryOperator(context, DIV, PrimitiveType.DOUBLE);
 
-			case IREM -> new BinaryOperation(context, REM, PrimitiveType.INT);
-			case LREM -> new BinaryOperation(context, REM, PrimitiveType.LONG);
-			case FREM -> new BinaryOperation(context, REM, PrimitiveType.FLOAT);
-			case DREM -> new BinaryOperation(context, REM, PrimitiveType.DOUBLE);
+			case IREM -> new BinaryOperator(context, REM, PrimitiveType.INT);
+			case LREM -> new BinaryOperator(context, REM, PrimitiveType.LONG);
+			case FREM -> new BinaryOperator(context, REM, PrimitiveType.FLOAT);
+			case DREM -> new BinaryOperator(context, REM, PrimitiveType.DOUBLE);
 
-			case INEG -> new UnaryOperation(context, "-", PrimitiveType.INT);
-			case LNEG -> new UnaryOperation(context, "-", PrimitiveType.LONG);
-			case FNEG -> new UnaryOperation(context, "-", PrimitiveType.FLOAT);
-			case DNEG -> new UnaryOperation(context, "-", PrimitiveType.DOUBLE);
+			case INEG -> new UnaryOperator(context, "-", PrimitiveType.INT);
+			case LNEG -> new UnaryOperator(context, "-", PrimitiveType.LONG);
+			case FNEG -> new UnaryOperator(context, "-", PrimitiveType.FLOAT);
+			case DNEG -> new UnaryOperator(context, "-", PrimitiveType.DOUBLE);
 
-			case ISHL -> new BinaryOperation(context, SHL, PrimitiveType.INT, PrimitiveType.INT);
-			case LSHL -> new BinaryOperation(context, SHL, PrimitiveType.LONG, PrimitiveType.INT);
+			case ISHL -> new BinaryOperator(context, SHL, PrimitiveType.INT, PrimitiveType.INT);
+			case LSHL -> new BinaryOperator(context, SHL, PrimitiveType.LONG, PrimitiveType.INT);
 
-			case ISHR -> new BinaryOperation(context, SHR, PrimitiveType.INT, PrimitiveType.INT);
-			case LSHR -> new BinaryOperation(context, SHR, PrimitiveType.LONG, PrimitiveType.INT);
+			case ISHR -> new BinaryOperator(context, SHR, PrimitiveType.INT, PrimitiveType.INT);
+			case LSHR -> new BinaryOperator(context, SHR, PrimitiveType.LONG, PrimitiveType.INT);
 
-			case IUSHR -> new BinaryOperation(context, USHR, PrimitiveType.INT, PrimitiveType.INT);
-			case LUSHR -> new BinaryOperation(context, USHR, PrimitiveType.LONG, PrimitiveType.INT);
+			case IUSHR -> new BinaryOperator(context, USHR, PrimitiveType.INT, PrimitiveType.INT);
+			case LUSHR -> new BinaryOperator(context, USHR, PrimitiveType.LONG, PrimitiveType.INT);
 
-			case IAND -> new BinaryOperation(context, AND, PrimitiveType.INT_OR_BOOLEAN);
-			case LAND -> new BinaryOperation(context, AND, PrimitiveType.LONG);
+			case IAND -> new BinaryOperator(context, AND, PrimitiveType.INT_OR_BOOLEAN);
+			case LAND -> new BinaryOperator(context, AND, PrimitiveType.LONG);
 
-			case IOR -> new BinaryOperation(context, OR, PrimitiveType.INT_OR_BOOLEAN);
-			case LOR -> new BinaryOperation(context, OR, PrimitiveType.LONG);
+			case IOR -> new BinaryOperator(context, OR, PrimitiveType.INT_OR_BOOLEAN);
+			case LOR -> new BinaryOperator(context, OR, PrimitiveType.LONG);
 
-			case IXOR -> new BinaryOperation(context, XOR, PrimitiveType.INT_OR_BOOLEAN);
-			case LXOR -> new BinaryOperation(context, XOR, PrimitiveType.LONG);
+			case IXOR -> new BinaryOperator(context, XOR, PrimitiveType.INT_OR_BOOLEAN);
+			case LXOR -> new BinaryOperator(context, XOR, PrimitiveType.LONG);
 
 			case I2L -> CastOperation.wide(context, PrimitiveType.INT, PrimitiveType.LONG);
 			case I2F -> CastOperation.wide(context, PrimitiveType.INT, PrimitiveType.FLOAT);
@@ -157,7 +164,9 @@ public class JustInsn implements Instruction {
 			case FCMPL, FCMPG -> new CmpOperation(context, PrimitiveType.FLOAT);
 			case DCMPL, DCMPG -> new CmpOperation(context, PrimitiveType.DOUBLE);
 
-			case ARRAYLENGTH -> new ArrayLengthOperation(context);
+			case ARRAYLENGTH  -> new ArrayLengthOperation(context);
+			case MONITORENTER -> new MonitorEnterOperation(context);
+			case MONITOREXIT  -> new MonitorExitOperation(context);
 
 			default -> throw new UnknownOpcodeException(opcode);
 		};
@@ -165,6 +174,6 @@ public class JustInsn implements Instruction {
 
 	@Override
 	public String toString() {
-		return String.format("JustInsn(%s)", InsnUtil.opcodeToString(opcode));
+		return String.format("JustInsn(%s)", InsnUtils.opcodeToString(opcode));
 	}
 }

@@ -1,7 +1,6 @@
 package x590.newyava.decompilation.scope;
 
 
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
@@ -9,27 +8,28 @@ import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.condition.Condition;
 import x590.newyava.decompilation.operation.condition.ConstCondition;
-import x590.newyava.decompilation.operation.condition.JumpOperation;
 import x590.newyava.decompilation.operation.condition.Role;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
+import x590.newyava.util.Utils;
 
 import java.util.List;
 import java.util.Objects;
 
 public class LoopScope extends Scope {
 
-	private final @NotNull Condition condition;
+	private final Condition condition;
 
 	public LoopScope(@Unmodifiable List<Chunk> chunks) {
 		super(chunks);
 
 		Chunk first = chunks.get(0);
-		Chunk last = chunks.get(chunks.size() - 1);
+		Chunk last = Utils.getLast(chunks);
 		Chunk firstConditional = first.getConditionalChunk();
 
 		if (firstConditional != null && firstConditional.getId() == last.getId() + 1) {
@@ -52,6 +52,11 @@ public class LoopScope extends Scope {
 				}
 			}
 		}
+	}
+
+	@Override
+	public boolean canShrink() {
+		return false;
 	}
 
 	@Override
@@ -78,15 +83,7 @@ public class LoopScope extends Scope {
 	@Override
 	public void postDecompilation(MethodContext context) {
 		super.postDecompilation(context);
-
-		var operations = this.operations;
-		int last = operations.size() - 1;
-
-		if (last >= 0 && operations.get(last) instanceof JumpOperation jumpOperation &&
-			jumpOperation.getRole().isContinueOf(this)) {
-
-			operations.remove(last);
-		}
+		OperationUtils.removeLastContinueOfLoop(this, this);
 	}
 
 	@Override

@@ -3,11 +3,14 @@ package x590.newyava.visitor;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.RecordComponentVisitor;
-import x590.newyava.Util;
+import x590.newyava.util.Utils;
 import x590.newyava.annotation.DecompilingAnnotation;
 
 import java.util.Set;
 
+/**
+ * Визитор компонента record. Собирает все аннотации компонента и предоставляет к ним доступ.
+ */
 public class DecompileRecordComponentVisitor extends RecordComponentVisitor {
 	private final Set<DecompilingAnnotation> annotations;
 
@@ -18,6 +21,6 @@ public class DecompileRecordComponentVisitor extends RecordComponentVisitor {
 
 	@Override
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-		return Util.addAndGetBack(annotations, new DecompilingAnnotation(descriptor));
+		return Utils.addAndGetBack(annotations, new DecompilingAnnotation(descriptor));
 	}
 }

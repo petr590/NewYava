@@ -1,9 +1,9 @@
 package x590.newyava.io;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.function.TriConsumer;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import x590.newyava.Config;
 import x590.newyava.context.Context;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Associativity;
@@ -15,14 +15,20 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.Objects;
 import java.util.function.ObjIntConsumer;
 
-@RequiredArgsConstructor
 public class DecompilationWriter extends Writer {
 
 	private final WriterFactory writerFactory;
 
-	private Writer out;
+	private @Nullable Writer out;
+
+	public DecompilationWriter(WriterFactory factory, Config config) {
+		this.writerFactory = factory;
+		this.singleIndent = config.getIndent();
+	}
 
 	public void openWriter(String className) throws IOException {
 		out = writerFactory.getWriter(className);
@@ -39,15 +45,16 @@ public class DecompilationWriter extends Writer {
 	}
 
 	/* --------------------------------------------------- indent --------------------------------------------------- */
-	public static final String DEFAULT_INDENT = "    ";
-
 	public static final int INDENTS_CACHE_SIZE = 64;
 
-	private static final String[] INDENTS_CACHE = new String[INDENTS_CACHE_SIZE];
+	private final String[] indentsCache = new String[INDENTS_CACHE_SIZE];
 
-	static {
-		INDENTS_CACHE[0] = "";
+	{
+		indentsCache[0] = "";
 	}
+
+
+	public final String singleIndent;
 
 	private int indentWidth = 0;
 
@@ -72,21 +79,21 @@ public class DecompilationWriter extends Writer {
 
 	public DecompilationWriter setIndent(int width) {
 		if (width < 0) {
-			throw new IllegalStateException("Negative indent width " + width);
+			throw new IllegalArgumentException("Negative indent width " + width);
 		}
 
 		this.indentWidth = width;
 
 		if (width < INDENTS_CACHE_SIZE) {
-			String indent = INDENTS_CACHE[width];
+			String indent = indentsCache[width];
 
 			if (indent == null)
-				indent = INDENTS_CACHE[width] = DEFAULT_INDENT.repeat(width);
+				indent = indentsCache[width] = singleIndent.repeat(width);
 
 			this.indent = indent;
 
 		} else {
-			indent = DEFAULT_INDENT.repeat(width);
+			indent = singleIndent.repeat(width);
 		}
 
 		return this;
@@ -97,15 +104,15 @@ public class DecompilationWriter extends Writer {
 	}
 
 	@Override
-	public void write(char @NotNull[] buffer, int off, int len) throws IOException {
-		out.write(buffer, off, len);
+	public void write(char[] buffer, int off, int len) throws IOException {
+		Objects.requireNonNull(out).write(buffer, off, len);
 	}
 
 	/* --------------------------------------------------- record --------------------------------------------------- */
 
 	public DecompilationWriter record(char ch) {
 		try {
-			out.write(ch);
+			Objects.requireNonNull(out).write(ch);
 		} catch (IOException ex) {
 			throw new UncheckedIOException(ex);
 		}
@@ -115,7 +122,7 @@ public class DecompilationWriter extends Writer {
 
 	public DecompilationWriter record(String str) {
 		try {
-			out.write(str);
+			Objects.requireNonNull(out).write(str);
 		} catch (IOException ex) {
 			throw new UncheckedIOException(ex);
 		}
@@ -275,14 +282,19 @@ public class DecompilationWriter extends Writer {
 			Collection<? extends T> operations, MethodWriteContext context, Priority priority,
 			String separator, TriConsumer<T, DecompilationWriter, MethodWriteContext> writer
 	) {
-		if (!operations.isEmpty()) {
-			record(operations.iterator().next(), context, priority, priority.getAssociativity(), writer);
+		return record(operations.iterator(), context, priority, separator, writer);
+	}
 
-			if (operations.size() > 1) {
-				var opposite = priority.getAssociativity().opposite();
 
-				operations.stream().skip(1).forEach(operation -> record(separator)
-						.record(operation, context, priority, opposite, writer));
+	public <T extends Operation> DecompilationWriter record(
+			Iterator<? extends T> iter, MethodWriteContext context, Priority priority,
+			String separator, TriConsumer<T, DecompilationWriter, MethodWriteContext> writer
+	) {
+		if (iter.hasNext()) {
+			record(iter.next(), context, priority, priority.getAssociativity(), writer);
+
+			for (var opposite = priority.getAssociativity().opposite(); iter.hasNext(); ) {
+				record(separator).record(iter.next(), context, priority, opposite, writer);
 			}
 		}
 

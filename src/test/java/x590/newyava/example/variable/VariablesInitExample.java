@@ -13,48 +13,58 @@ public class VariablesInitExample {
 
 	private void f(int x) {}
 
-	public void foo(boolean x, boolean y) {
-		String s;
+//	public void foo(boolean x, boolean y) {
+//		String s;
+//
+//		if (x) {
+//			int g = 10;
+//			f(g);
+//
+//			String s2 = "gg";
+//
+//			if (y) {
+//				s = "abc";
+//				System.out.println(s2);
+//			} else {
+//				s = "ABC";
+//			}
+//		} else {
+//			s = "def";
+//		}
+//
+//		if (x) {
+//			int g = 11;
+//			f(g);
+//		}
+//
+//		System.out.println(s);
+//	}
+//
+//	public void foo2(double x, double y) {
+//		String s;
+//
+//		if (x >= 0) {
+//			if (y >= 0)
+//				s = "++";
+//			else
+//				s = "+-";
+//		} else {
+//			if (y >= 0)
+//				s = "-+";
+//			else
+//				s = "--";
+//		}
+//
+//		System.out.println(s);
+//	}
 
-		if (x) {
-			int g = 10;
-			f(g);
-
-			String s2 = "gg";
-
-			if (y) {
-				s = "abc";
-				System.out.println(s2);
-			} else {
-				s = "ABC";
-			}
-		} else {
-			s = "def";
+	public void foo3(boolean b) {
+		if (b) {
+			int x = 10;
+			System.out.println(x);
 		}
 
-		if (x) {
-			int g = 11;
-			f(g);
-		}
-
-		System.out.println(s);
-	}
-
-	public void foo2(double x, double y) {
-		String s;
-
-		if (x >= 0) {
-			if (y >= 0)
-				s = "++";
-			else
-				s = "+-";
-		} else {
-			if (y >= 0)
-				s = "-+";
-			else
-				s = "--";
-		}
-
+		String s = "abc";
 		System.out.println(s);
 	}
 }

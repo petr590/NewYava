@@ -10,6 +10,7 @@ import x590.newyava.exception.DecompilationException;
 import x590.newyava.exception.InvalidTypeException;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.io.SignatureReader;
+import x590.newyava.util.Utils;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
@@ -20,7 +21,8 @@ import java.util.*;
  * Это <b>класс</b>ика Java!
  */
 @Getter
-public class ClassType implements ReferenceType {
+public final class ClassType implements ClassArrayType {
+
 	private static final Map<String, ClassType> CLASS_POOL = new HashMap<>();
 	private static final Map<String, String> OUTER_CLASS_NAMES_POOL = new HashMap<>();
 
@@ -36,6 +38,7 @@ public class ClassType implements ReferenceType {
 			ANNOTATION   = valueOf(Annotation.class),
 			REPEATABLE   = valueOf(Repeatable.class),
 			NO_SUCH_FIELD_ERROR = valueOf(NoSuchFieldError.class),
+			ASSERTION_ERROR     = valueOf(AssertionError.class),
 
 			BYTE      = valueOf(Byte.class),
 			SHORT     = valueOf(Short.class),
@@ -48,16 +51,17 @@ public class ClassType implements ReferenceType {
 			VOID      = valueOf(Void.class);
 
 
-	/** Полное бинарное имя класса, например {@code "java/lang/Object"} */
-	private final String binName;
+	/** Полное бинарное имя класса, например {@code "java/lang/Object"} или {@code "java/util/Map$Entry"} */
+	private final String classBinName;
 
 	/** Бинарное имя класса, например {@code "Object"} или {@code "Map$Entry"} */
-	private final String binSimpleName;
+	private final String simpleBinName;
 
-	/** Полное имя класса, например {@code "java.lang.Object"} */
+	/** Полное имя класса, например {@code "java.lang.Object"} или {@code "java.util.Map.Entry"} */
 	private String name;
 
-	/** Имя класса, например {@code "Object"}. */
+	/** Имя класса, например {@code "Object"}. Для вложенных классов включает
+	 * только имя самого класса без имени внешнего класса. */
 	private String simpleName;
 
 	/** Имя пакета класса, например {@code "java.lang"} */
@@ -71,19 +75,19 @@ public class ClassType implements ReferenceType {
 	private @Nullable ClassType superClass;
 	private @Nullable @Unmodifiable List<ClassType> interfaces;
 
-	private ClassType(String binName) {
-		if (!isValidName(binName)) {
-			throw new IllegalArgumentException(binName);
+	private ClassType(String classBinName) {
+		if (!isValidName(classBinName)) {
+			throw new IllegalArgumentException(classBinName);
 		}
 
-		this.binName = binName;
+		this.classBinName = classBinName;
 
-		String name = binName.replace('/', '.');
+		String name = classBinName.replace('/', '.');
 		int index = name.lastIndexOf('.');
 
 		this.name = name;
-		this.binSimpleName = index < 0 ? name : name.substring(index + 1);
-		this.simpleName = binSimpleName;
+		this.simpleBinName = index < 0 ? name : name.substring(index + 1);
+		this.simpleName = simpleBinName;
 		this.packageName = index < 0 ? "" : name.substring(0, index);
 	}
 
@@ -100,12 +104,12 @@ public class ClassType implements ReferenceType {
 		int len = binName.length();
 
 		if (len == 0 ||
-				!Character.isJavaIdentifierStart(binName.charAt(0)) ||
-				!Character.isJavaIdentifierPart(binName.charAt(len - 1))) {
+			!Character.isJavaIdentifierStart(binName.charAt(0)) ||
+			!Character.isJavaIdentifierPart(binName.charAt(len - 1))) {
 			return false;
 		}
 
-		for (int i = 1, l = binName.length(); i < l; ++i) {
+		for (int i = 1; i < len; i++) {
 			char c = binName.charAt(i);
 
 			if (c == '/') {
@@ -194,6 +198,10 @@ public class ClassType implements ReferenceType {
 		return valueOf(binName.toString());
 	}
 
+	@Override
+	public String getBinName() {
+		return "L" + classBinName + ";";
+	}
 
 	public boolean isPackageInfo() {
 		return simpleName.equals("package-info");
@@ -213,12 +221,11 @@ public class ClassType implements ReferenceType {
 	 *          class Z {}
 	 *      }
 	 * }}
-	 * </pre>
+	 * </pre>get
 	 * то {@code Z.isInside(X)} вернёт {@code true}. */
 	public boolean isInside(ClassType other) {
 		return outer != null && (outer.equals(other) || outer.isInside(other));
 	}
-
 
 	/** @return класс верхнего уровня, который содержит данный класс. */
 	public ClassType getTopLevelClass() {
@@ -286,7 +293,7 @@ public class ClassType implements ReferenceType {
 
 	private void checkOrUpdateOuter(String outerName, boolean isEnclosedInMethod) {
 		if (outer != null) {
-			if (outer.binName.equals(outerName)) {
+			if (outer.classBinName.equals(outerName)) {
 				return;
 			}
 
@@ -295,8 +302,8 @@ public class ClassType implements ReferenceType {
 
 		outer = valueOf(outerName);
 
-		var thisBinSN = this.binSimpleName;
-		var outerBinSN = outer.binSimpleName;
+		var thisBinSN = this.simpleBinName;
+		var outerBinSN = outer.simpleBinName;
 
 		if (thisBinSN.length() >= outerBinSN.length() + 1 &&
 			thisBinSN.startsWith(outerBinSN) &&
@@ -315,7 +322,7 @@ public class ClassType implements ReferenceType {
 	}
 
 	private String getInnerSimpleName(String outerBinSimpleName) {
-		var binSimpleName = this.binSimpleName;
+		var binSimpleName = this.simpleBinName;
 
 		int i = outerBinSimpleName.length() + 1;
 		int len = binSimpleName.length();
@@ -355,86 +362,8 @@ public class ClassType implements ReferenceType {
 
 	private String computeVarName() {
 		assert simpleName != null;
-		String name = toLowerCamelCase(simpleName);
-
-		return switch (name) {
-			case "boolean"    -> PrimitiveType.BOOLEAN.getVarName();
-			case "byte"       -> PrimitiveType.BYTE.getVarName();
-			case "short"      -> PrimitiveType.SHORT.getVarName();
-			case "char"       -> PrimitiveType.CHAR.getVarName();
-			case "int"        -> PrimitiveType.INT.getVarName();
-			case "long"       -> PrimitiveType.LONG.getVarName();
-			case "float"      -> PrimitiveType.FLOAT.getVarName();
-			case "double"     -> PrimitiveType.DOUBLE.getVarName();
-			case "void"       -> PrimitiveType.VOID.getVarName();
-
-			case "abstract"   -> "abs";
-			case "assert"     -> "assrt";
-			case "break"      -> "brk";
-			case "case"       -> "cs";
-			case "catch"      -> "ctch";
-			case "class"      -> "clazz";
-			case "const"      -> "cns";
-			case "continue"   -> "cont";
-			case "default"    -> "def";
-			case "do"         -> "d";
-			case "else"       -> "els";
-			case "enum"       -> "en";
-			case "extends"    -> "ext";
-			case "false"      -> "fls";
-			case "final"      -> "fin";
-			case "finally"    -> "finl";
-			case "for"        -> "fr";
-			case "goto"       -> "gt";
-			case "if"         -> "f";
-			case "implements" -> "impl";
-			case "import"     -> "imp";
-			case "instanceof" -> "inst";
-			case "interface"  -> "interf";
-			case "native"     -> "nat";
-			case "new"        -> "mew"; // ^•ﻌ•^
-			case "null"       -> "nll";
-			case "package"    -> "pack";
-			case "private"    -> "priv";
-			case "protected"  -> "prot";
-			case "public"     -> "pub";
-			case "return"     -> "ret";
-			case "static"     -> "stat";
-			case "strictfp"   -> "strict";
-			case "super"      -> "sup";
-			case "switch"     -> "swt";
-			case "this"       -> "ths";
-			case "throw"      -> "thr";
-			case "throws"     -> "thrs";
-			case "transient"  -> "trans";
-			case "true"       -> "tr";
-			case "try"        -> "tr";
-			case "volatile"   -> "vol";
-			case "while"      -> "whl";
-			case "_"          -> "__"; // Шта?
-			default           -> name;
-		};
+		return Utils.safeToLowerCamelCase(simpleName);
 	}
-
-	private static String toLowerCamelCase(String str) {
-		int index = 0,
-			len = str.length();
-
-		while (index < len && Character.isUpperCase(str.charAt(index))) {
-			index++;
-		}
-
-		if (index == len) {
-			return str.toLowerCase();
-		}
-
-		if (index > 1) { // Не уменьшать последний заглавный символ, если их больше одного
-			index -= 1;
-		}
-
-		return str.substring(0, index).toLowerCase() + str.substring(index, len);
-	}
-
 
 	@Override
 	public String toString() {

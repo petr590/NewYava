@@ -2,7 +2,7 @@ package x590.newyava.test;
 
 import org.junit.Assert;
 import org.junit.Test;
-import x590.newyava.constant.JavaEscapeUtils;
+import x590.newyava.util.JavaEscapeUtils;
 
 public class EscapingTest {
 	@Test

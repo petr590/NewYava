@@ -58,6 +58,6 @@ public enum TerminalInsn implements FlowControlInsn {
 
 	@Override
 	public String toString() {
-		return String.format("TerminalInsn(%s)", InsnUtil.opcodeToString(opcode));
+		return String.format("TerminalInsn(%s)", InsnUtils.opcodeToString(opcode));
 	}
 }

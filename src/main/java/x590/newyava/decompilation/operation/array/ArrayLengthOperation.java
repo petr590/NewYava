@@ -11,6 +11,7 @@ import x590.newyava.type.Type;
 import x590.newyava.type.Types;
 
 import java.util.List;
+import java.util.Optional;
 
 public class ArrayLengthOperation implements Operation {
 	private final Operation array;
@@ -26,6 +27,13 @@ public class ArrayLengthOperation implements Operation {
 
 	public void inferType(Type ignored) {
 		array.inferType(Types.ANY_ARRAY_TYPE);
+	}
+
+	@Override
+	public Optional<String> getPossibleVarName() {
+		return array.getPossibleVarName()
+				.map(name -> name + "Length")
+				.or(() -> Optional.of("length"));
 	}
 
 	@Override

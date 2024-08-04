@@ -18,6 +18,10 @@ public class MethodWriteContext extends ContextProxy {
 		this.methodScope = methodScope;
 	}
 
+	public boolean isConstructor() {
+		return methodScope != null && methodScope.getMethodContext().getDescriptor().isConstructor();
+	}
+
 
 	/** @return {@code true}, если в методе есть переменная с указанным именем */
 	public boolean hasVarWithName(String name) {
