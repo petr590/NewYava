@@ -30,7 +30,7 @@ public class VariableReference {
 	/** Индекс конца (индекс, соответствующий инструкциям) */
 	private final int end;
 
-	private Variable variable;
+	private @Nullable Variable variable;
 
 	private @Nullable VariableReference binded;
 
@@ -81,7 +81,7 @@ public class VariableReference {
 
 	/** @return имя переменной. Доступно только после связывания ссылки с самой переменной. */
 	public String getName() {
-		return requireVariable().getName();
+		return Objects.requireNonNull(requireVariable().getName());
 	}
 
 	/**

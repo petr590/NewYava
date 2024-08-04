@@ -1,8 +1,7 @@
 package x590.newyava.decompilation.instruction;
 
-import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.MethodContext;
-import x590.newyava.decompilation.operation.FieldOperation;
+import x590.newyava.decompilation.operation.other.FieldOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.exception.UnknownOpcodeException;
@@ -18,7 +17,7 @@ public record FieldInsn(int opcode, String className, String name, String typeNa
 	}
 
 	@Override
-	public @Nullable Operation toOperation(MethodContext context) {
+	public Operation toOperation(MethodContext context) {
 		var descriptor = FieldDescriptor.of(className, name, typeName);
 
 		return switch (opcode) {

@@ -5,6 +5,9 @@
       <item index="0" class="java.lang.String" itemvalue="org.junit.Test" />
       <item index="1" class="java.lang.String" itemvalue="x590.newyava.test.decompiler.Bug" />
     </list>
+    <writeAnnotations>
+      <writeAnnotation name="lombok.Getter" />
+    </writeAnnotations>
   </component>
   <component name="ExternalStorageConfigurationManager" enabled="true" />
   <component name="MavenProjectsManager">

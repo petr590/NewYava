@@ -1,5 +1,6 @@
 package x590.newyava.type;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.Context;
@@ -29,6 +30,7 @@ public sealed interface PrimitiveType extends Type
 		throw new IllegalArgumentException("Class " + clazz + " is primitive but does not matches any primitive class");
 	}
 
+	@Deprecated(since = "0.8.15")
 	static boolean isAssignable(PrimitiveType givenType, PrimitiveType requiredType) {
 		if (givenType == requiredType)
 			return true;
@@ -69,7 +71,8 @@ public sealed interface PrimitiveType extends Type
 			INTEGRAL = IntMultiType.valueOf(ALL_FLAGS),
 
 			BYTE_OR_BOOLEAN = IntMultiType.valueOf(BYTE_FLAG | BOOLEAN_FLAG),
-			INT_OR_BOOLEAN = IntMultiType.valueOf(INT_FLAG | BOOLEAN_FLAG);
+			INT_OR_BOOLEAN = IntMultiType.valueOf(INT_FLAG | BOOLEAN_FLAG),
+			BYTE_OR_SHORT = IntMultiType.valueOf(BYTE_FLAG | SHORT_FLAG);
 
 	NonIntType
 			LONG = NonIntType.LONG,
@@ -79,18 +82,18 @@ public sealed interface PrimitiveType extends Type
 
 	@RequiredArgsConstructor
 	enum NonIntType implements PrimitiveType {
-		LONG("long", TypeSize.LONG),
-		FLOAT("float", TypeSize.WORD),
-		DOUBLE("double", TypeSize.LONG),
-		VOID("void", TypeSize.VOID);
+		LONG   ("long",   "J", TypeSize.LONG),
+		FLOAT  ("float",  "F", TypeSize.WORD),
+		DOUBLE ("double", "D", TypeSize.LONG),
+		VOID   ("void",   "V", TypeSize.VOID);
 
 		private final String name;
-		private final TypeSize size;
 
-		@Override
-		public TypeSize getSize() {
-			return size;
-		}
+		@Getter
+		private final String binName;
+
+		@Getter
+		private final TypeSize size;
 
 		@Override
 		public void write(DecompilationWriter out, Context context) {

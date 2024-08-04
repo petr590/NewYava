@@ -5,10 +5,10 @@ import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import x590.newyava.context.MethodContext;
-import x590.newyava.decompilation.operation.condition.GotoOperation;
-import x590.newyava.decompilation.operation.condition.CompareType;
-import x590.newyava.decompilation.operation.condition.IfOperation;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.condition.CompareType;
+import x590.newyava.decompilation.operation.condition.GotoOperation;
+import x590.newyava.decompilation.operation.condition.IfOperation;
 import x590.newyava.exception.UnknownOpcodeException;
 
 import java.util.List;

@@ -1,11 +1,11 @@
 package x590.newyava.type;
 
 import org.jetbrains.annotations.Nullable;
-import x590.newyava.io.ContextualWritable;
 import x590.newyava.Importable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.exception.InvalidTypeException;
 import x590.newyava.exception.TypeCastException;
+import x590.newyava.io.ContextualWritable;
 import x590.newyava.io.SignatureReader;
 
 import java.util.ArrayList;
@@ -23,10 +23,14 @@ public interface Type extends ContextualWritable, Importable {
 	@Override
 	default void addImports(ClassContext context) {}
 
-	/** @return имя переменной данного типа */
-	default String getVarName() {
-		return "var";
+	/** @return бинарное имя класса, такое как {@code "Ljava/lang/Object;"} или {@code "I"}.
+	 * Для специальных типов (т.е. тех, которых нет в Java) возвращает {@code null}. */
+	default @Nullable String getBinName() {
+		return null;
 	}
+
+	/** @return имя переменной данного типа */
+	String getVarName();
 
 	/** @return имя переменной данного типа для массива */
 	default String getArrVarName() {
@@ -71,6 +75,7 @@ public interface Type extends ContextualWritable, Importable {
 		return assignQuiet(givenType, requiredType.wideDown());
 	}
 
+	@Deprecated(since = "0.8.15")
 	static boolean isAssignable(Type givenType, Type requiredType) {
 		if (givenType.equals(requiredType) || givenType == Types.ANY_TYPE || requiredType == Types.ANY_TYPE) {
 			return true;
@@ -210,7 +215,7 @@ public interface Type extends ContextualWritable, Importable {
 			return PrimitiveType.valueOf(clazz);
 
 		if (clazz.isArray())
-			return ArrayType.forType(valueOf(clazz.componentType()));
+			return ArrayType.valueOf(clazz);
 
 		return ClassType.valueOf(clazz);
 	}

@@ -6,8 +6,8 @@ import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.operation.AssignOperation;
-import x590.newyava.decompilation.operation.LdcOperation;
+import x590.newyava.decompilation.operation.other.AssignOperation;
+import x590.newyava.decompilation.operation.other.LdcOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
@@ -60,21 +60,20 @@ public class ArrayStoreOperation extends AssignOperation {
 	public void inferType(Type ignored) {
 		super.inferType(ignored);
 
-		assert value != null;
-		value.inferType(requiredType);
+		requireValue().inferType(requiredType);
 		index.inferType(PrimitiveType.INT);
 		array.inferType(ArrayType.forType(requiredType));
 	}
 
 	@Override
 	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		assert value != null;
-		return List.of(array, index, value);
+		return List.of(array, index, requireValue());
 	}
 
 	@Override
 	public void addImports(ClassContext context) {
-		context.addImportsFor(array).addImportsFor(index).addImportsFor(value);
+		super.addImports(context);
+		context.addImportsFor(array).addImportsFor(index);
 	}
 
 	@Override

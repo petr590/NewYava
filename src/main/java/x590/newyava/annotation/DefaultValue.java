@@ -1,17 +1,23 @@
 package x590.newyava.annotation;
 
 import lombok.Getter;
+import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
 import x590.newyava.Importable;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.ConstantWriteContext;
+import x590.newyava.io.DecompilationWriter;
+import x590.newyava.io.GenericWritable;
 import x590.newyava.type.ClassType;
 
+import java.util.Objects;
+
 /** Значение аннотации по умолчанию */
-public class DefaultValue extends AnnotationVisitor implements Importable {
+public class DefaultValue extends AnnotationVisitor implements GenericWritable<ConstantWriteContext>, Importable {
 
 	@Getter
-	private AnnotationValue annotationValue;
+	private @Nullable AnnotationValue annotationValue;
 
 	public DefaultValue() {
 		super(Opcodes.ASM9);
@@ -51,5 +57,10 @@ public class DefaultValue extends AnnotationVisitor implements Importable {
 		var array = new ArrayValue();
 		set(array);
 		return array;
+	}
+
+	@Override
+	public void write(DecompilationWriter out, ConstantWriteContext context) {
+		out.record(" default ").record(Objects.requireNonNull(annotationValue), context);
 	}
 }

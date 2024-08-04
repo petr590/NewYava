@@ -33,6 +33,11 @@ public final class DoubleConstant extends Constant {
 	}
 
 	@Override
+	public Type getImplicitType() {
+		return (int)value == value ? PrimitiveType.INT : getType();
+	}
+
+	@Override
 	public boolean valueEquals(int value) {
 		return this.value == value;
 	}

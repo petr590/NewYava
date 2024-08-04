@@ -14,6 +14,43 @@ public class NamesExample {
 		Main.run(this, Config.builder().ignoreVariableTable(true).build());
 	}
 
+	private String getString() {
+		return "";
+	}
+
+	private void useString(String s) {}
+
+	public void foo(boolean x) {
+		String s = null;
+
+		if (x)
+			s = getString();
+
+		useString(s);
+	}
+
+	interface User {
+		String getName();
+
+		void setName(String name);
+
+		Vec3 speed();
+	}
+
+	interface Vec3 {}
+
+	public void getAndSet(User user) {
+		String name1 = user.getName();
+		String name2 = "gg";
+		user.setName(name2);
+		setUserName(name2);
+
+		Vec3 vec3_1 = user.speed();
+		Vec3 vec3_2 = user.speed();
+	}
+
+	public void setUserName(String name) {}
+
 	private void test(URL url, HTMLDocument htmlDocument, Character character) {}
 
 	// OMG

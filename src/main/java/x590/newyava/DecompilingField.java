@@ -14,7 +14,9 @@ import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
+import x590.newyava.decompilation.operation.other.DummyOperation;
 import x590.newyava.descriptor.FieldDescriptor;
+import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.IllegalModifiersException;
 import x590.newyava.io.ContextualWritable;
 import x590.newyava.io.DecompilationWriter;
@@ -22,23 +24,27 @@ import x590.newyava.modifiers.EntryType;
 import x590.newyava.type.Type;
 import x590.newyava.visitor.DecompileFieldVisitor;
 
-import java.util.Set;
+import java.util.*;
 
-import static x590.newyava.modifiers.Modifiers.*;
 import static x590.newyava.Literals.*;
+import static x590.newyava.modifiers.Modifiers.*;
 
 /**
  * Декомпилируемое поле
  */
 @Getter
-public class DecompilingField implements ContextualWritable, Importable {
+public class DecompilingField implements IField, ContextualWritable, Importable {
 	private final int modifiers;
 
 	private final FieldDescriptor descriptor;
 
 	private final @Unmodifiable Set<DecompilingAnnotation> annotations;
 
+	/** Инициализатор поля. Если равен {@link x590.newyava.decompilation.operation.other.DummyOperation#INSTANCE
+	 * DummyOperation.INSTANCE}, то поле не имеет и не может иметь инициализатор. */
 	private @Nullable Operation initializer;
+
+	private final Set<MethodDescriptor> constructors = new HashSet<>();
 
 	/** Если {@code true}, то это поле является ссылкой на {@code this} внешнего класса. */
 	private boolean isOuterInstance;
@@ -55,31 +61,49 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 	/** Можно ли оставить поле в классе */
 	public boolean keep() {
-		return (modifiers & ACC_SYNTHETIC) == 0;
+		return !isSynthetic();
 	}
 
-	public boolean isEnum() {
-		return (modifiers & ACC_ENUM) != 0;
-	}
+	/**
+	 * Устанавливает инициализатор поля, если он не установлен.
+	 * @param constructor дескриптор конструктора, из которого поле инициализируется.
+	 * @return {@code true}, если инициализатор поля был установлен данным вызовом, иначе {@code false}
+	 */
+	public boolean addInitializer(MethodDescriptor constructor, Operation value) {
+		assert !isStatic();
+		assert constructor.isConstructor();
+		assert constructor.hostClass().equals(descriptor.hostClass());
 
-	public boolean isStatic() {
-		return (modifiers & ACC_STATIC) != 0;
-	}
-
-	public boolean isSynthetic() {
-		return (modifiers & ACC_SYNTHETIC) != 0;
-	}
-
-	/** Устанавливает инициализатор поля, если он не установлен.
-	 * @return {@code true}, если инициализатор поля был установлен данным вызовом, иначе {@code false} */
-	public boolean setInitializer(Operation value) {
-		if (initializer == null) {
+		if (initializer == null) { // Первая инициализация
 			initializer = value;
+			constructors.add(constructor);
 			return true;
 		}
 
+		if (constructors.contains(constructor)) { // Повторная инициализация тем же конструктором
+			return false;
+		}
+
+		if (initializer.equals(value)) { // Инициализация таким же значением из другого конструктора
+			constructors.add(constructor);
+			return true;
+		}
+
+		// Инициализация другим значением из другого конструктора
+		initializer = DummyOperation.INSTANCE;
 		return false;
 	}
+
+	public void afterDecompilation(@Unmodifiable Set<MethodDescriptor> constructors) {
+		if (!isStatic() && hasInitializer() && !this.constructors.containsAll(constructors)) {
+			initializer = DummyOperation.INSTANCE;
+		}
+	}
+
+	public boolean hasInitializer() {
+		return initializer != null && initializer != DummyOperation.INSTANCE;
+	}
+
 
 	/** Помечает поле как экземпляр внешнего класса. */
 	public void makeOuterInstance() {
@@ -93,6 +117,10 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 	public boolean isOuterVariable() {
 		return outerVarName != null;
+	}
+
+	public String getOuterVarName() {
+		return Objects.requireNonNull(outerVarName);
 	}
 
 	public void inferVariableTypes() {
@@ -152,7 +180,7 @@ public class DecompilingField implements ContextualWritable, Importable {
 
 		out.record(descriptor, context);
 
-		if (initializer != null) {
+		if (hasInitializer()) {
 			out.record(" = ").record(
 					initializer, new MethodWriteContext(context), Priority.ZERO,
 					Type.isArray(descriptor.type()) ? Operation::writeAsArrayInitializer : Operation::write

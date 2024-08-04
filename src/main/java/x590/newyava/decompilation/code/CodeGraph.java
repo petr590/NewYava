@@ -1,9 +1,11 @@
 package x590.newyava.decompilation.code;
 
 import it.unimi.dsi.fastutil.ints.*;
-import it.unimi.dsi.fastutil.objects.*;
-import lombok.*;
-import org.jetbrains.annotations.NotNull;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -15,6 +17,8 @@ import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.instruction.FlowControlInsn;
 import x590.newyava.decompilation.instruction.Instruction;
+import x590.newyava.decompilation.operation.emptyscope.EmptyableScopeOperation;
+import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.decompilation.operation.condition.ConstCondition;
 import x590.newyava.decompilation.operation.condition.OperatorCondition;
 import x590.newyava.decompilation.operation.condition.Role;
@@ -31,6 +35,7 @@ import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 import x590.newyava.type.TypeSize;
+import x590.newyava.util.Utils;
 import x590.newyava.visitor.DecompileMethodVisitor;
 
 import java.util.*;
@@ -72,6 +77,10 @@ public class CodeGraph implements Code {
 
 	public void addLabel(Label label) {
 		labels.put(label, instructions.size());
+	}
+
+	public int getSize() {
+		return instructions.size();
 	}
 
 
@@ -132,21 +141,24 @@ public class CodeGraph implements Code {
 
 
 	public void inferVariableTypesAndNames() {
+		var methodScope = getMethodScope();
+
 		// Запускаем два раза для правильного вычисления типа констант
 		methodScope.inferType(PrimitiveType.VOID);
 		methodScope.inferType(PrimitiveType.VOID);
 
 		methodScope.declareVariables();
+		methodScope.initPossibleVarNames();
 		methodScope.initVariableNames();
 	}
 
 
 	/* ------------------------------------------------ MethodScope ------------------------------------------------- */
 
-	private MethodScope methodScope;
+	private @Nullable MethodScope methodScope;
 
 	@Override
-	public @NotNull MethodScope getMethodScope() {
+	public MethodScope getMethodScope() {
 		return Objects.requireNonNull(methodScope);
 	}
 
@@ -161,7 +173,7 @@ public class CodeGraph implements Code {
 	}
 
 	public boolean isEmpty() {
-		return methodScope.isEmpty();
+		return getMethodScope().isEmpty();
 	}
 
 
@@ -178,9 +190,7 @@ public class CodeGraph implements Code {
 		tryCatchBlocks.add(new TryCatchBlock(start, end, handler, type));
 	}
 
-	/**
-	 * @return карту: ключ - блок try, значения - блоки catch, привязанные к этому try.
-	 */
+	/** @return карту: ключ - блок try, значения - блоки catch, привязанные к этому try. */
 	private Map<IntIntPair, Int2ObjectMap<CatchOperation>> getTryCatchMap(
 			@UnmodifiableView Int2ObjectMap<Chunk> chunkMap
 	) {
@@ -247,6 +257,7 @@ public class CodeGraph implements Code {
 		return result;
 	}
 
+	/** Инициализирует конечный индекс всех catch блоков */
 	private void initCatchEndIndexes(Map<IntIntPair, Int2ObjectMap<CatchOperation>> tryCatchMap,
 	                                 @Unmodifiable List<Chunk> chunks) {
 
@@ -267,23 +278,41 @@ public class CodeGraph implements Code {
 
 			// Инициализируем конечные индексы последнего catch
 			var lastCatchEnd = chunks.get(tryBlock.secondInt()).getConditionalChunk();
-			catch1.getValue().setEndId(lastCatchEnd != null ? lastCatchEnd.getId() : chunks.size());
+			if (lastCatchEnd != null && lastCatchEnd.getId() > catch1.getIntKey()) {
+				catch1.getValue().setEndId(lastCatchEnd.getId());
+			} else {
+				catch1.getValue().setEndId(chunks.size());
+			}
 		}
 	}
 
-	/** Инициализирует конечный индекс всех catch блоков */
-	private void addTryCatchScopes(
+	/** Добавляет все блоки try-catch и synchronized */
+	private void addTryCatchSynchronizedScopes(
 			List<Scope> scopes,
 	        Map<IntIntPair, Int2ObjectMap<CatchOperation>> tryCatchMap,
 	        @Unmodifiable List<Chunk> chunks
 	) {
-		for (IntIntPair tryBlock : tryCatchMap.keySet()) {
-			scopes.add(new TryScope(chunks.subList(tryBlock.firstInt(), tryBlock.secondInt() + 1)));
+		for (var entry : tryCatchMap.entrySet()) {
+			var tryBlock = entry.getKey();
+			var catchMap = entry.getValue();
+			int tryEnd = catchMap.keySet().intStream().min().orElse(tryBlock.secondInt());
 
-			for (var catchEntry : tryCatchMap.get(tryBlock).int2ObjectEntrySet()) {
+			var synchronizedScope = OperationUtils.getSynchronizedScope(tryBlock, catchMap, chunks);
+
+			if (synchronizedScope != null) {
+				scopes.add(synchronizedScope);
+				continue;
+			}
+
+
+			var tryScope = new TryScope(chunks.subList(tryBlock.firstInt(), tryEnd));
+			scopes.add(tryScope);
+
+			for (var catchEntry : catchMap.int2ObjectEntrySet()) {
 				scopes.add(new CatchScope(
 						chunks.subList(catchEntry.getIntKey(), catchEntry.getValue().getEndId()),
-						catchEntry.getValue()
+						catchEntry.getValue(),
+						tryScope
 				));
 			}
 		}
@@ -292,9 +321,13 @@ public class CodeGraph implements Code {
 
 	/* ----------------------------------------------- Decompilation ------------------------------------------------ */
 
-	private Chunk last;
+	private @Nullable Chunk last;
 
-	private MethodContext methodContext;
+	private @Nullable MethodContext methodContext;
+
+	public MethodContext getMethodContext() {
+		return Objects.requireNonNull(methodContext);
+	}
 
 
 	/** Главный метод приложения. Именно здесь происходит вся магия.
@@ -317,28 +350,26 @@ public class CodeGraph implements Code {
 		List<Scope> scopes = new ArrayList<>();
 
 		// Добавляем try-catch
-		addTryCatchScopes(scopes, tryCatchMap, chunks);
+		addTryCatchSynchronizedScopes(scopes, tryCatchMap, chunks);
 
 		// Ищем циклы и операторы break/continue, связанные с ними
 		addScopes(scopes, chunks, findLoops(chunks), LoopScope::new);
 
 		// Ищем switch и соответствующие break
-		List<SwitchScope> switchScopes = findSwitches(chunks, chunkMap);
-		scopes.addAll(switchScopes);
-		switchScopes.forEach(switchScope -> scopes.addAll(switchScope.getCases()));
+		addSwitchScopes(scopes, chunks, chunkMap);
 
 		// Все условия, которые не являются заголовком цикла/break/continue, становятся if-ами
 		Int2IntMap ifChunkIds = findIfs(chunks);
 		addScopes(scopes, chunks, ifChunkIds,
-				(ifChunks) -> {
-					var condition = chunks.get(ifChunks.get(0).getId() - 1).requireCondition().opposite();
-					return new IfScope(condition, ifChunks);
+				(startId, ifChunks) -> {
+					var condition = chunks.get(startId - 1).requireCondition().opposite();
+					return IfScope.create(condition, ifChunks);
 				}
 		);
 
 		// После if-ов ищем связанные с ними else-ы
 		Int2IntMap elseChunkIds = findElses(chunks, ifChunkIds);
-		addScopes(scopes, chunks, elseChunkIds, ElseScope::new);
+		addScopes(scopes, chunks, elseChunkIds, ElseScope::create);
 
 		// И строим иерархию Scope-ов
 		Collections.sort(scopes);
@@ -389,18 +420,36 @@ public class CodeGraph implements Code {
 	}
 
 
+	@FunctionalInterface
+	private interface ScopeCreator {
+		EmptyableScopeOperation create(int startId, @Unmodifiable List<Chunk> chunks);
+	}
+
+	private void addScopes(List<Scope> scopes, @Unmodifiable List<Chunk> chunks, Int2IntMap chunkIds,
+	                       Function<@Unmodifiable List<Chunk>, EmptyableScopeOperation> scopeCreator) {
+
+		addScopes(scopes, chunks, chunkIds, (startId, scopeChunks) -> scopeCreator.apply(scopeChunks));
+	}
+
+
 	/**
 	 * Добавляет новые scope-ы в {@code scopes}. Каждый scope соответствует паре индексов
 	 * из {@code chunkIds}. Для их создания используется функция {@code scopeCreator}
 	 */
-	private void addScopes(List<Scope> scopes, @Unmodifiable List<Chunk> chunks, Int2IntMap chunkIds,
-	                       Function<? super @Unmodifiable List<Chunk>, ? extends Scope> scopeCreator) {
+	private void addScopes(List<Scope> scopes, @Unmodifiable List<Chunk> chunks,
+	                       Int2IntMap chunkIds, ScopeCreator scopeCreator) {
 
 		for (Int2IntMap.Entry entry : chunkIds.int2IntEntrySet()) {
 			int startId = entry.getIntKey(),
 				endId = entry.getIntValue();
 
-			scopes.add(scopeCreator.apply(chunks.subList(startId, endId)));
+			var scopeOperation = scopeCreator.create(startId, chunks.subList(startId, endId));
+
+			if (scopeOperation instanceof Scope scope) {
+				scopes.add(scope);
+			} else {
+				chunks.get(startId).getOperations().add(0, scopeOperation);
+			}
 		}
 	}
 
@@ -411,8 +460,9 @@ public class CodeGraph implements Code {
 	 * @return methodScope, который является вершиной всей иерархии.
 	 */
 	private MethodScope hierarchizeScopes(@Unmodifiable List<Chunk> chunks, List<Scope> scopes) {
-		var methodScope = new MethodScope(chunks, methodContext);
+		var methodScope = new MethodScope(chunks, getMethodContext());
 
+		assert last != null;
 		int endId = last.getId();
 
 		Queue<Scope> scopeQueue = new LinkedList<>(scopes);
@@ -470,14 +520,13 @@ public class CodeGraph implements Code {
 
 	/* -------------------------------------------------- Switches -------------------------------------------------- */
 
-	/** Ищет все switch и возвращает их список */
-	private List<SwitchScope> findSwitches(@Unmodifiable List<Chunk> chunks, Int2ObjectMap<Chunk> chunkMap) {
-		List<SwitchScope> switchScopes = new ArrayList<>();
-
+	/** Ищет все switch и case и добавляет их в список {@code scopes}. */
+	private void addSwitchScopes(List<Scope> scopes, @Unmodifiable List<Chunk> chunks, Int2ObjectMap<Chunk> chunkMap) {
 		for (Chunk chunk : chunks) {
 			var switchOperation = chunk.getSwitchOperation();
 
 			if (switchOperation != null) {
+				// Ключ - чанк начала блока case, значение - список констант case
 				SortedMap<Chunk, @Nullable Collection<IntConstant>> table = new TreeMap<>();
 
 				for (var entry : switchOperation.table().int2ObjectEntrySet()) {
@@ -487,18 +536,25 @@ public class CodeGraph implements Code {
 					).add(IntConstant.valueOf(entry.getIntKey()));
 				}
 
+				// Для блока default список констант всегда null
 				table.put(chunkMap.get(labels.getInt(switchOperation.defaultLabel())), null);
 
-				switchScopes.add(createSwitchScope(switchOperation, chunks, table));
+				var scopeOperation = createSwitchScope(switchOperation, chunks, table);
+
+				if (scopeOperation instanceof SwitchScope switchScope) {
+					scopes.add(switchScope);
+					scopes.addAll(switchScope.getCases());
+				} else {
+					chunk.getOperations().add(0, scopeOperation);
+				}
 			}
 		}
-
-		return switchScopes;
 	}
 
-	private static SwitchScope createSwitchScope(SwitchOperation switchOperation, @Unmodifiable List<Chunk> chunks,
-	                                             SortedMap<Chunk, @Nullable Collection<IntConstant>> table) {
-
+	private static EmptyableScopeOperation createSwitchScope(
+			SwitchOperation switchOperation, @Unmodifiable List<Chunk> chunks,
+	        SortedMap<Chunk, @Nullable Collection<IntConstant>> table
+	) {
 		var entries = new ArrayList<>(table.entrySet());
 
 		List<SwitchScope.CaseScope> cases = new ArrayList<>();
@@ -516,31 +572,22 @@ public class CodeGraph implements Code {
 		}
 
 		// Ищем, где конец последнего case
-		var lastEntry = entries.get(entries.size() - 1);
-		int lastId = lastEntry.getKey().getId();
+		var lastEntry = Utils.getLast(entries);
+		int lastStartId = lastEntry.getKey().getId();
 
-		var minEndId = cases.stream()
+		int lastEndId = cases.stream()
 				.map(Scope::getEndChunk).filter(Chunk::canTakeRole)
 				.map(Chunk::getConditionalChunk).filter(Objects::nonNull)
-				.mapToInt(Chunk::getId).filter(id -> id > lastId)
-				.max();
+				.mapToInt(Chunk::getId).filter(id -> id > lastStartId)
+				.max().orElse(chunks.size());
 
-		if (minEndId.isPresent()) {
-			cases.add(new SwitchScope.CaseScope(
-					chunks.subList(lastId, minEndId.getAsInt()),
-					lastEntry.getValue(),
-					true
-			));
-		}
+		cases.add(new SwitchScope.CaseScope(
+				chunks.subList(lastStartId, lastEndId),
+				lastEntry.getValue(),
+				true
+		));
 
-		return new SwitchScope(
-				switchOperation.value(),
-				cases,
-				chunks.subList(
-						cases.get(0).getStartChunk().getId(),
-						cases.get(cases.size() - 1).getEndChunk().getId() + 1
-				)
-		);
+		return SwitchScope.create(switchOperation.value(), cases, chunks);
 	}
 
 
@@ -684,10 +731,11 @@ public class CodeGraph implements Code {
 	/* --------------------------------------------- After decompiling ---------------------------------------------- */
 
 	public void afterDecompilation() {
-		methodScope.afterDecompilation(methodContext);
+		getMethodScope().afterDecompilation(getMethodContext());
 	}
 
 	public void beforeVariablesInit() {
+		var methodScope = getMethodScope();
 		methodScope.beforeVariablesInit(methodScope);
 		methodScope.checkCyclicReference();
 	}
@@ -695,12 +743,12 @@ public class CodeGraph implements Code {
 
 	/** @return приоритет, в котором должен вызываться метод {@link #initVariables()} */
 	public int getVariablesInitPriority() {
-		return methodScope.getVariablesInitPriority();
+		return getMethodScope().getVariablesInitPriority();
 	}
 
 	/** Инициализирует переменные в методе */
 	public void initVariables() {
-		methodScope.initVariables(visitor.getArgumentsSizes());
+		getMethodScope().initVariables(visitor.getArgumentsSizes());
 	}
 
 
@@ -711,6 +759,6 @@ public class CodeGraph implements Code {
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		out.record(methodScope, new MethodWriteContext(context, methodScope));
+		out.record(getMethodScope(), new MethodWriteContext(context, methodScope));
 	}
 }

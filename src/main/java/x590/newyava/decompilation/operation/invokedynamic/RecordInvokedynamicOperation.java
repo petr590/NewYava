@@ -1,7 +1,7 @@
 package x590.newyava.decompilation.operation.invokedynamic;
 
 import lombok.RequiredArgsConstructor;
-import x590.newyava.decompilation.operation.SpecialOperation;
+import x590.newyava.decompilation.operation.other.SpecialOperation;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;

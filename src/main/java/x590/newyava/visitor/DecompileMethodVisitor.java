@@ -9,13 +9,13 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.*;
 import x590.newyava.Decompiler;
-import x590.newyava.Util;
-import x590.newyava.modifiers.Modifiers;
+import x590.newyava.util.Utils;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.annotation.DefaultValue;
 import x590.newyava.decompilation.code.CodeGraph;
 import x590.newyava.decompilation.instruction.*;
 import x590.newyava.descriptor.MethodDescriptor;
+import x590.newyava.modifiers.Modifiers;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.ReferenceType;
 import x590.newyava.type.Type;
@@ -29,6 +29,9 @@ import java.util.stream.IntStream;
 
 import static org.objectweb.asm.Opcodes.*;
 
+/**
+ * Визитор метода. Собирает все данные о методе и предоставляет к ним доступ.
+ */
 @Getter
 public class DecompileMethodVisitor extends MethodVisitor {
 	@Getter(AccessLevel.NONE)
@@ -84,7 +87,7 @@ public class DecompileMethodVisitor extends MethodVisitor {
 
 	@Override
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-		return Util.addAndGetBack(annotations, new DecompilingAnnotation(descriptor));
+		return Utils.addAndGetBack(annotations, new DecompilingAnnotation(descriptor));
 	}
 
 	@Override

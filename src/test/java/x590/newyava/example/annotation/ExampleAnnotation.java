@@ -15,6 +15,8 @@ public @interface ExampleAnnotation {
 
 	long l() default -1;
 
+	float f() default 0.5f;
+
 	String[] strings() default { "gg", "bb" };
 
 	Class<?> cls() default List.class;

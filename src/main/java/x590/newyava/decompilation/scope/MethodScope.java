@@ -1,26 +1,25 @@
 package x590.newyava.decompilation.scope;
 
-
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.IntList;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
-import x590.newyava.decompilation.variable.VariableReference;
-import x590.newyava.decompilation.variable.VariableSlotView;
-import x590.newyava.modifiers.Modifiers;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.code.Chunk;
-import x590.newyava.decompilation.operation.FieldOperation;
+import x590.newyava.decompilation.operation.other.FieldOperation;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.OperationUtil;
+import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.decompilation.operation.invokedynamic.RecordInvokedynamicOperation;
 import x590.newyava.decompilation.operation.terminal.ReturnValueOperation;
 import x590.newyava.decompilation.operation.terminal.ReturnVoidOperation;
 import x590.newyava.decompilation.variable.Variable;
+import x590.newyava.decompilation.variable.VariableReference;
+import x590.newyava.decompilation.variable.VariableSlotView;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.exception.DecompilationException;
+import x590.newyava.modifiers.Modifiers;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +28,7 @@ import java.util.function.Predicate;
 
 public class MethodScope extends Scope {
 
+	@Getter
 	private final MethodContext methodContext;
 
 	/** Индекс, с которого начинаются аргументы видимого дескриптора */
@@ -46,22 +46,23 @@ public class MethodScope extends Scope {
 	}
 
 	@Override
+	public boolean canShrink() {
+		return false;
+	}
+
+	@Override
 	public void postDecompilation(MethodContext context) {
 		super.postDecompilation(context);
 
+		removeLastOperationIf(operation -> operation == ReturnVoidOperation.INSTANCE);
+
 		var operations = this.operations;
-
-		int last = operations.size() - 1;
-
-		if (last >= 0 && operations.get(last) == ReturnVoidOperation.INSTANCE) {
-			operations.remove(last);
-		}
 
 		if (context.isConstructor()) {
 			if (context.getThisType().isNested()) {
 				// Инициализация this внешнего класса, всегда идёт до вызова суперконструктора
 				if (!operations.isEmpty() &&
-					OperationUtil.checkOuterInstanceInit(operations.get(0), context)) {
+					OperationUtils.tryMarkOuterInstance(operations.get(0), context)) {
 
 					operations.remove(0);
 					argsStart += 1;
@@ -69,7 +70,7 @@ public class MethodScope extends Scope {
 
 				// Инициализация переменных из внешнего метода
 				if (context.getThisType().isEnclosedInMethod()) {
-					while (!operations.isEmpty() && OperationUtil.checkOuterVarInit(operations.get(0), context)) {
+					while (!operations.isEmpty() && OperationUtils.checkOuterVarInit(operations.get(0), context)) {
 						operations.remove(0);
 						argsEnd -= 1;
 					}
@@ -77,18 +78,30 @@ public class MethodScope extends Scope {
 			}
 
 
+			boolean defaultSuperConstructor = !operations.isEmpty() && operations.get(0).isDefaultConstructor(context);
+
 			// Дефолтный супер-конструктор
-			if (!operations.isEmpty() && operations.get(0).isDefaultConstructor(context)) {
+			if (defaultSuperConstructor) {
 				operations.remove(0);
 			}
 
+
+			// Инициализация нестатических полей
+			for (int i = defaultSuperConstructor ? 0 : 1, s = operations.size(); i < s; i++) {
+				if (!operations.get(i).initInstanceField(context)) {
+					break;
+				}
+			}
+
+
 			// Поля record-ов инициализируются в конце конструктора
 			if ((context.getClassModifiers() & Modifiers.ACC_RECORD) != 0) {
-				int i = operations.size() - 1;
-
-				while (i >= 0 && OperationUtil.isDefaultFieldInitializer(operations.get(i))) {
-					operations.remove(i);
-					i--;
+				for (int i = operations.size() - 1; i >= 0; i--) {
+					if (OperationUtils.isDefaultFieldInitializer(operations.get(i))) {
+						operations.remove(i);
+					} else {
+						break;
+					}
 				}
 			}
 
@@ -96,13 +109,23 @@ public class MethodScope extends Scope {
 			// Инициализация карты для switch(enum)
 			int i = 0;
 
-			for (int s = operations.size(); i < s; i += 2) {
-				if (!OperationUtil.tryInitEnumMap(context, operations.get(i), operations.get(i + 1))) {
+			for (int s = operations.size() - 1; i < s; i += 2) {
+				if (!OperationUtils.tryInitEnumMap(context, operations.get(i), operations.get(i + 1))) {
 					break;
 				}
 			}
 
 			operations.subList(0, i).clear();
+		}
+	}
+
+
+	@Override
+	public void afterDecompilation(MethodContext context) {
+		super.afterDecompilation(context);
+
+		if (context.isConstructor()) {
+			operations.removeIf(Operation::isInstanceFieldInitialized);
 		}
 	}
 
@@ -229,8 +252,8 @@ public class MethodScope extends Scope {
 	 * которая возвращает операцию, и для этой операции {@code predicate} возвращает {@code true}. */
 	private boolean returnsSingleOperation(Predicate<Operation> predicate) {
 		return  operations.size() == 1 &&
-				operations.get(0) instanceof ReturnValueOperation returnOperation &&
-				predicate.test(returnOperation.getValue());
+				operations.get(0) instanceof ReturnValueOperation returnOp &&
+				predicate.test(returnOp.getValue());
 	}
 
 	/**
@@ -245,10 +268,10 @@ public class MethodScope extends Scope {
 	 */
 	public boolean isGetterOf(FieldDescriptor fieldDescriptor) {
 		return returnsSingleOperation(operation ->
-				operation instanceof FieldOperation fieldOperation &&
-				fieldOperation.isGetter() &&
-				fieldOperation.getDescriptor().equals(fieldDescriptor) &&
-				OperationUtil.isThisRef(fieldOperation.getInstance())
+				operation instanceof FieldOperation fieldOp &&
+				fieldOp.isGetter() &&
+				fieldOp.getDescriptor().equals(fieldDescriptor) &&
+				OperationUtils.isThisRef(fieldOp.getInstance())
 		);
 	}
 

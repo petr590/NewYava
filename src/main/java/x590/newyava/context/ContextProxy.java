@@ -3,12 +3,10 @@ package x590.newyava.context;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
-import x590.newyava.Config;
-import x590.newyava.DecompilingClass;
-import x590.newyava.DecompilingField;
-import x590.newyava.DecompilingMethod;
+import x590.newyava.*;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
+import x590.newyava.type.ClassArrayType;
 import x590.newyava.type.ClassType;
 
 import java.util.List;
@@ -62,7 +60,22 @@ public class ContextProxy implements Context {
 	}
 
 	@Override
-	public Optional<DecompilingClass> findClass(@Nullable ClassType classType) {
-		return context.findClass(classType);
+	public Optional<DecompilingClass> findClass(@Nullable ClassArrayType type) {
+		return context.findClass(type);
+	}
+
+	@Override
+	public Optional<? extends IField> findIField(FieldDescriptor descriptor) {
+		return context.findIField(descriptor);
+	}
+
+	@Override
+	public Optional<? extends IMethod> findIMethod(MethodDescriptor descriptor) {
+		return context.findIMethod(descriptor);
+	}
+
+	@Override
+	public Optional<? extends IClass> findIClass(@Nullable ClassArrayType type) {
+		return context.findIClass(type);
 	}
 }

@@ -39,4 +39,27 @@ public class CompareExample {
 		if (!z) System.out.println("!z");
 		if (z == true) System.out.println("z == true");
 	}
+
+	public void compare(byte b, short s) {
+		if (b == 5) System.out.println("b == 5");
+		if (b != 5) System.out.println("b != 5");
+		if (b <  5) System.out.println("b < 5");
+		if (b >  5) System.out.println("b > 5");
+		if (b <= 5) System.out.println("b <= 5");
+		if (b >= 5) System.out.println("b >= 5");
+
+		if (s == 5) System.out.println("s == 5");
+		if (s != 5) System.out.println("s != 5");
+		if (s <  5) System.out.println("s < 5");
+		if (s >  5) System.out.println("s > 5");
+		if (s <= 5) System.out.println("s <= 5");
+		if (s >= 5) System.out.println("s >= 5");
+
+		if (b == s) System.out.println("b == s");
+		if (b != s) System.out.println("b != s");
+		if (b <  s) System.out.println("b < s");
+		if (b >  s) System.out.println("b > s");
+		if (b <= s) System.out.println("b <= s");
+		if (b >= s) System.out.println("b >= s");
+	}
 }

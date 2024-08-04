@@ -12,29 +12,18 @@ import x590.newyava.io.SignatureReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Массив какого-либо другого типа.
  */
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class ArrayType implements ReferenceType {
+public final class ArrayType implements ClassArrayType {
 
 	private static final Map<Type, ArrayType> ARRAYS_POOL = new HashMap<>();
 
 	private static final @Unmodifiable List<ClassType> INTERFACES =
 			List.of(ClassType.COMPARABLE, ClassType.SERIALIZABLE);
-
-	@Getter
-	@EqualsAndHashCode.Include
-	private final Type type;
-
-	@Getter
-	@EqualsAndHashCode.Include
-	private final int nestLevel;
-
-	private final String braces;
-
-	private @Nullable String varName;
 
 	public static ArrayType forType(Type type, int nestLevel) {
 		return type instanceof ArrayType arrayType ?
@@ -56,6 +45,21 @@ public class ArrayType implements ReferenceType {
 		return ARRAYS_POOL.computeIfAbsent(type, tp -> new ArrayType(tp, 1));
 	}
 
+
+	public static ArrayType valueOf(Class<?> clazz) {
+		if (!clazz.isArray())
+			throw new IllegalArgumentException("Class " + clazz + " is not an array class");
+
+		int nestLevel = 1;
+		Class<?> componentType = clazz.componentType();
+
+		for (; componentType.isArray(); nestLevel++) {
+			componentType = componentType.componentType();
+		}
+
+		return forType(Type.valueOf(componentType), nestLevel);
+	}
+
 	public static ArrayType valueOf(String binName) {
 		var reader = new SignatureReader(binName);
 		var result = parse(reader);
@@ -73,6 +77,18 @@ public class ArrayType implements ReferenceType {
 		return forType(Type.parse(reader.dec()), nestLevel);
 	}
 
+	@Getter
+	@EqualsAndHashCode.Include
+	private final Type type;
+
+	@Getter
+	@EqualsAndHashCode.Include
+	private final int nestLevel;
+
+	private final String braces;
+
+	private @Nullable String varName;
+
 	private ArrayType(Type type, int nestLevel) {
 		assert !(type instanceof ArrayType);
 		this.type = type;
@@ -81,7 +97,23 @@ public class ArrayType implements ReferenceType {
 	}
 
 	@Override
-	public @Nullable ReferenceType getSuperType() {
+	public boolean isArray() {
+		return true;
+	}
+
+	@Override
+	public String getBinName() {
+		var binName = type.getBinName();
+		return binName == null ? null : "[".repeat(nestLevel) + binName;
+	}
+
+	@Override
+	public String getClassBinName() {
+		return Objects.requireNonNull(getBinName());
+	}
+
+	@Override
+	public ReferenceType getSuperType() {
 		return ClassType.OBJECT;
 	}
 
@@ -137,6 +169,6 @@ public class ArrayType implements ReferenceType {
 
 	@Override
 	public String toString() {
-		return type.toString() + braces;
+		return type + braces;
 	}
 }

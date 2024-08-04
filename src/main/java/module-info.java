@@ -5,6 +5,7 @@ module newyava {
 	requires transitive org.apache.commons.lang3;
 	requires transitive org.apache.commons.collections4;
 
+	requires org.checkerframework.checker.qual;
 	requires it.unimi.dsi.fastutil;
 	requires com.google.common;
 	requires lombok;

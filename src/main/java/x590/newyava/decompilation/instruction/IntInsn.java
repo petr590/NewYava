@@ -2,9 +2,9 @@ package x590.newyava.decompilation.instruction;
 
 import x590.newyava.constant.IntConstant;
 import x590.newyava.context.MethodContext;
-import x590.newyava.decompilation.operation.LdcOperation;
-import x590.newyava.decompilation.operation.array.NewArrayOperation;
+import x590.newyava.decompilation.operation.other.LdcOperation;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.array.NewArrayOperation;
 import x590.newyava.exception.DisassemblingException;
 import x590.newyava.exception.UnknownOpcodeException;
 import x590.newyava.type.ArrayType;
@@ -34,7 +34,9 @@ public record IntInsn(int opcode, int operand) implements Instruction {
 						case T_SHORT   -> PrimitiveType.SHORT;
 						case T_INT     -> PrimitiveType.INT;
 						case T_LONG    -> PrimitiveType.LONG;
-						default -> throw new DisassemblingException("Illegal type for newarray instruction: 0x" + Integer.toHexString(operand));
+						default -> throw new DisassemblingException(
+								"Illegal type for newarray instruction: 0x" + Integer.toHexString(operand)
+						);
 					}
 			));
 

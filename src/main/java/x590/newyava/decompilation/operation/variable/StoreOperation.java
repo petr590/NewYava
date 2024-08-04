@@ -5,7 +5,7 @@ import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.operation.AssignOperation;
+import x590.newyava.decompilation.operation.other.AssignOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.variable.VarUsage;
 import x590.newyava.decompilation.variable.VariableReference;
@@ -13,7 +13,6 @@ import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 
 public class StoreOperation extends AssignOperation {
 	private final VariableReference varRef;
@@ -31,7 +30,7 @@ public class StoreOperation extends AssignOperation {
 		return new StoreOperation(context, slotId, value);
 	}
 
-	public StoreOperation(MethodContext context, int slotId, Operation value) {
+	private StoreOperation(MethodContext context, int slotId, Operation value) {
 		super(
 				context, value, null,
 				operation -> operation instanceof ILoadOperation load && load.getSlotId() == slotId
@@ -57,8 +56,8 @@ public class StoreOperation extends AssignOperation {
 	public void inferType(Type ignored) {
 		super.inferType(ignored);
 
-		varRef.assignUp(Objects.requireNonNull(value).getReturnType());
-		value.inferType(varRef.getType());
+		varRef.assignUp(requireValue().getReturnType());
+		requireValue().inferType(varRef.getType());
 	}
 
 	@Override
@@ -74,13 +73,19 @@ public class StoreOperation extends AssignOperation {
 	}
 
 	@Override
+	public void initPossibleVarNames() {
+		super.initPossibleVarNames();
+		varRef.requireVariable().addPossibleName(requireValue().getPossibleVarName().orElse(null));
+	}
+
+	@Override
 	public @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of(Objects.requireNonNull(value));
+		return List.of(requireValue());
 	}
 
 	@Override
 	public void addImports(ClassContext context) {
-		context.addImportsFor(value);
+		super.addImports(context);
 
 		if (declaration) {
 			context.addImport(varRef.getType());
@@ -102,9 +107,9 @@ public class StoreOperation extends AssignOperation {
 	}
 
 	@Override
-	protected void writeValue(DecompilationWriter out, MethodWriteContext context) {
+	protected void writeShortValue(DecompilationWriter out, MethodWriteContext context) {
 		out.record(
-				value, context, getPriority(),
+				requireShortValue(), context, getPriority(),
 				declaration && Type.isArray(varRef.getType()) ?
 						Operation::writeAsArrayInitializer :
 						Operation::write

@@ -6,7 +6,7 @@ import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
-import x590.newyava.Util;
+import x590.newyava.util.Utils;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.io.DecompilationWriter;
@@ -51,12 +51,12 @@ class ArrayValue extends AnnotationVisitor implements AnnotationValue {
 
 	@Override
 	public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-		return Util.addAndGetBack(values, new DecompilingAnnotation(descriptor));
+		return Utils.addAndGetBack(values, new DecompilingAnnotation(descriptor));
 	}
 
 	@Override
 	public AnnotationVisitor visitArray(String name) {
-		return Util.addAndGetBack(values, new ArrayValue());
+		return Utils.addAndGetBack(values, new ArrayValue());
 	}
 
 	@Override
@@ -69,7 +69,10 @@ class ArrayValue extends AnnotationVisitor implements AnnotationValue {
 		switch (values.size()) {
 			case 0 -> out.record("{}");
 			case 1 -> out.record(values.get(0), new ConstantWriteContext(context, elementType));
-			default -> out.record("{ ").record(values, new ConstantWriteContext(context, elementType), ", ").record(" }");
+			default -> out
+					.record("{ ")
+					.record(values, new ConstantWriteContext(context, elementType), ", ")
+					.record(" }");
 		}
 	}
 

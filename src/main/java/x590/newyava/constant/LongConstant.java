@@ -34,6 +34,11 @@ public final class LongConstant extends Constant {
 	}
 
 	@Override
+	public Type getImplicitType() {
+		return (int)value == value ? PrimitiveType.INT : getType();
+	}
+
+	@Override
 	public boolean valueEquals(int value) {
 		return this.value == value;
 	}
@@ -43,13 +48,20 @@ public final class LongConstant extends Constant {
 
 	@Override
 	public void write(DecompilationWriter out, ConstantWriteContext context) {
-		long val = value;
-		int intVal = (int)val;
+		out.record(Long.toString(value));
+		writePostfixIfNecessary(out, context, (int)value != value);
+	}
 
-		if (context.isImplicitCastAllowed() && intVal == val) {
-			out.record(String.valueOf(intVal));
-		} else {
-			out.record(String.valueOf(val)).record('l');
+	@Override
+	public void writeHex(DecompilationWriter out, ConstantWriteContext context) {
+		String hex = Long.toHexString(value);
+		out.record("0x").record(hex);
+		writePostfixIfNecessary(out, context, hex.length() > 8);
+	}
+
+	private void writePostfixIfNecessary(DecompilationWriter out, ConstantWriteContext context, boolean condition) {
+		if (condition || !context.isImplicitCastAllowed()) {
+			out.record('l');
 		}
 	}
 

@@ -12,6 +12,11 @@ public class ConditionsExample {
 		Main.run(this, Config.builder().alwaysWriteBrackets(true).build());
 	}
 
+
+	public void emptyIf(boolean x) {
+		if (x) {}
+	}
+
 	public void ifScope(boolean x) {
 		System.out.println("before");
 

@@ -38,20 +38,40 @@ public class TryCatchFinallyExample {
 //
 //		System.out.println("gg");
 //	}
+//
+//	public void tryCatchFinally(boolean x) {
+//		try {
+//			if (x) {
+//				return;
+//			}
+//
+//			InputStream in = new FileInputStream("/tmp/x");
+//
+//		} catch (IOException ex) {
+//			throw new UncheckedIOException(ex);
+////			ex.printStackTrace();
+//		} finally {
+//			System.out.println("FINALLY!");
+//		}
+//	}
 
-	public void tryCatchFinally(boolean x) {
-		try {
-			if (x) {
-				return;
+	public void tryCatchInLoop(boolean x) {
+		for (;;) {
+			try {
+				InputStream in = new FileInputStream("/tmp/x");
+			} catch (IOException ex) {
+				throw new UncheckedIOException(ex);
 			}
+		}
+	}
 
-			InputStream in = new FileInputStream("/tmp/x");
-
+	public void loopInTryCatch(boolean x) {
+		try {
+			for (;;) {
+				InputStream in = new FileInputStream("/tmp/x");
+			}
 		} catch (IOException ex) {
 			throw new UncheckedIOException(ex);
-//			ex.printStackTrace();
-		} finally {
-			System.out.println("FINALLY!");
 		}
 	}
 

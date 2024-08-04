@@ -51,6 +51,18 @@ public final class IntMultiType implements PrimitiveType {
 		out.record(getName());
 	}
 
+	@Override
+	public @Nullable String getBinName() {
+		return switch (flags) {
+			case INT_FLAG     -> "I";
+			case CHAR_FLAG    -> "C";
+			case SHORT_FLAG   -> "S";
+			case BYTE_FLAG    -> "B";
+			case BOOLEAN_FLAG -> "Z";
+			default -> null;
+		};
+	}
+
 	private String getName() {
 		if ((flags & INT_FLAG)     != 0) return "int";
 		if ((flags & CHAR_FLAG)    != 0) return "char";
@@ -129,6 +141,7 @@ public final class IntMultiType implements PrimitiveType {
 	}
 
 
+	@Deprecated(since = "0.8.15")
 	public static boolean isAssignable(IntMultiType givenType, IntMultiType requiredType) {
 		return (givenType.flags & requiredType.flags) != 0;
 	}

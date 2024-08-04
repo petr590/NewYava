@@ -10,7 +10,7 @@ import org.objectweb.asm.ClassReader;
 import x590.newyava.io.ConsoleWriterFactory;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.io.WriterFactory;
-import x590.newyava.type.ClassType;
+import x590.newyava.type.ClassArrayType;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -35,7 +35,9 @@ public class Decompiler {
 		this(config, ConsoleWriterFactory.INSTANCE);
 	}
 
-	private @Nullable @Unmodifiable Map<ClassType, DecompilingClass> classMap;
+	private @Nullable @Unmodifiable Map<ClassArrayType, DecompilingClass> classMap;
+
+	private final Map<ClassArrayType, Optional<ReflectClass>> reflectClassMap = new HashMap<>();
 
 	/**
 	 * Декомпилирует все классы с переданными именами.
@@ -107,7 +109,7 @@ public class Decompiler {
 		classes.forEach(tryCatch(DecompilingClass::computeImports, "computeImports"));
 
 
-		try (var writer = new DecompilationWriter(writerFactory)) {
+		try (var writer = new DecompilationWriter(writerFactory, config)) {
 			Streams.failableStream(classes.stream())
 					.filter(DecompilingClass::isTopLevel)
 					.forEach(clazz -> {
@@ -169,11 +171,29 @@ public class Decompiler {
 	}
 
 
-	public Optional<DecompilingClass> findClass(@Nullable ClassType classType) {
+	public Optional<DecompilingClass> findClass(@Nullable ClassArrayType type) {
 		if (classMap == null) {
 			throw new UnsupportedOperationException("Class map has not been initialized yet");
 		}
 
-		return Optional.ofNullable(classMap.get(classType));
+		return Optional.ofNullable(classMap.get(type));
+	}
+
+	public Optional<? extends IClass> findIClass(@Nullable ClassArrayType type) {
+		return findClass(type).<IClass>map(c -> c).or(() -> findReflectClass(type));
+	}
+
+	private Optional<ReflectClass> findReflectClass(@Nullable ClassArrayType classArrayType) {
+		if (classArrayType == null)
+			return Optional.empty();
+
+		return reflectClassMap.computeIfAbsent(classArrayType, type -> {
+			try {
+				return Optional.of(new ReflectClass(Class.forName(type.getCanonicalBinName())));
+			} catch (ClassNotFoundException ex) {
+				Log.warn("Cannot find class %s", type);
+				return Optional.empty();
+			}
+		});
 	}
 }

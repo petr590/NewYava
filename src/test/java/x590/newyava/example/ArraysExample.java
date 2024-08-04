@@ -33,6 +33,14 @@ public class ArraysExample {
 		var arr = new boolean[] { true, false, Boolean.TRUE, Boolean.FALSE };
 	}
 
+	public void byteArr() {
+		var arr = new byte[] { 1, 2, 3, 4, 5 };
+	}
+
+	public void shortArr() {
+		var arr = new short[] { 1, 2, 3, 4, 5 };
+	}
+
 	public void charArr() {
 		var arr = new char[] { 'a', 'b', 'c', '\0', '\'', '"' };
 	}
@@ -40,5 +48,13 @@ public class ArraysExample {
 	public void stringArr() {
 		var arr = new String[] { "intVar", "bar", "baz", null, (String)new Object() };
 		new String[] { "intVar" }[0] = null;
+	}
+
+	public int[] clone(int[] arr) {
+		return arr.clone();
+	}
+
+	public int[][] clone(int[][] arr) {
+		return arr.clone();
 	}
 }

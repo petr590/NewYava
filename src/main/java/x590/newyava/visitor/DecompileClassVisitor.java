@@ -7,17 +7,20 @@ import org.objectweb.asm.*;
 import x590.newyava.Decompiler;
 import x590.newyava.DecompilingField;
 import x590.newyava.DecompilingMethod;
-import x590.newyava.Util;
-import x590.newyava.descriptor.FieldDescriptor;
-import x590.newyava.modifiers.EntryType;
+import x590.newyava.util.Utils;
 import x590.newyava.annotation.DecompilingAnnotation;
+import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
+import x590.newyava.modifiers.EntryType;
 import x590.newyava.type.ClassType;
 
 import java.util.*;
 
 import static x590.newyava.modifiers.Modifiers.*;
 
+/**
+ * Визитор класса. Собирает все данные о классе и предоставляет к ним доступ.
+ */
 public class DecompileClassVisitor extends ClassVisitor {
 	private final Decompiler decompiler;
 
@@ -27,7 +30,7 @@ public class DecompileClassVisitor extends ClassVisitor {
 	@Getter
 	private int modifiers;
 
-	private String name;
+	private @Nullable String name;
 
 	@Getter
 	private ClassType thisType;
@@ -75,6 +78,7 @@ public class DecompileClassVisitor extends ClassVisitor {
 
 	@Override
 	public void visitOuterClass(String owner, String methodName, String methodDesc) {
+		assert name != null;
 		ClassType.checkOrUpdateNested(name, owner, true);
 
 		assert !owner.equals(name) : owner;
@@ -88,7 +92,7 @@ public class DecompileClassVisitor extends ClassVisitor {
 			IGNORED_INNER_MODIFIERS = ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED | ACC_STATIC;
 
 	@Override
-	public void visitInnerClass(String innerName, String outerName, String innerSimpleName, int innerModifiers) {
+	public void visitInnerClass(String innerName, @Nullable String outerName, String innerSimpleName, int innerModifiers) {
 		if (innerName.equals(this.name)) {
 			int formalModifiers = modifiers;
 
@@ -145,13 +149,13 @@ public class DecompileClassVisitor extends ClassVisitor {
 	public MethodVisitor visitMethod(int modifiers, String name, String descriptor,
 	                                 @Nullable String signature, String[] exceptions) {
 
-		return Util.addAndGetBack(methodVisitors,
+		return Utils.addAndGetBack(methodVisitors,
 				new DecompileMethodVisitor(decompiler, thisType, modifiers, name, descriptor, signature, exceptions));
 	}
 
 	@Override
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-		return Util.addAndGetBack(annotations, new DecompilingAnnotation(descriptor));
+		return Utils.addAndGetBack(annotations, new DecompilingAnnotation(descriptor));
 	}
 
 	@Override

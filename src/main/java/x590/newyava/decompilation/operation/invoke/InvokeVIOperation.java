@@ -2,7 +2,7 @@ package x590.newyava.decompilation.operation.invoke;
 
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
-import x590.newyava.decompilation.operation.CastOperation;
+import x590.newyava.decompilation.operation.other.CastOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.descriptor.MethodDescriptor;
@@ -51,16 +51,24 @@ public class InvokeVIOperation extends InvokeNonstaticOperation {
 	);
 
 
-	private final boolean intAsChar;
+	private final boolean firstIntAsChar;
 
 	private InvokeVIOperation(MethodContext context, MethodDescriptor descriptor) {
-		super(context, descriptor);
-		this.intAsChar = firstIntAsCharDescriptors.contains(descriptor);
+		super(context, processMethodDescriptor(descriptor));
+		this.firstIntAsChar = firstIntAsCharDescriptors.contains(descriptor);
+	}
+
+	private static MethodDescriptor processMethodDescriptor(MethodDescriptor descriptor) {
+		var hostClass = descriptor.hostClass();
+
+		return hostClass.isArray() && descriptor.equalsIgnoreClass("clone", ClassType.OBJECT) ?
+				new MethodDescriptor(hostClass, "clone", hostClass) :
+				descriptor;
 	}
 
 	@Override
 	protected void writeNameAndArgs(DecompilationWriter out, MethodWriteContext context) {
-		if (intAsChar) {
+		if (firstIntAsChar) {
 			out.record(descriptor.name()).record('(');
 
 			var arguments = this.arguments;

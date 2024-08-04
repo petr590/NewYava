@@ -28,7 +28,6 @@ public class EqualsTest {
 				"requirements",
 				Type.parse(new SignatureReader("[[Ljava/lang/String;"))
 		));
-		//java.lang.String[][] net.minecraft.advancements.AdvancementRequirements.requirements
 	}
 
 	@Test

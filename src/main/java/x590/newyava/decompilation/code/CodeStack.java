@@ -3,15 +3,17 @@ package x590.newyava.decompilation.code;
 import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.Stack;
 import org.jetbrains.annotations.Nullable;
-import x590.newyava.decompilation.operation.DummyOperation;
+import x590.newyava.decompilation.operation.other.DummyOperation;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.ProxyOperation;
-import x590.newyava.exception.EmptyStackException;
+import x590.newyava.decompilation.operation.other.ProxyOperation;
 import x590.newyava.exception.TypeSizeNotMatchesException;
 import x590.newyava.type.Type;
 import x590.newyava.type.TypeSize;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedList;
+import java.util.List;
 
 public class CodeStack implements Stack<Operation> {
 	/** Состояние стека */
@@ -69,7 +71,6 @@ public class CodeStack implements Stack<Operation> {
 
 	/**
 	 * Снимает со стека операцию и проверяет размер её типа.
-	 * @throws EmptyStackException если стек пуст.
 	 * @throws TypeSizeNotMatchesException если размер типа операции не совпадает с требуемым.
 	 */
 	public Operation popAs(TypeSize requiredSize) {
@@ -86,7 +87,6 @@ public class CodeStack implements Stack<Operation> {
 	 * Если передан {@link TypeSize#LONG} и на стеке две операции размером {@link TypeSize#WORD},
 	 * то снимает со стека две операции.
 	 * @return одну или две операции, снятые со стека.
-	 * @throws EmptyStackException если стек пуст.
 	 * @throws TypeSizeNotMatchesException если операции на стеке не соответствуют переданному размеру.
 	 */
 	public Pair<Operation, @Nullable Operation> popOneOrTwo(TypeSize size) {
@@ -121,11 +121,11 @@ public class CodeStack implements Stack<Operation> {
 	}
 
 	@Override
-	public Operation top() {
+	public @Nullable Operation top() {
 		return peek();
 	}
 
-	public Operation peek() {
+	public @Nullable Operation peek() {
 		return stack.peek();
 	}
 

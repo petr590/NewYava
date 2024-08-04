@@ -25,10 +25,12 @@ public interface ReferenceType extends Type {
 		return null;
 	}
 
+	@Deprecated(since = "0.8.15")
 	static boolean isAssignable(ReferenceType givenType, ReferenceType requiredType) {
 		if (requiredType.equals(givenType) ||
 			requiredType.equals(Types.ANY_OBJECT_TYPE) ||
-			requiredType.equals(ClassType.OBJECT)) {
+			requiredType.equals(ClassType.OBJECT) ||
+			givenType.equals(Types.ANY_OBJECT_TYPE)) {
 			return true;
 		}
 
@@ -52,14 +54,17 @@ public interface ReferenceType extends Type {
 			return givenType;
 		}
 
+		if (givenType.equals(Types.ANY_OBJECT_TYPE)) {
+			return requiredType;
+		}
+
 		if (givenType instanceof ArrayType type1 &&
 			requiredType instanceof ArrayType type2) {
 
 			int nest = Math.min(type1.getNestLevel(), type2.getNestLevel());
-			return ArrayType.forType(
-					Type.assignQuiet(type1.getMemberType(nest), type2.getMemberType(nest)),
-					nest
-			);
+			Type type = Type.assignQuiet(type1.getMemberType(nest), type2.getMemberType(nest));
+
+			return type == null ? null : ArrayType.forType(type, nest);
 		}
 
 		var superType = givenType.getSuperType();
@@ -74,12 +79,6 @@ public interface ReferenceType extends Type {
 	}
 
 	static ReferenceType valueOf(String typeName) {
-		if (typeName.isEmpty())
-			throw new InvalidTypeException("Empty type");
-
-		return switch (typeName.charAt(0)) {
-			case '[' -> ArrayType.valueOf(typeName);
-			default -> ClassType.valueOf(typeName);
-		};
+		return ClassArrayType.valueOf(typeName);
 	}
 }

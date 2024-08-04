@@ -8,6 +8,7 @@ import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.Type;
+import x590.newyava.util.JavaEscapeUtils;
 
 @EqualsAndHashCode(callSuper = false)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)

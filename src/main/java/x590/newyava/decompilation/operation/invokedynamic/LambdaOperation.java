@@ -1,16 +1,16 @@
 package x590.newyava.decompilation.operation.invokedynamic;
 
 import org.jetbrains.annotations.UnmodifiableView;
-import x590.newyava.decompilation.code.InvalidCode;
-import x590.newyava.decompilation.operation.variable.ILoadOperation;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.code.Code;
+import x590.newyava.decompilation.code.InvalidCode;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.OperationUtil;
+import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.terminal.ReturnValueOperation;
+import x590.newyava.decompilation.operation.variable.ILoadOperation;
 import x590.newyava.decompilation.scope.MethodScope;
 import x590.newyava.decompilation.variable.Variable;
 import x590.newyava.descriptor.IncompleteMethodDescriptor;
@@ -37,7 +37,7 @@ public class LambdaOperation implements Operation {
 
 		this.indyDescriptor = indyDescriptor;
 		this.implDescriptor = implDescriptor;
-		this.indyArgs = OperationUtil.readArgs(context, indyDescriptor.arguments());
+		this.indyArgs = OperationUtils.readArgs(context, indyDescriptor.arguments());
 		this.code = findCode(context, implDescriptor);
 	}
 
@@ -61,9 +61,11 @@ public class LambdaOperation implements Operation {
 
 	@Override
 	public void inferType(Type ignored) {
-		OperationUtil.inferArgTypes(indyArgs, indyDescriptor.arguments());
+		OperationUtils.inferArgTypes(indyArgs, indyDescriptor.arguments());
 	}
 
+
+	/** Связывает внутренние переменные лямбды с переменными внешнего метода. */
 	@Override
 	public void beforeVariablesInit(MethodScope methodScope) {
 		Operation.super.beforeVariablesInit(methodScope);
@@ -109,7 +111,7 @@ public class LambdaOperation implements Operation {
 
 		if (!code.isValid()) return;
 
-		var arrayDescriptor = OperationUtil.recognizeArrayLambda(implDescriptor, code);
+		var arrayDescriptor = OperationUtils.recognizeArrayLambda(implDescriptor, code);
 		if (arrayDescriptor != null) {
 			implDescriptor = arrayDescriptor;
 			code = InvalidCode.EMPTY;
@@ -117,7 +119,7 @@ public class LambdaOperation implements Operation {
 
 		}
 
-		var descriptorAndObject = OperationUtil.recognizeFunctionLambda(implDescriptor, code, indyArgs);
+		var descriptorAndObject = OperationUtils.recognizeFunctionLambda(implDescriptor, code, indyArgs);
 		if (descriptorAndObject != null) {
 			var descriptor = descriptorAndObject.first();
 			var object = descriptorAndObject.second();

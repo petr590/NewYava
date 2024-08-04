@@ -23,6 +23,11 @@ public class ThrowOperation implements TerminalOperation {
 	}
 
 	@Override
+	public boolean isThrow() {
+		return true;
+	}
+
+	@Override
 	public Type getReturnType() {
 		return PrimitiveType.VOID;
 	}

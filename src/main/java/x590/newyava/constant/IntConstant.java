@@ -6,12 +6,12 @@ import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.jetbrains.annotations.NotNull;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
+import x590.newyava.util.JavaEscapeUtils;
 
 @EqualsAndHashCode(callSuper = false)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
@@ -50,22 +50,51 @@ public final class IntConstant extends Constant implements Comparable<IntConstan
 
 	@Override
 	public void write(DecompilationWriter out, ConstantWriteContext context) {
-		out.record(
-				context.getType() == PrimitiveType.BOOLEAN ? String.valueOf(value != 0) :
-				context.getType() == PrimitiveType.CHAR ? JavaEscapeUtils.wrapChar((char)value) :
-						String.valueOf(value)
-		);
+		var type = context.getType();
+
+		if (type == PrimitiveType.BOOLEAN) {
+			out.record(Boolean.toString(value != 0));
+			return;
+		}
+
+		if (type == PrimitiveType.CHAR) {
+			out.record(JavaEscapeUtils.wrapChar((char)value));
+			return;
+		}
+
+		if (type != null && !context.isImplicitByteShortCastAllowed()) {
+			if (check(type, PrimitiveType.BYTE)) {
+				out.record("(byte)");
+			} else if (check(type, PrimitiveType.SHORT)) {
+				out.record("(short)");
+			}
+		}
+
+		out.record(Integer.toString(value));
+	}
+
+	private boolean check(Type given, Type assumed) {
+		return Type.assignDownQuiet(given, assumed) == given;
 	}
 
 	@Override
 	public void writeIntAsChar(DecompilationWriter out, ConstantWriteContext context) {
 		out.record((char)value == value ?
 				JavaEscapeUtils.wrapChar((char)value) :
-				String.valueOf(value));
+				Integer.toString(value));
 	}
 
 	@Override
-	public int compareTo(@NotNull IntConstant other) {
+	public void writeHex(DecompilationWriter out, ConstantWriteContext context) {
+		if (context.getType() == PrimitiveType.BOOLEAN) {
+			out.record(String.valueOf(value != 0));
+		} else {
+			out.record("0x").record(Integer.toHexString(value));
+		}
+	}
+
+	@Override
+	public int compareTo(IntConstant other) {
 		return value - other.value;
 	}
 

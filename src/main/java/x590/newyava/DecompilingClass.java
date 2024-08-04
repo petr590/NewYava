@@ -4,31 +4,32 @@ import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.ClassReader;
+import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.context.ClassContext;
+import x590.newyava.descriptor.FieldDescriptor;
+import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.exception.IllegalModifiersException;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.io.Writable;
 import x590.newyava.modifiers.EntryType;
+import x590.newyava.type.ClassArrayType;
 import x590.newyava.type.ClassType;
-import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.visitor.DecompileClassVisitor;
 import x590.newyava.visitor.ModuleInfo;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
-import static x590.newyava.modifiers.Modifiers.*;
 import static x590.newyava.Literals.*;
+import static x590.newyava.modifiers.Modifiers.*;
 
 /**
  * Декомпилируемый класс
  */
 @Getter
-public class DecompilingClass implements Writable {
+public class DecompilingClass implements IClass, Writable {
 
 	private final ClassContext classContext;
 
@@ -150,6 +151,19 @@ public class DecompilingClass implements Writable {
 	}
 
 
+	@Override
+	public Optional<DecompilingField> findField(FieldDescriptor descriptor) {
+		return fields.stream().filter(field -> field.getDescriptor().equals(descriptor)).findFirst();
+	}
+
+	@Override
+	public Optional<DecompilingMethod> findMethod(MethodDescriptor descriptor) {
+		return methods.stream().filter(method -> method.getDescriptor().equals(descriptor)).findFirst();
+	}
+
+
+	/* ----------------------------------------------- Nested classes ----------------------------------------------- */
+
 	private @Nullable DecompilingClass outerClass;
 
 	private final List<DecompilingClass> nestedClasses = new ArrayList<>();
@@ -158,7 +172,7 @@ public class DecompilingClass implements Writable {
 	@Getter
 	private boolean topLevel = true;
 
-	public void initNested(@Unmodifiable Map<ClassType, DecompilingClass> classMap) {
+	public void initNested(@Unmodifiable Map<ClassArrayType, DecompilingClass> classMap) {
 		if (outerClassType != null) {
 			var outerClass = this.outerClass = classMap.get(outerClassType);
 
@@ -182,6 +196,15 @@ public class DecompilingClass implements Writable {
 	}
 
 	public void afterDecompilation() {
+		if (!fields.isEmpty()) {
+			Set<MethodDescriptor> constructors = methods.stream()
+					.map(DecompilingMethod::getDescriptor)
+					.filter(MethodDescriptor::isConstructor)
+					.collect(Collectors.toSet());
+
+			fields.forEach(field -> field.afterDecompilation(constructors));
+		}
+
 		methods.forEach(method -> method.afterDecompilation(classContext));
 	}
 
@@ -388,12 +411,9 @@ public class DecompilingClass implements Writable {
 		if (isSealed()) {
 			out.record(LIT_SEALED + " ");
 
-		} else if ((modifiers & ACC_FINAL) == 0) {
-			var superClass = classContext.findClass(superType);
-
-			if (superClass.isPresent() && superClass.get().isSealed()) {
-				out.record(LIT_NON_SEALED + " ");
-			}
+		} else if ((modifiers & ACC_FINAL) == 0 &&
+				(isSealed(superType) || interfaces.stream().anyMatch(this::isSealed))) {
+			out.record(LIT_NON_SEALED + " ");
 		}
 
 
@@ -408,6 +428,12 @@ public class DecompilingClass implements Writable {
 			default -> throw new IllegalModifiersException(modifiers, EntryType.CLASS);
 		});
 	}
+
+	private boolean isSealed(ClassType classType) {
+		var clazz = classContext.findClass(classType);
+		return clazz.isPresent() && clazz.get().isSealed();
+	}
+
 
 	@Override
 	public String toString() {
