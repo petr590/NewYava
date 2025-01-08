@@ -23,5 +23,6 @@ public class AssertExample {
 		assert e : "gg";
 		assert f : null;
 		assert list.isEmpty() : list;
+		assert a && b;
 	}
 }

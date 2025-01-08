@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.other;
 
+import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodWriteContext;
@@ -8,6 +9,7 @@ import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
 
+@EqualsAndHashCode
 @RequiredArgsConstructor
 public class NewOperation implements Operation {
 
@@ -30,11 +32,11 @@ public class NewOperation implements Operation {
 
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
-		out.recordSp("new").record(type, context);
+		out.record("new ").record(type, context);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("NewOperation %08x(%s)", hashCode(), type);
+		return String.format("NewOperation(%s)", type);
 	}
 }

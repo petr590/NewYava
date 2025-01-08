@@ -1,18 +1,17 @@
 package x590.newyava.decompilation.instruction;
 
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Opcodes;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.variable.IIncOperation;
 
-import static org.objectweb.asm.Opcodes.ILOAD;
+import static org.objectweb.asm.Opcodes.*;
 
 public record IIncInsn(int slotId, int increment) implements Instruction {
 
 	@Override
 	public int getOpcode() {
-		return Opcodes.IINC;
+		return IINC;
 	}
 
 

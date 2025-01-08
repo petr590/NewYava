@@ -1,19 +1,26 @@
 package x590.newyava.decompilation.operation.other;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
+import x590.newyava.decompilation.operation.invoke.InvokeOperation;
+import x590.newyava.decompilation.scope.MethodScope;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
 import java.util.List;
 import java.util.Optional;
 
+@EqualsAndHashCode
+@RequiredArgsConstructor
 public class CastOperation implements Operation {
 	@Getter
 	private final Operation operand;
@@ -22,13 +29,16 @@ public class CastOperation implements Operation {
 	private final Type requiredType, returnType;
 
 	private final boolean wide;
+
+	@EqualsAndHashCode.Exclude
 	private boolean implicitCastAllowed;
 
 	public CastOperation(MethodContext context, Type requiredType, Type returnType, boolean wide) {
-		this.operand = context.popAs(requiredType);
-		this.requiredType = requiredType;
-		this.returnType = returnType;
-		this.wide = wide;
+		this(context.popAs(requiredType), requiredType, returnType, wide);
+	}
+
+	public static CastOperation narrow(Operation operand, Type requiredType, Type returnType) {
+		return new CastOperation(operand, requiredType, returnType, false);
 	}
 
 	public static CastOperation narrow(MethodContext context, Type requiredType, Type returnType) {
@@ -37,6 +47,29 @@ public class CastOperation implements Operation {
 
 	public static CastOperation wide(MethodContext context, Type requiredType, Type returnType) {
 		return new CastOperation(context, requiredType, returnType, true);
+	}
+
+
+	private boolean isGeneric;
+
+	@Override
+	public void beforeVariablesInit(Context context, @Nullable MethodScope methodScope) {
+		Operation.super.beforeVariablesInit(context, methodScope);
+
+		if (operand instanceof InvokeOperation invokeOp) {
+			var method = context.findIMethod(invokeOp.getDescriptor());
+
+			isGeneric =
+					method.isPresent() &&
+					Type.isGeneric(method.get().getVisibleDescriptor().returnType());
+
+		} else if (operand instanceof FieldOperation fieldOp && fieldOp.isGetter()) {
+			var field = context.findIField(fieldOp.getDescriptor());
+
+			isGeneric =
+					field.isPresent() &&
+					Type.isGeneric(field.get().getVisibleDescriptor().type());
+		}
 	}
 
 	@Override
@@ -83,18 +116,18 @@ public class CastOperation implements Operation {
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
 		if (!canOmitCast()) {
-			out.record('(').record(returnType, context).record(')');
+			out.record('(').record(returnType, context).record(')').space();
 		}
 
 		out.record(operand, context, getPriority());
 	}
 
 	private boolean canOmitCast() {
-		return implicitCastAllowed && wide || operand.getReturnType().equals(returnType);
+		return implicitCastAllowed && wide || isGeneric || operand.getReturnType().equals(returnType);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("CastOperation %08x((%s) %s)", hashCode(), returnType, operand);
+		return String.format("CastOperation((%s) %s)", returnType, operand);
 	}
 }

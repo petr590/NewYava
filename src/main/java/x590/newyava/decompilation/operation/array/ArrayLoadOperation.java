@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.array;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
@@ -14,12 +15,16 @@ import x590.newyava.type.Type;
 
 import java.util.List;
 
+@EqualsAndHashCode
 public class ArrayLoadOperation implements Operation {
 
 	@Getter
 	private final Operation array, index;
 
+	@EqualsAndHashCode.Exclude
 	private final ArrayType arrayRequiredType;
+
+	@EqualsAndHashCode.Exclude
 	private Type returnType;
 
 	public ArrayLoadOperation(MethodContext context, Type requiredType) {
@@ -66,6 +71,6 @@ public class ArrayLoadOperation implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("ArrayLoadOperation %08x(%s[%s])", hashCode(), array, index);
+		return String.format("ArrayLoadOperation(%s[%s])", array, index);
 	}
 }

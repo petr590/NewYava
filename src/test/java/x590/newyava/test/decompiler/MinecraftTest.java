@@ -1,7 +1,6 @@
 package x590.newyava.test.decompiler;
 
 import org.jetbrains.annotations.Unmodifiable;
-import org.junit.Test;
 import x590.newyava.Config;
 import x590.newyava.Decompiler;
 import x590.newyava.io.BufferedFileWriterFactory;
@@ -32,8 +31,7 @@ public class MinecraftTest {
 		}
 	}
 
-	@Test
-	public void run() {
+	public static void main(String[] args) {
 		new Decompiler(
 				Config.builder().skipStackTrace(true).ignoreVariableTable(true).indent("\t").build(),
 				new BufferedFileWriterFactory(DST_DIR)

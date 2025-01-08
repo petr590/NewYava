@@ -8,9 +8,9 @@ import x590.newyava.io.DecompilationWriter;
 
 import java.util.List;
 
-public class TryScope extends Scope {
-	public TryScope(@Unmodifiable List<Chunk> chunks) {
-		super(chunks);
+public final class TryScope extends TryCatchScope {
+	public TryScope(@Unmodifiable List<Chunk> chunks, JoiningTryCatchScope joiningScope) {
+		super(chunks, joiningScope);
 	}
 
 	@Override

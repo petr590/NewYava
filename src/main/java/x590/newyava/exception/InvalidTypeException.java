@@ -9,6 +9,6 @@ public class InvalidTypeException extends DecompilationException {
 	}
 
 	public InvalidTypeException(SignatureReader reader) {
-		super(reader.nextAll());
+		super("At pos " + reader.getPos() + ": " + reader.nextAll() + "\nWhole string: " + reader.getSrc());
 	}
 }

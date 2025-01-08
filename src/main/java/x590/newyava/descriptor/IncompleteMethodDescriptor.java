@@ -16,6 +16,7 @@ public record IncompleteMethodDescriptor(String name, Type returnType, @Unmodifi
 
 		List<Type> arguments = Type.parseMethodArguments(reader);
 		Type returnType = Type.parseReturnType(reader);
+
 		reader.checkEndForType();
 
 		return new IncompleteMethodDescriptor(name, returnType, Collections.unmodifiableList(arguments));

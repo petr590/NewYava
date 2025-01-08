@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.terminal;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
@@ -13,6 +14,7 @@ import x590.newyava.type.Type;
 
 import java.util.List;
 
+@EqualsAndHashCode
 public class ReturnValueOperation implements ReturnOperation {
 	@Getter
 	private final Operation value;
@@ -52,6 +54,6 @@ public class ReturnValueOperation implements ReturnOperation {
 
 	@Override
 	public String toString() {
-		return String.format("ReturnValueOperation %08x(%s)", hashCode(), value);
+		return String.format("ReturnValueOperation(%s)", value);
 	}
 }

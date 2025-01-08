@@ -20,9 +20,11 @@ public class LdcOperation implements Operation {
 
 	private Type returnType;
 
+	@EqualsAndHashCode.Exclude
 	private boolean
 			implicitCastAllowed = false,
-			implicitByteShortCastAllowed = true;
+			implicitByteShortCastAllowed = true,
+			constantsUsingAllowed = true;
 
 	public LdcOperation(Constant value) {
 		this.value = value;
@@ -45,6 +47,11 @@ public class LdcOperation implements Operation {
 	}
 
 	@Override
+	public void denyConstantsUsing() {
+		constantsUsingAllowed = false;
+	}
+
+	@Override
 	public void addImports(ClassContext context) {
 		context.addImportsFor(value);
 	}
@@ -56,7 +63,8 @@ public class LdcOperation implements Operation {
 
 
 	private ConstantWriteContext createConstantWriteContext(MethodWriteContext context) {
-		return new ConstantWriteContext(context, returnType, implicitCastAllowed, implicitByteShortCastAllowed);
+		return new ConstantWriteContext(context, returnType,
+				implicitCastAllowed, implicitByteShortCastAllowed, constantsUsingAllowed);
 	}
 
 	@Override
@@ -84,6 +92,6 @@ public class LdcOperation implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("LdcOperation %08x(%s)", hashCode(), value);
+		return String.format("LdcOperation(%s)", value);
 	}
 }

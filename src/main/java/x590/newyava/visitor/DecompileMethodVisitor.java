@@ -1,6 +1,5 @@
 package x590.newyava.visitor;
 
-import com.google.common.collect.Streams;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import lombok.AccessLevel;
@@ -9,6 +8,9 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.*;
 import x590.newyava.Decompiler;
+import x590.newyava.io.SignatureReader;
+import x590.newyava.type.*;
+import x590.newyava.type.Type;
 import x590.newyava.util.Utils;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.annotation.DefaultValue;
@@ -16,16 +18,11 @@ import x590.newyava.decompilation.code.CodeGraph;
 import x590.newyava.decompilation.instruction.*;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.modifiers.Modifiers;
-import x590.newyava.type.ClassType;
-import x590.newyava.type.ReferenceType;
-import x590.newyava.type.Type;
-import x590.newyava.type.TypeSize;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.IntStream;
 
 import static org.objectweb.asm.Opcodes.*;
 
@@ -38,8 +35,11 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	private final Decompiler decompiler;
 
 	private final int modifiers;
+
 	private final MethodDescriptor descriptor;
-	private final @Nullable String signature;
+	private final @Nullable MethodDescriptor visibleDescriptor;
+
+	private final Signature signature;
 
 	private final @Unmodifiable List<ReferenceType> exceptions;
 
@@ -48,30 +48,69 @@ public class DecompileMethodVisitor extends MethodVisitor {
 	private @Nullable DefaultValue defaultValue;
 
 	// Является @Nullable, но это не указывается из-за кучи предупреждений
+	@SuppressWarnings("all")
 	private CodeGraph codeGraph;
 
-	/** Слот, на котором начинаются переменные, объявленные в методе */
+	/** Список размеров всех переменных, объявленных в сигнатуре метода (в том числе this). */
 	private final IntList argumentsSizes;
 
 	public DecompileMethodVisitor(Decompiler decompiler, ClassType hostClass, int modifiers, String name,
-	                              String argsAndReturnType, @Nullable String signature, String @Nullable[] exceptions) {
+	                              String argsAndReturnType, @Nullable String signatureStr, String @Nullable[] exceptionNames) {
 
 		super(Opcodes.ASM9);
-
 		this.decompiler = decompiler;
 
 		this.modifiers = modifiers;
 		this.descriptor = MethodDescriptor.of(hostClass, name, argsAndReturnType);
-		this.signature = signature;
-		this.exceptions = exceptions == null ?
+
+		var signature = Signature.EMPTY;
+
+		List<ReferenceType> exceptions = exceptionNames == null ?
 				Collections.emptyList() :
-				Arrays.stream(exceptions).map(ReferenceType::valueOf).toList();
+				Arrays.stream(exceptionNames).map(ReferenceType::valueOf).toList();
 
-		var stream = descriptor.arguments().stream().mapToInt(type -> type.getSize().slots());
+		if (signatureStr != null) {
+			var reader = new SignatureReader(signatureStr);
 
-		this.argumentsSizes =
-				((modifiers & ACC_STATIC) == 0 ? Streams.concat(IntStream.of(TypeSize.WORD.slots()), stream) : stream)
-						.collect(IntArrayList::new, IntList::add, IntList::addAll);
+			signature = Signature.parseOrEmpty(reader);
+
+			var args = Type.parseMethodArguments(reader);
+			var returnType = Type.parseReturnType(reader);
+
+			this.visibleDescriptor = new MethodDescriptor(hostClass, name, returnType, args);
+
+
+			List<ReferenceType> genericExceptions = new ArrayList<>();
+
+			while (!reader.isEnd() && reader.eat('^')) {
+				genericExceptions.add(ReferenceType.parse(reader));
+			}
+
+			if (!genericExceptions.isEmpty()) {
+				exceptions = genericExceptions;
+			}
+
+			reader.checkEndForType();
+
+		} else {
+			visibleDescriptor = null;
+		}
+
+		this.signature = signature;
+		this.exceptions = exceptions;
+
+
+		boolean nonStatic = (modifiers & ACC_STATIC) == 0;
+
+		this.argumentsSizes = new IntArrayList(descriptor.arguments().size() + (nonStatic ? 1 : 0));
+
+		if (nonStatic) {
+			argumentsSizes.add(TypeSize.WORD.slots());
+		}
+
+		for (var argType : descriptor.arguments()) {
+			argumentsSizes.add(argType.getSize().slots());
+		}
 	}
 
 	public @Nullable CodeGraph getCodeGraph() {
@@ -81,8 +120,8 @@ public class DecompileMethodVisitor extends MethodVisitor {
 
 	/* ------------------------------------------------ Annotations ------------------------------------------------- */
 
-	public @Unmodifiable List<DecompilingAnnotation> getAnnotations() {
-		return Collections.unmodifiableList(annotations);
+	public List<DecompilingAnnotation> getAnnotations() {
+		return annotations;
 	}
 
 	@Override
@@ -117,11 +156,6 @@ public class DecompileMethodVisitor extends MethodVisitor {
 //		return null;
 //	}
 //
-////	@Override
-////	public void visitAttribute(Attribute attribute) {
-////		super.visitAttribute(attribute);
-////	}
-//
 //	@Override
 //	public AnnotationVisitor visitInsnAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
 //		System.out.printf("visitInsnAnnotation(%d, %s, %s, %b)\n", typeRef, typePath, descriptor, visible);
@@ -135,7 +169,9 @@ public class DecompileMethodVisitor extends MethodVisitor {
 //	}
 //
 //	@Override
-//	public AnnotationVisitor visitLocalVariableAnnotation(int typeRef, TypePath typePath, Label[] start, Label[] end, int[] index, String descriptor, boolean visible) {
+//	public AnnotationVisitor visitLocalVariableAnnotation(int typeRef, TypePath typePath, Label[] start, Label[] end,
+//	                                                      int[] index, String descriptor, boolean visible) {
+//
 //		System.out.printf("visitLocalVariableAnnotation(%d, %s, %s, %b)\n", typeRef, typePath, descriptor, visible);
 //		return null;
 //	}

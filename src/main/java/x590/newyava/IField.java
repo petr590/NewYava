@@ -9,6 +9,8 @@ public interface IField {
 
 	FieldDescriptor getDescriptor();
 
+	FieldDescriptor getVisibleDescriptor();
+
 	default boolean isEnum() {
 		return (getModifiers() & ACC_ENUM) != 0;
 	}

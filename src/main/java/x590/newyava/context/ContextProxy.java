@@ -6,8 +6,9 @@ import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.*;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
-import x590.newyava.type.ClassArrayType;
+import x590.newyava.type.IClassArrayType;
 import x590.newyava.type.ClassType;
+import x590.newyava.type.IClassType;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +26,11 @@ public class ContextProxy implements Context {
 	}
 
 	@Override
+	public DecompilingClass getDecompilingClass() {
+		return context.getDecompilingClass();
+	}
+
+	@Override
 	public int getClassModifiers() {
 		return context.getClassModifiers();
 	}
@@ -35,13 +41,18 @@ public class ContextProxy implements Context {
 	}
 
 	@Override
-	public ClassType getSuperType() {
+	public IClassType getSuperType() {
 		return context.getSuperType();
 	}
 
 	@Override
 	public @Nullable @Unmodifiable List<DecompilingField> getRecordComponents() {
 		return context.getRecordComponents();
+	}
+
+	@Override
+	public boolean entered() {
+		return context.entered();
 	}
 
 	@Override
@@ -60,7 +71,7 @@ public class ContextProxy implements Context {
 	}
 
 	@Override
-	public Optional<DecompilingClass> findClass(@Nullable ClassArrayType type) {
+	public Optional<DecompilingClass> findClass(@Nullable IClassArrayType type) {
 		return context.findClass(type);
 	}
 
@@ -75,7 +86,48 @@ public class ContextProxy implements Context {
 	}
 
 	@Override
-	public Optional<? extends IClass> findIClass(@Nullable ClassArrayType type) {
+	public Optional<? extends IClass> findIClass(@Nullable IClassArrayType type) {
 		return context.findIClass(type);
+	}
+
+
+	@Override
+	public @Nullable FieldDescriptor getConstant(int value) {
+		return context.getConstant(value);
+	}
+
+	@Override
+	public @Nullable FieldDescriptor getConstant(byte value) {
+		return context.getConstant(value);
+	}
+
+	@Override
+	public @Nullable FieldDescriptor getConstant(short value) {
+		return context.getConstant(value);
+	}
+
+	@Override
+	public @Nullable FieldDescriptor getConstant(char value) {
+		return context.getConstant(value);
+	}
+
+	@Override
+	public @Nullable FieldDescriptor getConstant(long value) {
+		return context.getConstant(value);
+	}
+
+	@Override
+	public @Nullable FieldDescriptor getConstant(float value) {
+		return context.getConstant(value);
+	}
+
+	@Override
+	public @Nullable FieldDescriptor getConstant(double value) {
+		return context.getConstant(value);
+	}
+
+	@Override
+	public @Nullable FieldDescriptor getConstant(String value) {
+		return context.getConstant(value);
 	}
 }

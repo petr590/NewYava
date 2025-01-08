@@ -1,5 +1,7 @@
 package x590.newyava.decompilation.operation.array;
 
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
@@ -13,6 +15,8 @@ import x590.newyava.type.Types;
 import java.util.List;
 import java.util.Optional;
 
+@Getter
+@EqualsAndHashCode
 public class ArrayLengthOperation implements Operation {
 	private final Operation array;
 
@@ -53,6 +57,6 @@ public class ArrayLengthOperation implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("ArrayLengthOperation %08x(%s)", hashCode(), array);
+		return String.format("ArrayLengthOperation(%s)", array);
 	}
 }

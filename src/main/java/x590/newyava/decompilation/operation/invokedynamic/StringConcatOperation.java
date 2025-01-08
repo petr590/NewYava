@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.invokedynamic;
 
+import lombok.EqualsAndHashCode;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.util.JavaEscapeUtils;
@@ -21,25 +22,23 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@EqualsAndHashCode
 public class StringConcatOperation implements Operation {
-
 	private static final LdcOperation EMPTY_STRING = new LdcOperation(StringConstant.valueOf(""));
 
-	private final List<Operation> operands;
+
+	private final List<Operation> operands = new ArrayList<>();
 
 	public StringConcatOperation(MethodContext context, List<String> bootstrapArgs, @Unmodifiable List<Type> argTypes) {
-		operands = new ArrayList<>();
+		var args = new LinkedList<Operation>();
+
+		for (var iter = argTypes.listIterator(argTypes.size()); iter.hasPrevious(); ) {
+			args.push(context.popAs(iter.previous()));
+		}
 
 		String pattern = bootstrapArgs.get(0);
 
-		var args = new LinkedList<Operation>();
-
-		for (var it = argTypes.listIterator(argTypes.size()); it .hasPrevious(); ) {
-			args.push(context.popAs(it.previous()));
-		}
-
 		var bootstrapArgIter = bootstrapArgs.listIterator(1);
-
 		int last = 0;
 
 		for (int i = 0, s = pattern.length(); ; ++i) {
@@ -130,7 +129,7 @@ public class StringConcatOperation implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("StringConcatOperation %08x(%s)", hashCode(),
-				operands.stream().map(Object::toString).collect(Collectors.joining(" + ")));
+		return String.format("StringConcatOperation(%s)",
+				operands.stream().map(Operation::toString).collect(Collectors.joining(" + ")));
 	}
 }

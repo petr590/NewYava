@@ -1,6 +1,7 @@
 package x590.newyava.decompilation.operation.other;
 
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.Nullable;
@@ -12,12 +13,15 @@ import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.scope.LabelNameGenerator;
 import x590.newyava.decompilation.scope.Scope;
+import x590.newyava.decompilation.variable.VarUsage;
+import x590.newyava.decompilation.variable.Variable;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
 import java.util.List;
 import java.util.Optional;
 
+@EqualsAndHashCode
 @AllArgsConstructor
 public class ProxyOperation implements Operation {
 
@@ -56,6 +60,11 @@ public class ProxyOperation implements Operation {
 	}
 
 	@Override
+	public boolean needWrapWithBrackets() {
+		return operation.needWrapWithBrackets();
+	}
+
+	@Override
 	public boolean isTerminal() {
 		return operation.isTerminal();
 	}
@@ -76,6 +85,16 @@ public class ProxyOperation implements Operation {
 	}
 
 	@Override
+	public boolean usesVariable(Variable variable) {
+		return operation.usesVariable(variable);
+	}
+
+	@Override
+	public VarUsage getVarUsage(int slotId) {
+		return operation.getVarUsage(slotId);
+	}
+
+	@Override
 	public void inferType(Type requiredType) {
 		operation.inferType(requiredType);
 	}
@@ -88,6 +107,11 @@ public class ProxyOperation implements Operation {
 	@Override
 	public void addPossibleVarName(@Nullable String name) {
 		operation.addPossibleVarName(name);
+	}
+
+	@Override
+	public boolean needEmptyLinesAround() {
+		return operation.needEmptyLinesAround();
 	}
 
 	@Override
@@ -117,6 +141,6 @@ public class ProxyOperation implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("ProxyOperation %08x(%s)", hashCode(), operation);
+		return String.format("ProxyOperation(%s)", operation);
 	}
 }

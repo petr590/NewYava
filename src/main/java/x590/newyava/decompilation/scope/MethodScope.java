@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
+import x590.newyava.DecompilingField;
 import x590.newyava.context.MethodContext;
 import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.decompilation.operation.other.FieldOperation;
@@ -26,23 +27,31 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+@Getter
 public class MethodScope extends Scope {
 
-	@Getter
 	private final MethodContext methodContext;
 
 	/** Индекс, с которого начинаются аргументы видимого дескриптора */
-	@Getter
 	private int argsStart;
 
 	/** Индекс, на котором заканчиваются аргументы видимого дескриптора (не включительно) */
-	@Getter
 	private int argsEnd;
+
+	private boolean hasOuterInstance;
+
+	/** Ключ - индекс переменной дескриптора, значение - поле */
+	private @Nullable Int2ObjectMap<DecompilingField> outerVarTable;
 
 	public MethodScope(@Unmodifiable List<Chunk> chunks, MethodContext methodContext) {
 		super(chunks);
 		this.methodContext = methodContext;
+		this.argsStart = 0;
 		this.argsEnd = methodContext.getDescriptor().arguments().size();
+	}
+
+	public boolean hasOuterInstance() {
+		return hasOuterInstance;
 	}
 
 	@Override
@@ -66,33 +75,36 @@ public class MethodScope extends Scope {
 
 					operations.remove(0);
 					argsStart += 1;
+					hasOuterInstance = true;
 				}
 
 				// Инициализация переменных из внешнего метода
 				if (context.getThisType().isEnclosedInMethod()) {
-					while (!operations.isEmpty() && OperationUtils.checkOuterVarInit(operations.get(0), context)) {
-						operations.remove(0);
-						argsEnd -= 1;
+					outerVarTable = new Int2ObjectArrayMap<>();
+
+					int i = 0;
+
+					for (int s = operations.size(); i < s; i++) {
+						if (!OperationUtils.checkOuterVarInit(operations.get(i), context, outerVarTable)) {
+							break;
+						}
 					}
+
+					operations.subList(0, i).clear();
+					argsEnd -= i;
+
+					assert argsStart <= argsEnd : argsStart + " > " + argsEnd;
 				}
 			}
 
-
+			// Дефолтный супер-конструктор
 			boolean defaultSuperConstructor = !operations.isEmpty() && operations.get(0).isDefaultConstructor(context);
 
-			// Дефолтный супер-конструктор
 			if (defaultSuperConstructor) {
 				operations.remove(0);
 			}
 
-
-			// Инициализация нестатических полей
-			for (int i = defaultSuperConstructor ? 0 : 1, s = operations.size(); i < s; i++) {
-				if (!operations.get(i).initInstanceField(context)) {
-					break;
-				}
-			}
-
+			initializeFields(context, defaultSuperConstructor ? 0 : 1);
 
 			// Поля record-ов инициализируются в конце конструктора
 			if ((context.getClassModifiers() & Modifiers.ACC_RECORD) != 0) {
@@ -105,17 +117,31 @@ public class MethodScope extends Scope {
 				}
 			}
 
-		} else if (context.isStaticInitializer() && context.getThisType().isAnonymous()) {
-			// Инициализация карты для switch(enum)
-			int i = 0;
+		} else if (context.isStaticInitializer()) {
+			initializeFields(context, 0);
 
-			for (int s = operations.size() - 1; i < s; i += 2) {
-				if (!OperationUtils.tryInitEnumMap(context, operations.get(i), operations.get(i + 1))) {
-					break;
+			if (context.getThisType().isAnonymous() &&
+				operations.size() > 0 &&
+				OperationUtils.tryCreateEnumMap(context, operations.get(0))) {
+
+				// Инициализация карты для switch(enum)
+				int i = 1; // Первая операция - создание массива
+
+				for (int s = operations.size(); i < s; i++) {
+					OperationUtils.tryInitEnumMap(context, operations.get(i));
 				}
-			}
 
-			operations.subList(0, i).clear();
+				operations.subList(0, i).clear();
+			}
+		}
+	}
+
+	private void initializeFields(MethodContext context, int startIndex) {
+		// Инициализация полей
+		for (int i = startIndex, s = operations.size(); i < s; i++) {
+			if (!operations.get(i).initializeField(context)) {
+				break;
+			}
 		}
 	}
 
@@ -124,8 +150,8 @@ public class MethodScope extends Scope {
 	public void afterDecompilation(MethodContext context) {
 		super.afterDecompilation(context);
 
-		if (context.isConstructor()) {
-			operations.removeIf(Operation::isInstanceFieldInitialized);
+		if (context.isConstructor() || context.isStaticInitializer()) {
+			operations.removeIf(Operation::isFieldInitialized);
 		}
 	}
 
@@ -212,29 +238,34 @@ public class MethodScope extends Scope {
 		}
 
 
-		Int2ObjectMap<List<VarOwner>> hostsMap = new Int2ObjectArrayMap<>();
+		Int2ObjectMap<List<VarOwner>> ownersMap = new Int2ObjectArrayMap<>();
 
 		for (int slotsCount = slots.size(); slotId < slotsCount; slotId++) {
-			hostsMap.put(slotId, new ArrayList<>());
+			ownersMap.put(slotId, new ArrayList<>());
 		}
 
-		findVarsHosts(hostsMap);
+		findVarsOwners(ownersMap);
 
-		for (var entry : hostsMap.int2ObjectEntrySet()) {
+//		System.out.println(ownersMap.get(2)); // DEBUG
+
+		for (var entry : ownersMap.int2ObjectEntrySet()) {
 			int varSlotId = entry.getIntKey();
-			List<VarOwner> hosts = entry.getValue();
+			List<VarOwner> owners = entry.getValue();
+
+//			System.out.printf("%d %s\n", varSlotId, slots.get(varSlotId).getVarRefs()); // DEBUG
 
 			for (VariableReference ref : slots.get(varSlotId).getVarRefs()) {
-				var foundHost = hosts.stream().filter(host ->
-								host.getStart() >= ref.getStart() && host.getEnd() <= ref.getEnd() ||
-								host.getStart() <= ref.getStart() && host.getEnd() >= ref.getEnd()
+				var foundOwner = owners.stream().filter(owner ->
+								owner.getStart() >= ref.getStart() && owner.getEnd() <= (ref.getEnd() - 1) ||
+								owner.getStart() <= ref.getStart() && owner.getEnd() >= (ref.getEnd() - 1)
 						).findFirst();
 
-				foundHost.ifPresentOrElse(
-						host -> {
-							ref.initVariable(host.getOrCreateVariable(ref));
-							host.getScope().addVariable(ref.getVariable());
-							host.getScope().variablesToDeclare.add(ref.getVariable());
+				foundOwner.ifPresentOrElse(
+						owner -> {
+							ref.initVariable(owner.getOrCreateVariable(ref));
+							owner.getScope().addVariable(ref.getVariable());
+							owner.getScope().variablesToDeclare.add(ref.getVariable());
+//							System.out.printf("%s, %s\n", owner.getScope(), ref);
 						},
 						() -> {
 							ref.initVariable(new Variable(ref, false));
@@ -270,8 +301,8 @@ public class MethodScope extends Scope {
 		return returnsSingleOperation(operation ->
 				operation instanceof FieldOperation fieldOp &&
 				fieldOp.isGetter() &&
-				fieldOp.getDescriptor().equals(fieldDescriptor) &&
-				OperationUtils.isThisRef(fieldOp.getInstance())
+				fieldOp.getDescriptor().baseEquals(fieldDescriptor) &&
+				fieldOp.isThisField()
 		);
 	}
 

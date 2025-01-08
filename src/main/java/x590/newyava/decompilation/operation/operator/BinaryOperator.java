@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.operator;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.apache.commons.lang3.function.TriConsumer;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -17,6 +18,7 @@ import x590.newyava.type.Type;
 
 import java.util.List;
 
+@EqualsAndHashCode
 public class BinaryOperator implements Operation {
 	@Getter
 	private final Operation operand1, operand2;
@@ -24,6 +26,7 @@ public class BinaryOperator implements Operation {
 	@Getter
 	private final OperatorType operatorType;
 
+	@EqualsAndHashCode.Exclude
 	private final Type requiredType1, requiredType2, returnType;
 
 	public BinaryOperator(MethodContext context, OperatorType operatorType, Type requiredType) {
@@ -42,13 +45,13 @@ public class BinaryOperator implements Operation {
 
 		} else if (operatorType.isShift() &&
 				operand2 instanceof CastOperation cast1 &&
-				cast1.getReturnType().equals(PrimitiveType.INT)) {
+				cast1.getReturnType() == PrimitiveType.INT) {
 
 			operand2 = cast1.getOperand();
 			requiredType2 = cast1.getRequiredType();
 
 			if (operand2 instanceof CastOperation cast2 &&
-				cast2.getReturnType().equals(PrimitiveType.LONG)) {
+				cast2.getReturnType() == PrimitiveType.LONG) {
 
 				operand2 = cast2.getOperand();
 				requiredType2 = cast2.getRequiredType();
@@ -122,7 +125,6 @@ public class BinaryOperator implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("BinaryOperation %08x(%s %s %s)",
-				hashCode(), operand1, operatorType.getValue(), operand2);
+		return String.format("BinaryOperation(%s %s %s)", operand1, operatorType.getValue(), operand2);
 	}
 }

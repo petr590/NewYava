@@ -3,10 +3,12 @@ package x590.newyava.decompilation.scope;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.code.Chunk;
+import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.decompilation.operation.monitor.MonitorExitOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.io.DecompilationWriter;
+import x590.newyava.type.ClassType;
 
 import java.util.List;
 
@@ -15,7 +17,7 @@ public class SynchronizedScope extends Scope {
 
 	public SynchronizedScope(@Unmodifiable List<Chunk> chunks, Operation value) {
 		super(chunks);
-		this.value = value;
+		this.value = OperationUtils.castIfNull(value, ClassType.OBJECT);
 	}
 
 	@Override

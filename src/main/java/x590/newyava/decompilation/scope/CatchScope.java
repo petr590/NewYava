@@ -3,7 +3,6 @@ package x590.newyava.decompilation.scope;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
-import x590.newyava.RemoveIfNotUsed;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
@@ -23,17 +22,15 @@ import java.util.List;
 /**
  * Представляет блок catch или finally, в зависимости от исключения.
  */
-public class CatchScope extends Scope {
+public final class CatchScope extends TryCatchScope {
 	@Getter
 	private final CatchOperation catchOperation;
 
-	@RemoveIfNotUsed
-	private final TryScope tryScope;
+	public CatchScope(@Unmodifiable List<Chunk> chunks, CatchOperation catchOperation,
+					  JoiningTryCatchScope joiningScope) {
 
-	public CatchScope(@Unmodifiable List<Chunk> chunks, CatchOperation catchOperation, TryScope tryScope) {
-		super(chunks);
+		super(chunks, joiningScope);
 		this.catchOperation = catchOperation;
-		this.tryScope = tryScope;
 	}
 
 	@Override

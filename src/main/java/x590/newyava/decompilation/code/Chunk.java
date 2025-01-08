@@ -34,16 +34,19 @@ import java.util.*;
  * в середину чанка, то этот чанк должен быть разделён на два в точке перехода.
  * Осуществляет доступ к локальным переменным, списку операций и к чанкам, на которые переходит.
  */
-@RequiredArgsConstructor
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public class Chunk implements Comparable<Chunk> {
 
+	/** Индекс инструкции, на которой начинается чанк */
 	@Getter
 	private final int startIndex;
 
+	/** Индекс инструкции, следующей сразу за чанком */
 	@Getter
 	@Setter(AccessLevel.PACKAGE)
 	private int endIndex;
 
+	/** Порядковый id чанка, начинается с 0 */
 	@Getter
 	private final int id;
 
@@ -162,7 +165,7 @@ public class Chunk implements Comparable<Chunk> {
 
 			var instruction = instructions.get(i);
 
-			if (i < s - 1) {
+			if (i < s - 1) { // Пытаемся объединить две инструкции
 				operation = instruction.toOperation(methodContext, instructions.get(i + 1));
 			}
 
@@ -179,8 +182,6 @@ public class Chunk implements Comparable<Chunk> {
 					operations.add(operation);
 				}
 			}
-
-//			System.out.printf("Instruction: %s, stack: %s\n", instruction, methodContext.getStack());
 		}
 
 		if (flowControlInsn != null) {

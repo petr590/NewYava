@@ -1,7 +1,9 @@
 package x590.newyava.decompilation.scope;
 
 import it.unimi.dsi.fastutil.Pair;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.context.ClassContext;
@@ -16,6 +18,7 @@ import x590.newyava.decompilation.operation.emptyscope.EmptyableScopeOperation;
 import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
 import x590.newyava.decompilation.operation.other.FieldOperation;
 import x590.newyava.decompilation.operation.terminal.ThrowOperation;
+import x590.newyava.decompilation.variable.VarUsage;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
@@ -32,6 +35,10 @@ public final class IfScope extends IfElseScope {
 
 	@Getter
 	private final Condition condition;
+
+	@Setter(AccessLevel.PACKAGE)
+	private @Nullable ElseScope elseScope;
+
 
 	/** @return экземпляр {@link IfScope}, если список чанков не пуст, иначе {@link EmptyScopeOperation} */
 	public static EmptyableScopeOperation create(Condition condition, @Unmodifiable List<Chunk> chunks) {
@@ -66,6 +73,26 @@ public final class IfScope extends IfElseScope {
 	@Override
 	protected Operation getHeaderOperation() {
 		return condition;
+	}
+
+
+	@Override
+	protected VarUsage computeVarUsage(int slotId) {
+		if (elseScope == null) return super.computeVarUsage(slotId).maybe();
+
+		var ifUsage = super.computeVarUsage(slotId);
+		var elseUsage = elseScope.initialVarUsage(slotId);
+
+		return isStore(ifUsage, elseUsage) ? VarUsage.STORE : ifUsage.maybe();
+	}
+
+	private boolean isStore(VarUsage ifUsage, VarUsage elseUsage) {
+		return isStoreOrTerminal(ifUsage) && isStoreOrTerminal(elseUsage) &&
+				(ifUsage == VarUsage.STORE || elseUsage == VarUsage.STORE);
+	}
+
+	private boolean isStoreOrTerminal(VarUsage usage) {
+		return usage == VarUsage.STORE || usage == VarUsage.NONE && isTerminal();
 	}
 
 	private static final Set<MethodDescriptor> ASSERTION_ERROR_CONSTRUCTORS = Set.of(

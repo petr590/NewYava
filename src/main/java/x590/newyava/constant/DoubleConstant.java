@@ -5,8 +5,10 @@ import it.unimi.dsi.fastutil.doubles.Double2ObjectOpenHashMap;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
-import x590.newyava.context.ClassContext;
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ConstantWriteContext;
+import x590.newyava.context.Context;
+import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
@@ -43,18 +45,38 @@ public final class DoubleConstant extends Constant {
 	}
 
 	@Override
-	public void addImports(ClassContext context) {}
+	protected @Nullable FieldDescriptor getConstant(Context context) {
+		return context.getConstant(value);
+	}
 
 	@Override
 	public void write(DecompilationWriter out, ConstantWriteContext context) {
-		double val = value;
-		int intVal = (int)val;
+		writeConstantOrValue(out, context, () -> {
+			double val = value;
 
-		if (context.isImplicitCastAllowed() && intVal == val) {
-			out.record(String.valueOf(intVal));
-		} else {
-			out.record(String.valueOf(val));
-		}
+			if (Double.isNaN(val)) {
+				out.record("0.0 / 0.0");
+				return;
+			}
+
+			if (val == Double.POSITIVE_INFINITY) {
+				out.record("1.0 / 0.0");
+				return;
+			}
+
+			if (val == Double.NEGATIVE_INFINITY) {
+				out.record("-1.0 / 0.0");
+				return;
+			}
+
+			int intVal = (int)val;
+
+			if (context.isImplicitCastAllowed() && intVal == val) {
+				out.record(String.valueOf(intVal));
+			} else {
+				out.record(String.valueOf(val));
+			}
+		});
 	}
 
 	@Override

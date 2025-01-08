@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.other;
 
+import lombok.EqualsAndHashCode;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
@@ -11,12 +12,12 @@ import x590.newyava.type.*;
 
 import java.util.List;
 
+@EqualsAndHashCode
 public class InstanceofOperation implements Operation {
-
 	private final Operation value;
-	private final ClassArrayType type;
+	private final IClassArrayType type;
 
-	public InstanceofOperation(MethodContext context, ClassArrayType type) {
+	public InstanceofOperation(MethodContext context, IClassArrayType type) {
 		this.value = context.popAs(Types.ANY_OBJECT_TYPE);
 		this.type = type;
 	}
@@ -53,6 +54,6 @@ public class InstanceofOperation implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("InstanceofOperation %08x(%s instanceof %s)", hashCode(), value, type);
+		return String.format("InstanceofOperation(%s instanceof %s)", value, type);
 	}
 }

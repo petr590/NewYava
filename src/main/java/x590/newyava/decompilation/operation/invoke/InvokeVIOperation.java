@@ -17,7 +17,7 @@ import java.util.Set;
  * Объединяет операции invokevirtual и invokeinterface
  */
 public class InvokeVIOperation extends InvokeNonstaticOperation {
-	private static final List<MethodDescriptor> wrapperDescriptors = List.of(
+	private static final Set<MethodDescriptor> wrapperDescriptors = Set.of(
 			new MethodDescriptor(ClassType.INTEGER,   "intValue",     PrimitiveType.INT),
 			new MethodDescriptor(ClassType.LONG,      "longValue",    PrimitiveType.LONG),
 			new MethodDescriptor(ClassType.FLOAT,     "floatValue",   PrimitiveType.FLOAT),
@@ -29,10 +29,8 @@ public class InvokeVIOperation extends InvokeNonstaticOperation {
 	);
 
 	public static Operation invokeVirtual(MethodContext context, MethodDescriptor descriptor) {
-		for (MethodDescriptor wrapperDescriptor : wrapperDescriptors) {
-			if (descriptor.equals(wrapperDescriptor)) {
-				return CastOperation.wide(context, descriptor.hostClass(), descriptor.returnType());
-			}
+		if (wrapperDescriptors.contains(descriptor)) {
+			return CastOperation.wide(context, descriptor.hostClass(), descriptor.returnType());
 		}
 
 		return new InvokeVIOperation(context, descriptor);

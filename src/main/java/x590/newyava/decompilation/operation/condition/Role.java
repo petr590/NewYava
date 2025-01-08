@@ -121,6 +121,11 @@ public interface Role extends GenericWritable<MethodWriteContext>, Importable {
 				out.space().record(labelName);
 			}
 		}
+
+		@Override
+		public String toString() {
+			return String.format("%s(%s)", literal, scope);
+		}
 	}
 
 	@RequiredArgsConstructor(access = AccessLevel.PRIVATE)

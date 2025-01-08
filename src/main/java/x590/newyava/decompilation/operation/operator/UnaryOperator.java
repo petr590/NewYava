@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.operator;
 
+import lombok.EqualsAndHashCode;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
@@ -11,11 +12,13 @@ import x590.newyava.type.Type;
 
 import java.util.List;
 
+@EqualsAndHashCode
 public class UnaryOperator implements Operation {
 	private final Operation operand;
 
 	private final String operator;
 
+	@EqualsAndHashCode.Exclude
 	private final Type requiredType, returnType;
 
 	public UnaryOperator(MethodContext context, String operator, Type requiredType) {
@@ -63,6 +66,6 @@ public class UnaryOperator implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("UnaryOperation %08x(%s%s)", hashCode(), operator, operand);
+		return String.format("UnaryOperation(%s%s)", operator, operand);
 	}
 }

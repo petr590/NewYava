@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.condition;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
@@ -18,6 +19,7 @@ import x590.newyava.type.Types;
 
 import java.util.List;
 
+@EqualsAndHashCode
 @RequiredArgsConstructor
 public class CompareCondition implements Condition {
 
@@ -71,6 +73,7 @@ public class CompareCondition implements Condition {
 	}
 
 
+	@EqualsAndHashCode.Exclude
 	private @Nullable CompareCondition opposite;
 
 	@Override
@@ -80,16 +83,19 @@ public class CompareCondition implements Condition {
 
 		var opposite = new CompareCondition(compareType.getOpposite(), requiredType, operand2, operand1);
 		opposite.opposite = this;
-
 		return this.opposite = opposite;
 	}
 
 	@Override
 	public void inferType(Type ignored) {
-		operand1.inferType(requiredType);
-		operand2.inferType(requiredType);
+		Type reqType = (operand1.getReturnType() == PrimitiveType.BOOLEAN ||
+				        operand2.getReturnType() == PrimitiveType.BOOLEAN) ?
+						PrimitiveType.BOOLEAN : requiredType;
 
-		if (operand2.getImplicitType().equals(requiredType)) {
+		operand1.inferType(reqType);
+		operand2.inferType(reqType);
+
+		if (operand2.getImplicitType().equals(reqType)) {
 			operand1.allowImplicitCast();
 		} else {
 			operand2.allowImplicitCast();
@@ -102,7 +108,7 @@ public class CompareCondition implements Condition {
 		return  operand1.getReturnType() == PrimitiveType.BOOLEAN &&
 				(compareType == CompareType.EQUALS || compareType == CompareType.NOT_EQUALS) &&
 				(operand2 == ConstCondition.FALSE ||
-						operand2 instanceof LdcOperation ldc && ldc.getValue() == IntConstant.ZERO);
+						operand2 instanceof LdcOperation ldc && ldc.getValue().equals(IntConstant.ZERO));
 	}
 
 	public boolean isNot() {
@@ -144,7 +150,6 @@ public class CompareCondition implements Condition {
 
 	@Override
 	public String toString() {
-		return String.format("CompareOperation %08x(%s %s %s)",
-				hashCode(), operand1, compareType.getOperator(), operand2);
+		return String.format("CompareCondition(%s %s %s)", operand1, compareType.getOperator(), operand2);
 	}
 }

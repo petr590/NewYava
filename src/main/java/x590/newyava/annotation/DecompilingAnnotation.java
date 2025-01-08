@@ -29,8 +29,12 @@ public class DecompilingAnnotation extends AnnotationVisitor implements Annotati
 	private final List<Parameter> parameters = new ArrayList<>();
 
 	public DecompilingAnnotation(String descriptor) {
+		this(ClassType.valueOfL(descriptor));
+	}
+
+	public DecompilingAnnotation(ClassType annotationType) {
 		super(Opcodes.ASM9);
-		this.annotationType = ClassType.valueOfL(descriptor);
+		this.annotationType = annotationType;
 	}
 
 

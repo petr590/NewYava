@@ -11,4 +11,6 @@ public interface IMethod {
 	int getModifiers();
 
 	MethodDescriptor getDescriptor();
+
+	MethodDescriptor getVisibleDescriptor();
 }

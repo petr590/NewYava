@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.operator;
 
+import lombok.EqualsAndHashCode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.constant.IntConstant;
@@ -16,13 +17,17 @@ import x590.newyava.type.Type;
 
 import java.util.List;
 
+@EqualsAndHashCode
 public class TernaryOperator implements Operation {
 
 	private final Condition condition;
 	private final Operation operand1, operand2;
+
+	@EqualsAndHashCode.Exclude
 	private Type returnType;
 
 	/** Содержит упрощённое условие */
+	@EqualsAndHashCode.Exclude
 	private @Nullable Operation shortCondition;
 
 	public TernaryOperator(Condition condition, Operation operand1, Operation operand2) {
@@ -105,7 +110,6 @@ public class TernaryOperator implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("TernaryOperator %08x(%s %s %s)",
-				hashCode(), condition, operand1, operand2);
+		return String.format("TernaryOperator(%s ? %s : %s)", condition, operand1, operand2);
 	}
 }

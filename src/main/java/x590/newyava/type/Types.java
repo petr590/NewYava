@@ -1,5 +1,6 @@
 package x590.newyava.type;
 
+import lombok.RequiredArgsConstructor;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
@@ -24,7 +25,10 @@ public final class Types {
 
 	/** Любой ссылочный тип. Если тип переменной так и останется любым, то
 	 * он будет записан как {@link ClassType#OBJECT}. */
-	public static final ReferenceType ANY_OBJECT_TYPE = AnyObjectType.INSTANCE;
+	public static final ReferenceType ANY_OBJECT_TYPE = AnyObjectType.PLAIN;
+
+	/** Любой generic-тип, записывается как знак вопроса. */
+	public static final ReferenceType ANY_WILDCARD_TYPE = AnyObjectType.WILDCARD;
 
 
 	private sealed interface IAnyType extends Type {
@@ -54,12 +58,21 @@ public final class Types {
 		}
 	}
 
+	@RequiredArgsConstructor
 	private enum AnyObjectType implements IAnyType, ReferenceType {
-		INSTANCE;
+		PLAIN("<any-object-type>"),
+		WILDCARD("?") {
+			@Override
+			public void write(DecompilationWriter out, Context context) {
+				out.record('?');
+			}
+		};
+
+		private final String name;
 
 		@Override
 		public String getVarName() {
-			return "objVar";
+			return "obj";
 		}
 
 		@Override
@@ -74,7 +87,7 @@ public final class Types {
 
 		@Override
 		public String toString() {
-			return "<any-object-type>";
+			return name;
 		}
 	}
 }

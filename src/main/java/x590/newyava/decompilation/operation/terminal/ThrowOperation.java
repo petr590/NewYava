@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.terminal;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
@@ -14,6 +15,7 @@ import x590.newyava.type.Type;
 
 import java.util.List;
 
+@EqualsAndHashCode
 public class ThrowOperation implements TerminalOperation {
 	@Getter
 	private final Operation exception;
@@ -49,11 +51,11 @@ public class ThrowOperation implements TerminalOperation {
 
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
-		out.recordSp("throw").record(exception, context, Priority.ZERO);
+		out.record("throw ").record(exception, context, Priority.ZERO);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("ThrowOperation %08x(%s)", hashCode(), exception);
+		return String.format("ThrowOperation(%s)", exception);
 	}
 }

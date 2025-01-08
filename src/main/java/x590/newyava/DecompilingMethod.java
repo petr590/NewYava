@@ -15,19 +15,22 @@ import x590.newyava.decompilation.code.Code;
 import x590.newyava.decompilation.code.CodeGraph;
 import x590.newyava.decompilation.code.CodeProxy;
 import x590.newyava.decompilation.code.InvalidCode;
+import x590.newyava.decompilation.operation.invoke.InvokeOperation;
+import x590.newyava.decompilation.operation.terminal.ReturnValueOperation;
 import x590.newyava.descriptor.FieldDescriptor;
+import x590.newyava.descriptor.IncompleteMethodDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.exception.IllegalModifiersException;
 import x590.newyava.io.ContextualWritable;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.modifiers.EntryType;
-import x590.newyava.type.ArrayType;
-import x590.newyava.type.ClassType;
-import x590.newyava.type.ReferenceType;
+import x590.newyava.type.*;
+import x590.newyava.util.Utils;
 import x590.newyava.visitor.DecompileMethodVisitor;
 
 import java.util.List;
+import java.util.Objects;
 
 import static x590.newyava.Literals.*;
 import static x590.newyava.modifiers.Modifiers.*;
@@ -43,9 +46,19 @@ public class DecompilingMethod implements IMethod, ContextualWritable, Importabl
 	private final MethodDescriptor descriptor;
 
 	/** Видимый дескриптор. Инициализируется после декомпиляции */
-	private MethodDescriptor visibleDescriptor;
+	private @Nullable MethodDescriptor visibleDescriptor;
 
-	private final @Unmodifiable List<DecompilingAnnotation> annotations;
+	/** Индекс начала видимых аргументов метода. */
+	private int argsStart = -1;
+
+	/** Индекс конца видимых аргументов метода. */
+	private int argsEnd = -1;
+
+	private final Signature signature;
+
+
+	@Getter(AccessLevel.NONE)
+	private final List<DecompilingAnnotation> annotations;
 
 	private final @Unmodifiable List<ReferenceType> exceptions;
 
@@ -60,13 +73,14 @@ public class DecompilingMethod implements IMethod, ContextualWritable, Importabl
 	private final CodeProxy code;
 
 	public DecompilingMethod(DecompileMethodVisitor visitor) {
-		this.modifiers    = visitor.getModifiers();
-		this.descriptor   = visitor.getDescriptor();
-
-		this.annotations  = visitor.getAnnotations();
-		this.exceptions   = visitor.getExceptions();
-		this.defaultValue = visitor.getDefaultValue();
-		this.codeGraph    = visitor.getCodeGraph();
+		this.modifiers         = visitor.getModifiers();
+		this.signature         = visitor.getSignature();
+		this.descriptor        = visitor.getDescriptor();
+		this.visibleDescriptor = visitor.getVisibleDescriptor();
+		this.annotations       = visitor.getAnnotations();
+		this.exceptions        = visitor.getExceptions();
+		this.defaultValue      = visitor.getDefaultValue();
+		this.codeGraph         = visitor.getCodeGraph();
 
 		this.code = new CodeProxy(codeGraph != null ? codeGraph : InvalidCode.EMPTY);
 	}
@@ -75,8 +89,26 @@ public class DecompilingMethod implements IMethod, ContextualWritable, Importabl
 		return (modifiers & ACC_SYNTHETIC) != 0;
 	}
 
+	public boolean isStatic() {
+		return (modifiers & ACC_STATIC) != 0;
+	}
+
+	@Override
+	public MethodDescriptor getVisibleDescriptor() {
+		return Objects.requireNonNull(visibleDescriptor);
+	}
+
 	public Code getCode() {
 		return code;
+	}
+
+	/** @return {@code true}, если первый аргумент метода - внешний экземпляр {@code this}. */
+	public boolean hasOuterInstance() {
+		return code.isValid() && code.getMethodScope().hasOuterInstance();
+	}
+
+	private MethodDescriptor requireVisibleDescriptor() {
+		return Objects.requireNonNull(visibleDescriptor);
 	}
 
 	/** Если {@link #codeGraph} не {@code null}, то выполняет {@code action}.
@@ -117,10 +149,7 @@ public class DecompilingMethod implements IMethod, ContextualWritable, Importabl
 		exception.setMethodDescriptor(descriptor);
 
 		if (context.getConfig().skipStackTrace()) {
-			System.err.println(StringUtils.isEmpty(message) ?
-					name + "| In method " + descriptor + "| " + size :
-					name + "| In method " + descriptor + "| " + size + "| " + message
-			);
+			System.err.println(name + "|" + message + "|" + size + "|" + descriptor);
 		} else {
 			ex.printStackTrace();
 		}
@@ -128,36 +157,69 @@ public class DecompilingMethod implements IMethod, ContextualWritable, Importabl
 
 	public void decompile(Context context) {
 		tryCatchOnCodeGraph(context, codeGraph -> codeGraph.decompile(descriptor, context));
-		this.visibleDescriptor = getVisibleDescriptor(context);
+		initArgsBounds(context);
+
+		if (visibleDescriptor == null) {
+			visibleDescriptor = descriptor.slice(argsStart, argsEnd);
+		}
 	}
 
 	public void afterDecompilation(Context context) {
-		tryCatchOnCodeGraph(context, CodeGraph::afterDecompilation);
-	}
-
-	private MethodDescriptor getVisibleDescriptor(Context context) {
-		if (descriptor.isConstructor()) {
-			if (context.isEnumClass()) {
-				return descriptor.slice(2);
-			}
-
-			if (code.isValid()) {
-				var methodScope = code.getMethodScope();
-				return descriptor.slice(methodScope.getArgsStart(), methodScope.getArgsEnd());
-			}
+		if (!isStatic() && !descriptor.isConstructor() && hasSuperMethod(context, context.getDecompilingClass())) {
+			annotations.add(new DecompilingAnnotation(ClassType.OVERRIDE));
 		}
 
-		return descriptor;
+		tryCatchOnCodeGraph(context, CodeGraph::afterDecompilation);
+
+		if ((modifiers & ACC_BRIDGE) != 0 && code.isValid()) {
+			var operations = code.getMethodScope().getOperations();
+			if (operations.size() != 1) return;
+
+			var operation = operations.get(0);
+			if (operation instanceof ReturnValueOperation ret) operation = ret.getValue();
+
+			if (!(operation instanceof InvokeOperation invokeOp)) return;
+			var invDescriptor = invokeOp.getDescriptor();
+
+			if (invDescriptor.hostClass().equals(descriptor.hostClass()) &&
+				invDescriptor.name().equals(descriptor.name()) &&
+				invDescriptor.arguments().size() == descriptor.arguments().size()) {
+
+				var foundMethod = context.getDecompilingClass().findMethod(invDescriptor);
+				foundMethod.ifPresent(method -> method.annotations.add(new DecompilingAnnotation(ClassType.OVERRIDE)));
+			}
+		}
 	}
 
-	/** @return индекс начала видимых аргументов метода. */
-	public int getArgsStart() {
-		return visibleDescriptor.fromIndex();
+	private boolean hasSuperMethod(Context context, @Nullable IClass clazz) {
+		if (clazz == null || clazz.getThisType().equals(ClassType.OBJECT))
+			return false;
+
+		return hasMethod(context, clazz.getSuperType()) ||
+				clazz.getInterfaces().stream().anyMatch(interf -> hasMethod(context, interf));
 	}
 
-	/** @return индекс конца видимых аргументов метода. */
-	public int getArgsEnd() {
-		return visibleDescriptor.fromIndex() + visibleDescriptor.arguments().size();
+	private boolean hasMethod(Context context, IClassArrayType type) {
+		return context.findIMethod(new MethodDescriptor(
+				type.base(), descriptor.name(), descriptor.returnType(), descriptor.arguments()
+		)).isPresent() || hasSuperMethod(context, context.findIClass(type).orElse(null));
+	}
+
+
+	private void initArgsBounds(Context context) {
+		if (descriptor.isConstructor() && context.isEnumClass()) {
+			argsStart = 2;
+			argsEnd = descriptor.arguments().size();
+
+		} else if (code.isValid()) {
+			var methodScope = code.getMethodScope();
+			argsStart = methodScope.getArgsStart();
+			argsEnd = methodScope.getArgsEnd();
+		} else {
+
+			argsStart = 0;
+			argsEnd = descriptor.arguments().size();
+		}
 	}
 
 	/** Можно ли оставить метод в классе.
@@ -167,7 +229,7 @@ public class DecompilingMethod implements IMethod, ContextualWritable, Importabl
 			return false;
 		}
 
-		var visDesc = visibleDescriptor;
+		var visDesc = requireVisibleDescriptor();
 
 		if (code.isValid() && code.getMethodScope().isEmpty()) {
 			// Пустой static {}
@@ -214,9 +276,11 @@ public class DecompilingMethod implements IMethod, ContextualWritable, Importabl
 				visDesc.hostClass() instanceof ClassType hostClass) {
 
 				var fieldDescriptor = new FieldDescriptor(hostClass, visDesc.name(), visDesc.returnType());
+				boolean isRecordComponentGetter =
+						recordComponents.stream().anyMatch(field -> field.getDescriptor().baseEquals(fieldDescriptor)) &&
+						code.getMethodScope().isGetterOf(fieldDescriptor);
 
-				return recordComponents.stream().noneMatch(field -> field.getDescriptor().equals(fieldDescriptor)) ||
-						!code.getMethodScope().isGetterOf(fieldDescriptor);
+				return !isRecordComponentGetter;
 			}
 		}
 
@@ -235,15 +299,42 @@ public class DecompilingMethod implements IMethod, ContextualWritable, Importabl
 		tryCatchOnCodeGraph(context, CodeGraph::initVariables);
 	}
 
+
+	private @Nullable @Unmodifiable List<String> possibleNames;
+
+
+	private static final IncompleteMethodDescriptor MAIN_DESCRIPTOR =
+			new IncompleteMethodDescriptor("main", PrimitiveType.VOID, List.of(ArrayType.forType(ClassType.STRING)));
+
 	public void inferVariableTypesAndNames(Context context) {
-		tryCatchOnCodeGraph(context, CodeGraph::inferVariableTypesAndNames);
+		if (descriptor.equalsIgnoreClass(MAIN_DESCRIPTOR) &&
+			(modifiers & (ACC_ACCESS | ACC_STATIC)) == (ACC_PUBLIC | ACC_STATIC)) {
+
+			possibleNames = List.of("args");
+
+		} else if (isSetter()) {
+			String name = Utils.safeToLowerCamelCase(descriptor.name().substring(3));
+			possibleNames = List.of(name);
+		}
+
+		tryCatchOnCodeGraph(context, codeGraph -> codeGraph.inferVariableTypesAndNames(possibleNames));
 	}
+
+	private boolean isSetter() {
+		String name = descriptor.name();
+
+		return  name.length() > 3 &&
+				name.startsWith("set") &&
+				Character.isUpperCase(name.charAt(3)) &&
+				descriptor.arguments().size() == 1;
+	}
+
 
 	@Override
 	public void addImports(ClassContext context) {
-		context .addImportsFor(descriptor).addImportsFor(annotations)
-				.addImportsFor(exceptions).addImportsFor(defaultValue)
-				.addImportsFor(code);
+		context .addImportsFor(visibleDescriptor).addImportsFor(exceptions)
+				.addImportsFor(annotations).addImportsFor(defaultValue)
+				.addImportsFor(signature).addImportsFor(code);
 	}
 
 	@Override
@@ -254,17 +345,29 @@ public class DecompilingMethod implements IMethod, ContextualWritable, Importabl
 
 		writeModifiers(out, context);
 
-		boolean isStatic = (modifiers & ACC_STATIC) != 0;
+		if (!signature.isEmpty()) {
+			out.record(signature, context).space();
+		}
+
+
+		int startIndex =
+				(isStatic() ? 0 : 1) +
+				MethodDescriptor.slots(descriptor.arguments().subList(0, argsStart));
+
 		var variables = code.isValid() ? code.getMethodScope().getVariables() : null;
 
-		visibleDescriptor.write(out, context, isStatic, variables);
+		requireVisibleDescriptor().write(
+				out, context, (modifiers & ACC_VARARGS) != 0,
+				startIndex, variables, possibleNames
+		);
+
 
 		if (!exceptions.isEmpty()) {
 			out.record(" throws ").record(exceptions, context, ", ");
 		}
 
 		if (defaultValue != null) {
-			defaultValue.write(out, new ConstantWriteContext(context, descriptor.returnType(), true, true));
+			defaultValue.write(out, new ConstantWriteContext(context, descriptor.returnType(), true, true, true));
 		}
 
 		if (code.isValid()) {

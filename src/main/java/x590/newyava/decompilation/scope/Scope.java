@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Getter;
+import lombok.Setter;
 import org.apache.commons.collections4.iterators.ReverseListIterator;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.Nullable;
@@ -18,7 +19,6 @@ import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.code.Chunk;
 import x590.newyava.decompilation.operation.emptyscope.EmptyableScopeOperation;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.variable.DeclareOperation;
 import x590.newyava.decompilation.variable.VarUsage;
@@ -49,7 +49,8 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 	@Getter
 	private @Unmodifiable List<Chunk> chunks;
 
-	/** Необходим для правильной сортировки, так как иногда scope-ы могут
+	/** Индекс операции, на которой начинается scope. <b>Не равен</b> {@code startChunk.getId()}.<br>
+	 * Необходим для правильной сортировки, так как иногда scope-ы могут
 	 * совпадать по чанкам, но при этом они не должны совпадать по индексам операций. */
 	private final int startIndex;
 
@@ -131,9 +132,14 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 
 	private final Int2ObjectMap<VarUsage> usagesCache = new Int2ObjectArrayMap<>();
 
+	/** Если необходимо изменить алгоритм вычисления VarUsage, переопределите метод {@link #computeVarUsage(int)} */
 	@Override
-	public VarUsage getVarUsage(int slotId) {
-		return usagesCache.computeIfAbsent(slotId, EmptyableScopeOperation.super::getVarUsage);
+	public final VarUsage getVarUsage(int slotId) {
+		return usagesCache.computeIfAbsent(slotId, this::computeVarUsage);
+	}
+
+	protected VarUsage computeVarUsage(int slotId) {
+		return EmptyableScopeOperation.super.getVarUsage(slotId);
 	}
 
 	@Override
@@ -147,7 +153,7 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 	public final @UnmodifiableView List<? extends Operation> getNestedOperations() {
 		var headerOperation = getHeaderOperation();
 		return headerOperation == null ? operationsView :
-				OperationUtils.addBefore(headerOperation, operationsView);
+				Utils.addBefore(headerOperation, operationsView);
 	}
 
 	/** @return операцию в заголовке scope или {@code null}, если её нет.
@@ -224,15 +230,29 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 	}
 
 	/** Завершает все текущие scope-ы, если они достигли конца */
-	public final Scope endIfReached(int currentId) {
+	public final Scope endIfReached(int currentId, @Unmodifiable List<Chunk> allChunks) {
 		if (currentId >= endChunk.getId() && parent != null) {
+			if (currentId > endChunk.getId()) {
+				var newChunks = allChunks.subList(endChunk.getId() + 1, currentId + 1);
+				chunks = allChunks.subList(startChunk.getId(), currentId + 1);
+				endChunk = Utils.getLast(chunks);
+				onExpand(newChunks);
+			}
+
 			onEnd();
-			return parent.endIfReached(currentId);
+			return parent.endIfReached(currentId, allChunks);
 		}
 
 		return this;
 	}
 
+
+	/**
+	 * Вызывается, при расширении текущего scope, до {@link #onEnd()}.
+	 * При этом {@link #chunks} и {@link #endChunk} обновляются до вызова этого метода.
+	 * @param newChunks список добавленных чанков.
+	 */
+	protected void onExpand(@Unmodifiable List<Chunk> newChunks) {}
 
 	/** Вызывается, когда текущий scope начинается. */
 	protected void onStart() {}
@@ -244,13 +264,14 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 
 	@Data
 	protected static final class VarOwner {
-		/** id чанков начала и конца */
+		/** Индекс инструкций начала и конца */
 		private final int start, end;
 
 		/** Scope, которому принадлежит переменная */
 		private final Scope scope;
 
 		@Getter(AccessLevel.NONE)
+		@Setter(AccessLevel.NONE)
 		private @Nullable Variable variable;
 
 		public Variable getOrCreateVariable(VariableReference ref) {
@@ -263,67 +284,80 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 
 
 	/**
-	 * Ищет для каждой переменной своего "владельца" - т.е. scope, в котором
-	 * эта переменная должна быть объявлена.
+	 * Ищет для каждой переменной своего "владельца" - т.е. scope,
+	 * в котором эта переменная должна быть объявлена.
+	 * @param ownersMap карта: ключ - слот переменной, значение - список всех
+	 *                  владельцев этой переменной (они не должны пересекаться).
 	 */
-	protected void findVarsHosts(Int2ObjectMap<List<VarOwner>> hostsMap) {
-		scopes.forEach(scope -> scope.findVarsHosts(hostsMap));
+	protected void findVarsOwners(Int2ObjectMap<List<VarOwner>> ownersMap) {
+		scopes.forEach(scope -> scope.findVarsOwners(ownersMap));
 
-		for (int slotId : hostsMap.keySet()) {
-			int currentId = startChunk.getStartIndex(),
-				varStartId = currentId;
+		for (int slotId : ownersMap.keySet()) {
+			var owners = ownersMap.get(slotId);
 
-			boolean usesLoad = false,
-					usesStore = false;
+			int currentIndex = startChunk.getStartIndex();
 
-			Loop: for (Operation operation : getNestedOperations()) {
+			// id начала и конца переменной
+			int startIndex = currentIndex;
+			int endIndex = currentIndex;
+
+			// Если true, то данную переменную необходимо объявить в текущем scope
+			boolean needDefine = false;
+
+			for (Operation operation : getNestedOperations()) {
 				var scope = operation instanceof Scope ? (Scope) operation : null;
 
 				if (scope != null) {
-					currentId = scope.getStartChunk().getStartIndex();
+					currentIndex = scope.getStartChunk().getStartIndex();
 				}
 
-				switch (operation.getVarUsage(slotId)) {
-					case LOAD -> {
-						usesLoad = true;
-						if (usesStore) break Loop;
-					}
+				var usage = operation.getVarUsage(slotId);
+
+//				if (slotId == 2) {
+//					System.out.printf("%d %d..%d, %s, %s\n",
+//							currentIndex, startIndex, endIndex, usage, operation); // DEBUG
+//				}
+
+				switch (usage) {
+					case LOAD -> needDefine = true;
 
 					case STORE -> {
-						if (scope == null) {
-							varStartId = currentId;
+						if (needDefine) {
+							addOwner(owners, startIndex, endIndex);
 						}
 
-						usesStore = true;
-						if (usesLoad) break Loop;
+						// Сбрасываем всё
+						startIndex = endIndex = currentIndex;
+						needDefine = scope == null;
 					}
 				}
 
 				if (scope != null) {
-					currentId = scope.getEndChunk().getEndIndex();
+					currentIndex = scope.getEndChunk().getEndIndex();
+				}
+
+				if (usage == VarUsage.LOAD) {
+					endIndex = currentIndex;
 				}
 			}
 
-			// Если в данном scope мы и читаем, и записываем переменную,
-			// то она должна быть объявлена здесь (или в одном из родителей)
-			if (usesLoad & usesStore) {
-				var hosts = hostsMap.get(slotId);
-
-				int startId = varStartId;
-				int endId = endChunk.getEndIndex();
-
-//				System.out.println(startId + " - " + endId);
-
-				// Удаляем вложенных владельцев
-				hosts.removeIf(owner -> owner.start >= startId && owner.end <= endId);
-
-				// Добавляем себя как владельца переменной
-				hosts.add(new VarOwner(varStartId, endId, this));
+			if (needDefine) {
+//				endIndex = endChunk.getEndIndex();
+				addOwner(owners, startIndex, endIndex);
 			}
 		}
+
+//		System.out.println(); // DEBUG
 	}
 
-	/** Добавляет {@code null} в {@link #variables}, если его размер меньше {@code size} */
+	/** Удаляет вложенных владельцев и добавляет себя как владельца переменной. */
+	private void addOwner(List<VarOwner> owners, int startIndex, int endIndex) {
+		owners.removeIf(owner -> owner.start >= startIndex && owner.end <= endIndex);
+		owners.add(new VarOwner(startIndex, endIndex, this));
+	}
+
+	/** Добавляет {@code null} в {@link #variables}, если его размер меньше {@code size}.
+	 * Выполняет это также для всех вложенных scope-ов. */
 	protected void addNullVariableIfLess(int size) {
 		if (variables.size() < size)
 			variables.add(null);
@@ -412,6 +446,16 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 	@MustBeInvokedByOverriders
 	public void afterDecompilation(MethodContext context) {
 		scopes.forEach(scope -> scope.afterDecompilation(context));
+
+		var operations = this.operations;
+
+		for (int i = 1; i < operations.size(); ) {
+			if (operations.get(i).canUnite(context, operations.get(i - 1))) {
+				operations.remove(i - 1);
+			} else {
+				i++;
+			}
+		}
 	}
 
 
@@ -430,7 +474,7 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 			for (int i = 0, size = operations.size(); i < size; i++) {
 				Operation operation = operations.get(i);
 
-				if (operation.getVarUsage(variable.getSlotId()) == VarUsage.NONE) {
+				if (!operation.usesVariable(variable)) {
 					continue;
 				}
 
@@ -487,14 +531,18 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 			if (operations.isEmpty()) {
 				writeHeader(out, context);
 				out.record(';');
+				writeFooter(out, context, true);
 				return;
 			}
 
-			if (operations.size() == 1 && !operations.get(0).isScopeLike()) {
+			if (operations.size() == 1 && !operations.get(0).needWrapWithBrackets()) {
 				writeHeader(out, context);
+
 				out .incIndent().ln().indent()
 					.record(operations.get(0), context, Priority.ZERO).record(';')
 					.decIndent();
+
+				writeFooter(out, context, true);
 				return;
 			}
 		}
@@ -514,6 +562,8 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 		}
 
 		out.record('}');
+
+		writeFooter(out, context, false);
 	}
 
 
@@ -529,7 +579,7 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 				}
 
 			} else {
-				if (prev != null && (prev.isScopeLike() || operation.isScopeLike())) {
+				if (prev != null && (prev.needEmptyLinesAround() || operation.needEmptyLinesAround())) {
 					out.ln().indent();
 				}
 
@@ -554,7 +604,7 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 
 	private boolean realOmitBrackets(Context context) { // Oh, rly?
 		return canOmitBrackets() && context.getConfig().canOmitBrackets() &&
-				(operations.isEmpty() || operations.size() == 1 && !operations.get(0).isScopeLike());
+				(operations.isEmpty() || operations.size() == 1 && !operations.get(0).needWrapWithBrackets());
 	}
 
 	/**
@@ -566,8 +616,16 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 		return false;
 	}
 
-	/** Можно ли опустить фигурные скобки,
-	 * если scope содержит ноль или одну операцию */
+	/**
+	 * Записывает заголовок после тела scope.
+	 * @param bracketsOmitted {@code true}, если фигурные скобки были опущены, иначе {@code false}.
+	 */
+	protected void writeFooter(DecompilationWriter out, MethodWriteContext context, boolean bracketsOmitted) {}
+
+	/**
+	 * Можно ли опустить фигурные скобки, если scope содержит ноль или одну операцию.
+	 * По умолчанию {@code false}.
+	 */
 	protected boolean canOmitBrackets() {
 		return false;
 	}
@@ -588,24 +646,20 @@ public non-sealed class Scope implements EmptyableScopeOperation, Comparable<Sco
 		// CaseScope всегда должен быть внутри SwitchScope, к которому он принадлежит
 		// и снаружи любого другого scope
 		if (this instanceof SwitchScope.CaseScope caseScope) {
-			diff = caseScope.getSwitchScope() == other ? INSIDE : OUTSIDE;
-
+			return caseScope.getSwitchScope() == other ? INSIDE : OUTSIDE;
 		} else if (other instanceof SwitchScope.CaseScope caseScope) {
-			diff = caseScope.getSwitchScope() == this ? OUTSIDE : INSIDE;
-
-		// TryScope должен быть снаружи другого scope
-		} else if (this instanceof TryScope) {
-			diff = OUTSIDE;
-
-		} else if (other instanceof TryScope) {
-			diff = INSIDE;
+			return caseScope.getSwitchScope() == this ? OUTSIDE : INSIDE;
 		}
 
-
-		if (diff == 0) {
-			Log.warn("Undefined sorting order for scopes %s and %s", this, other);
+		// TryCatchScope должен быть внутри JoiningTryCatchScope, к которому он принадлежит
+		// и снаружи любого другого scope
+		if (this instanceof TryCatchScope tryCatch) {
+			return tryCatch.getJoiningScope() == other ? INSIDE : OUTSIDE;
+		} else if (other instanceof TryCatchScope tryCatch) {
+			return tryCatch.getJoiningScope() == this ? OUTSIDE : INSIDE;
 		}
 
+		Log.warn("Undefined sorting order for scopes %s and %s", this, other);
 		return diff;
 	}
 

@@ -10,8 +10,8 @@ import x590.newyava.context.Context;
 import x590.newyava.io.DecompilationWriter;
 
 /**
- * Суперпозиция типов, которые обрабатываются как int:
- * boolean, byte, short, char, int
+ * Суперпозиция типов, которые обрабатываются как int: boolean, byte, short, char, int.
+ * Все экземпляры этого класса кешируются, поэтому можно сравнивать типы напрямую.
  */
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class IntMultiType implements PrimitiveType {

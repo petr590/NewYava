@@ -2,6 +2,8 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+.profileconfig.json
+profile.jfr
 
 ### IntelliJ IDEA ###
 .idea/modules.xml

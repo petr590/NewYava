@@ -7,6 +7,9 @@ import org.objectweb.asm.*;
 import x590.newyava.Decompiler;
 import x590.newyava.DecompilingField;
 import x590.newyava.DecompilingMethod;
+import x590.newyava.io.SignatureReader;
+import x590.newyava.type.IClassType;
+import x590.newyava.type.Signature;
 import x590.newyava.util.Utils;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.descriptor.FieldDescriptor;
@@ -38,12 +41,13 @@ public class DecompileClassVisitor extends ClassVisitor {
 	/** Суперкласс. Для {@code java.lang.Object} - сам {@code java.lang.Object}.
 	 * Это нужно для избегания проверок на {@code null} */
 	@Getter
-	private ClassType superType;
+	private IClassType superType;
 
 	@Getter
-	private @Unmodifiable List<ClassType> interfaces;
+	private @Unmodifiable List<IClassType> interfaces;
 
-	private @Nullable String signature;
+	@Getter
+	private Signature signature = Signature.EMPTY;
 
 
 	private @Nullable String outerClassName;
@@ -64,15 +68,30 @@ public class DecompileClassVisitor extends ClassVisitor {
 	}
 
 	@Override
-	public void visit(int version, int modifiers, String name, @Nullable String signature,
-	                  @Nullable String superName, String[] interfaces) {
+	public void visit(int version, int modifiers, String name, @Nullable String signatureStr,
+	                  @Nullable String superName, String[] interfaceNames) {
 
 		this.version = version;
 		this.modifiers = modifiers;
 		this.name = name;
 		this.thisType = ClassType.valueOf(name);
-		this.superType = superName == null ? ClassType.OBJECT : ClassType.valueOf(superName);
-		this.interfaces = Arrays.stream(interfaces).map(ClassType::valueOf).toList();
+
+		IClassType superType = superName == null ? ClassType.OBJECT : ClassType.valueOf(superName);
+		var interfaces = Arrays.stream(interfaceNames).<IClassType>map(ClassType::valueOf).toList();
+		var signature = Signature.EMPTY;
+
+		if (signatureStr != null) {
+			var reader = new SignatureReader(signatureStr);
+
+			signature = Signature.parseOrEmpty(reader);
+			superType = IClassType.parse(reader);
+			interfaces = IClassType.parseInterfaces(reader);
+
+			reader.checkEndForType();
+		}
+
+		this.superType = superType;
+		this.interfaces = interfaces;
 		this.signature = signature;
 	}
 

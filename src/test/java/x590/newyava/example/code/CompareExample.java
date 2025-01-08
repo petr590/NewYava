@@ -14,12 +14,16 @@ public class CompareExample {
 		if (o1 == o2) System.out.println("o1 == o2");
 		if (o1 != o2) System.out.println("o1 != o2");
 
+		System.out.println("-------------------------");
+
 		if (a == 0) System.out.println("a == 0");
 		if (a != 0) System.out.println("a != 0");
 		if (a <  0) System.out.println("a < 0");
 		if (a >  0) System.out.println("a > 0");
 		if (a <= 0) System.out.println("a <= 0");
 		if (a >= 0) System.out.println("a >= 0");
+
+		System.out.println("-------------------------");
 
 		if (a == b) System.out.println("a == b");
 		if (a != b) System.out.println("a != b");
@@ -28,12 +32,16 @@ public class CompareExample {
 		if (a <= b) System.out.println("a <= b");
 		if (a >= b) System.out.println("a >= b");
 
+		System.out.println("-------------------------");
+
 		if (d == 1) System.out.println("d == 1");
 		if (d != 1) System.out.println("d != 1");
 		if (d <  1) System.out.println("d < 1");
 		if (d >  1) System.out.println("d > 1");
 		if (d <= 1) System.out.println("d <= 1");
 		if (d >= 1) System.out.println("d >= 1");
+
+		System.out.println("-------------------------");
 
 		if (z) System.out.println("z");
 		if (!z) System.out.println("!z");
@@ -48,12 +56,16 @@ public class CompareExample {
 		if (b <= 5) System.out.println("b <= 5");
 		if (b >= 5) System.out.println("b >= 5");
 
+		System.out.println("-------------------------");
+
 		if (s == 5) System.out.println("s == 5");
 		if (s != 5) System.out.println("s != 5");
 		if (s <  5) System.out.println("s < 5");
 		if (s >  5) System.out.println("s > 5");
 		if (s <= 5) System.out.println("s <= 5");
 		if (s >= 5) System.out.println("s >= 5");
+
+		System.out.println("-------------------------");
 
 		if (b == s) System.out.println("b == s");
 		if (b != s) System.out.println("b != s");

@@ -1,6 +1,5 @@
 package x590.newyava.io;
 
-import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
@@ -18,7 +17,7 @@ public class BufferedFileWriterFactory implements WriterFactory {
 	public Writer getWriter(String className) throws IOException {
 		String javaFile = directory + className.replace('.', '/') + ".java";
 		Files.createDirectories(Paths.get(javaFile).getParent());
-		return new BufferedWriter(new FileWriter(javaFile));
+		return new FileWriter(javaFile);
 	}
 
 	@Override

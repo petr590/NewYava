@@ -34,7 +34,6 @@ public class MinecraftBugTest {
 		run("net.minecraft.server.players.StoredUserList");
 	}
 
-//	@Test
 	@Bug(State.FIXED)
 	public void bug2() {
 		run("net.minecraft.advancements.AdvancementRequirements");
@@ -46,21 +45,29 @@ public class MinecraftBugTest {
 		run("net.minecraft.client.Minecraft");
 	}
 
-//	@Test
 	@Bug(State.FIXED)
 	public void bug4() {
 		run("net.minecraft.server.level.DistanceManager");
 	}
 	
-	@Test
+//	@Test
 	@Bug
 	public void bug5() {
 		run("net.minecraft.server.rcon.thread.QueryThreadGs4");
 	}
 
-//	@Test
 	@Bug(State.FIXED)
 	public void bug6() {
 		run("net.minecraft.network.VarLong");
+	}
+
+	@Bug(State.FIXED)
+	public void bug7() {
+		run("net.minecraft.client.MouseHandler");
+	}
+
+	@Bug(State.FIXED)
+	public void bug8() {
+		run("net.minecraft.data.worldgen.biome.OverworldBiomes");
 	}
 }

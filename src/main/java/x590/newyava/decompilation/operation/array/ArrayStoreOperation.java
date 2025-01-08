@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.array;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -17,6 +18,7 @@ import x590.newyava.type.Type;
 
 import java.util.List;
 
+@EqualsAndHashCode(callSuper = true)
 public class ArrayStoreOperation extends AssignOperation {
 
 	public static @Nullable ArrayStoreOperation valueOf(MethodContext context, Type requiredType) {
@@ -40,6 +42,7 @@ public class ArrayStoreOperation extends AssignOperation {
 	@Getter
 	private final Operation array, index;
 
+	@EqualsAndHashCode.Exclude
 	private final Type requiredType;
 
 
@@ -84,6 +87,6 @@ public class ArrayStoreOperation extends AssignOperation {
 
 	@Override
 	public String toString() {
-		return String.format("Operation %08x(%s[%s] = %s)", hashCode(), array, index, value);
+		return String.format("ArrayStoreOperation(%s[%s] = %s)", array, index, value);
 	}
 }

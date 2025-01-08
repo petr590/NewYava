@@ -48,8 +48,6 @@ public class VariablesInferenceExample {
 		boolean e = getBoolean();
 	}
 
-	private void foo(int x) {}
-
 	private byte getByte() {
 		return 1;
 	}

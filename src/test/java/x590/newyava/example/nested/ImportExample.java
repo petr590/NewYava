@@ -22,7 +22,7 @@ public class ImportExample {
 	private native x590.newyava.example.samename.ImportExample testConflicting1();
 	private native x590.newyava.example.samename.Middle testConflicting2();
 	private native x590.newyava.example.samename.Inner testConflicting3();
-	private native NestedClassExample.Another testConflicting4();
+	private native NestedClassesExample.Another testConflicting4();
 
 	@Annotations.ClassAnnotation(val = Middle.Inner.class, arr = {})
 	static class Middle {

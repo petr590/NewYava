@@ -9,6 +9,7 @@ import x590.newyava.decompilation.code.CodeStack;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.descriptor.MethodDescriptor;
+import x590.newyava.modifiers.Modifiers;
 import x590.newyava.type.Type;
 import x590.newyava.type.TypeSize;
 
@@ -35,6 +36,10 @@ public class MethodContext extends ContextProxy {
 		super(context);
 		this.descriptor = descriptor;
 		this.modifiers = modifiers;
+	}
+
+	public boolean isStatic() {
+		return (modifiers & Modifiers.ACC_STATIC) != 0;
 	}
 
 	public boolean isConstructor() {

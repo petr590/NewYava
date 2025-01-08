@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.array;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
@@ -24,6 +25,7 @@ import x590.newyava.type.Type;
 
 import java.util.*;
 
+@EqualsAndHashCode
 public class NewArrayOperation implements Operation {
 	private final ArrayType arrayType;
 	private final Type memberType;
@@ -33,13 +35,15 @@ public class NewArrayOperation implements Operation {
 
 	private final @Nullable List<Operation> initializers;
 
+	@EqualsAndHashCode.Exclude
 	private final @UnmodifiableView List<Operation> initializersView;
+
+	@EqualsAndHashCode.Exclude
+	private boolean useInitializersList;
 
 	public @UnmodifiableView List<Operation> getInitializers() {
 		return initializersView;
 	}
-
-	private boolean useInitializersList;
 
 	public NewArrayOperation(MethodContext context, ArrayType arrayType) {
 		this(arrayType, List.of(context.popAs(PrimitiveType.INT)));
@@ -64,11 +68,8 @@ public class NewArrayOperation implements Operation {
 
 	private static List<Operation> createInitializers(int size, Type elementType) {
 		var operations = new Operation[size];
+		Arrays.fill(operations, defaultOperation(elementType));
 
-		var operation = defaultOperation(elementType);
-//		operation.updateReturnType(elementType); // FIRST_TYPE_ASSIGNMENT
-
-		Arrays.fill(operations, operation);
 		return Arrays.asList(operations);
 	}
 
@@ -144,7 +145,7 @@ public class NewArrayOperation implements Operation {
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
 		if (useInitializersList) {
-			out .recordSp("new").record(memberType, context)
+			out .record("new ").record(memberType, context)
 				.recordN("[]", arrayType.getNestLevel()).space();
 		}
 
@@ -163,7 +164,7 @@ public class NewArrayOperation implements Operation {
 			}
 
 		} else {
-			out.recordSp("new").record(memberType, context);
+			out.record("new ").record(memberType, context);
 
 			for (Operation index : sizes) {
 				out.record('[').record(index, context, Priority.ZERO).record(']');
@@ -175,6 +176,6 @@ public class NewArrayOperation implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("NewArrayOperation %08x(%s, %s)", hashCode(), arrayType, sizes);
+		return String.format("NewArrayOperation(%s, %s)", arrayType, sizes);
 	}
 }

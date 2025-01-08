@@ -5,12 +5,17 @@ import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.io.ContextualWritable;
 import x590.newyava.io.DecompilationWriter;
-import x590.newyava.type.ClassArrayType;
+import x590.newyava.type.IClassArrayType;
 import x590.newyava.type.ClassType;
+import x590.newyava.type.IClassType;
 import x590.newyava.type.Type;
 
-public record FieldDescriptor(ClassType hostClass, String name, Type type)
+public record FieldDescriptor(IClassType hostClass, String name, Type type)
 		implements ContextualWritable, Importable {
+
+	public ClassType baseHostClass() {
+		return hostClass.base();
+	}
 
 	public static FieldDescriptor of(String className, String name, String typeName) {
 		return new FieldDescriptor(ClassType.valueOf(className), name, Type.valueOf(typeName));
@@ -27,14 +32,20 @@ public record FieldDescriptor(ClassType hostClass, String name, Type type)
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		out.recordSp(type, context).record(name);
+		out.record(type, context).space().record(name);
 	}
 
 
-	public boolean equals(ClassArrayType hostClass, String name, Type type) {
+	public boolean equals(IClassArrayType hostClass, String name, Type type) {
 		return  this.hostClass.equals(hostClass) &&
 				this.name.equals(name) &&
 				this.type.equals(type);
+	}
+
+	public boolean baseEquals(FieldDescriptor other) {
+		return  this.hostClass.equals(other.hostClass) &&
+				this.name.equals(other.name) &&
+				this.type.baseEquals(other.type);
 	}
 
 

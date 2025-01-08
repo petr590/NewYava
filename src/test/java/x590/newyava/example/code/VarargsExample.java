@@ -13,5 +13,12 @@ public class VarargsExample {
 	public void foo(String s, int i, boolean b) {
 		System.out.printf("%s, %d, %b\n", s, i, b);
 		System.out.printf("\n");
+		varargsMethod("", 1, 2, 3);
+		varargsMethod(1, 2, 3);
+		varargsMethod();
 	}
+
+	private void varargsMethod(int... other) {}
+
+	private void varargsMethod(String first, int... other) {}
 }

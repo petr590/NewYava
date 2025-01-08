@@ -7,6 +7,7 @@ import x590.newyava.decompilation.operation.emptyscope.EmptyScopeOperation;
 import x590.newyava.decompilation.operation.emptyscope.EmptyableScopeOperation;
 import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.decompilation.operation.operator.TernaryOperator;
+import x590.newyava.decompilation.variable.VarUsage;
 import x590.newyava.io.DecompilationWriter;
 
 import java.util.List;
@@ -37,21 +38,25 @@ public final class ElseScope extends IfElseScope {
 
 		if (size >= 2 &&
 			operations.get(size - 1) == this &&
-			operations.get(size - 2) instanceof IfScope ifScope &&
-			ifScope.isEmpty() &&
-			ifScope.getEndChunk().getId() + 1 == this.getStartChunk().getId() &&
-			!ifScope.getPushedOperations().isEmpty()) {
+			operations.get(size - 2) instanceof IfScope ifScope) {
 
-			// Поздравляю, мы нашли тернарник!
-			pushedOperations.push(new TernaryOperator(
-					ifScope.getCondition(),
-					ifScope.getPushedOperations().pop(),
-					pushedOperations.pop()
-			));
+			ifScope.setElseScope(this);
 
-			// Удаляем IfScope и ElseScope из родительского Scope
-			operations.remove(size - 1);
-			operations.remove(size - 2);
+			if (ifScope.isEmpty() &&
+				ifScope.getEndChunk().getId() + 1 == this.getStartChunk().getId() &&
+				!ifScope.getPushedOperations().isEmpty()) {
+
+				// Поздравляю, мы нашли тернарник!
+				pushedOperations.push(new TernaryOperator(
+						ifScope.getCondition(),
+						ifScope.getPushedOperations().pop(),
+						pushedOperations.pop()
+				));
+
+				// Удаляем IfScope и ElseScope из родительского Scope
+				operations.remove(size - 1);
+				operations.remove(size - 2);
+			}
 		}
 	}
 
@@ -59,6 +64,16 @@ public final class ElseScope extends IfElseScope {
 	public boolean removeLastContinueOfLoop(LoopScope loop) {
 		OperationUtils.removeLastContinueOfLoop(this, loop);
 		return true;
+	}
+
+	@Override
+	protected VarUsage computeVarUsage(int slotId) {
+		return initialVarUsage(slotId).maybe();
+	}
+
+	/** @return использование переменной при условии, что else гарантированно вызывается. */
+	VarUsage initialVarUsage(int slotId) {
+		return super.computeVarUsage(slotId);
 	}
 
 	@Override

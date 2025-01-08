@@ -6,7 +6,7 @@
 
     <groupId>x590</groupId>
     <artifactId>NewYava</artifactId>
-    <version>0.9.27</version>
+    <version>0.10.20</version>
 
     <properties>
         <maven.compiler.source>19</maven.compiler.source>

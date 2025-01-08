@@ -19,21 +19,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.IntFunction;
+import java.util.function.ObjIntConsumer;
 import java.util.stream.Collectors;
 
 /**
  * Дескриптор метода.
- * @param fromIndex индекс, с которого начинаются аргументы.
- * @param fromSlot слот переменной, с которого начинаются аргументы (не учитывая переменную {@code this}).
- *                 Не то же самое, что и {@link #fromIndex}.
  */
 public record MethodDescriptor(
-		ClassArrayType hostClass,
+		IClassArrayType hostClass,
 		String name,
 		Type returnType,
-		@Unmodifiable List<Type> arguments,
-		int fromIndex,
-		int fromSlot
+		@Unmodifiable List<Type> arguments
 ) implements Importable {
 
 	public static final String
@@ -57,15 +53,11 @@ public record MethodDescriptor(
 		}
 	}
 
-	public MethodDescriptor(ClassArrayType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
-		this(hostClass, name, returnType, arguments, 0, 0);
+	public MethodDescriptor(IClassArrayType hostClass, String name, Type returnType) {
+		this(hostClass, name, returnType, Collections.emptyList());
 	}
 
-	public MethodDescriptor(ClassArrayType hostClass, String name, Type returnType) {
-		this(hostClass, name, returnType, List.of());
-	}
-
-	public static MethodDescriptor of(ClassArrayType hostClass, String name, String argsAndReturnType) {
+	public static MethodDescriptor of(IClassArrayType hostClass, String name, String argsAndReturnType) {
 		var reader = new SignatureReader(argsAndReturnType);
 
 		List<Type> arguments = Type.parseMethodArguments(reader);
@@ -76,14 +68,14 @@ public record MethodDescriptor(
 	}
 
 	public static MethodDescriptor of(Handle handle) {
-		return of(ClassArrayType.valueOf(handle.getOwner()), handle.getName(), handle.getDesc());
+		return of(IClassArrayType.valueOf(handle.getOwner()), handle.getName(), handle.getDesc());
 	}
 
-	public static MethodDescriptor constructor(ClassArrayType hostClass) {
-		return constructor(hostClass, List.of());
+	public static MethodDescriptor constructor(IClassArrayType hostClass) {
+		return constructor(hostClass, Collections.emptyList());
 	}
 
-	public static MethodDescriptor constructor(ClassArrayType hostClass, @Unmodifiable List<Type> arguments) {
+	public static MethodDescriptor constructor(IClassArrayType hostClass, @Unmodifiable List<Type> arguments) {
 		return new MethodDescriptor(hostClass, INIT, PrimitiveType.VOID, arguments);
 	}
 
@@ -95,23 +87,34 @@ public record MethodDescriptor(
 		return slots(arguments);
 	}
 
-	/** @return Новый дескриптор с аргументами начиная с {@code from} до конца.
-	 * Если {@code from} равен 0, возвращает {@code this}. */
-	public MethodDescriptor slice(int from) {
-		return slice(from, arguments.size());
+
+	/**
+	 * @return индекс аргумента по слоту переменной
+	 * (для нестатических методов ссылка на {@code this} не учитывается).
+	 * @throws IllegalArgumentException если слот меньше нуля или ни один индекс не соответствует слоту.
+	 */
+	public int indexBySlot(int slot) {
+		if (slot < 0)
+			throw new IllegalArgumentException("Negative slot: " + slot);
+
+		for (int i = 0, s = 0, size = arguments.size(); i < size; i++) {
+			if (s == slot) {
+				return i;
+			}
+
+			s += arguments.get(i).getSize().slots();
+		}
+
+		throw new IllegalArgumentException(String.format("Cannot find index for slot %d in descriptor %s", slot, this));
 	}
 
-	/** @return Новый дескриптор с аргументами начиная с {@code from} до {@code to} не включительно.
-	 * Если {@code from} равен 0, а {@code to} равен количеству аргументов, возвращает {@code this}. */
-	public MethodDescriptor slice(int from, int to) {
-		return from == 0 && to == arguments.size() ?
+
+	/** @return Новый дескриптор с аргументами начиная с {@code fromIndex} до {@code toIndex} не включительно.
+	 * Если {@code fromIndex} равен 0, а {@code toIndex} равен количеству аргументов, возвращает {@code this}. */
+	public MethodDescriptor slice(int fromIndex, int toIndex) {
+		return fromIndex == 0 && toIndex == arguments.size() ?
 				this :
-				new MethodDescriptor(
-						hostClass, name, returnType,
-						arguments.subList(from, to),
-						fromIndex + from,
-						fromSlot + slots(arguments.subList(0, from))
-				);
+				new MethodDescriptor(hostClass, name, returnType, arguments.subList(fromIndex, toIndex));
 	}
 
 
@@ -131,7 +134,8 @@ public record MethodDescriptor(
 
 		if (recordComponents != null && recordComponents.size() == arguments.size()) {
 			var iterator = arguments.iterator();
-			return recordComponents.stream().allMatch(component -> component.getDescriptor().type().equals(iterator.next()));
+			return recordComponents.stream()
+					.allMatch(component -> component.getDescriptor().type().baseEquals(iterator.next()));
 		}
 
 		return false;
@@ -143,8 +147,14 @@ public record MethodDescriptor(
 		context.addImport(returnType).addImportsFor(arguments);
 	}
 
-	public void write(DecompilationWriter out, Context context, boolean isStatic,
-	                  @Nullable @Unmodifiable List<Variable> variables) {
+	/**
+	 * @param startSlot слот, с которого начинаются аргументы.
+	 * @param variables список переменных данного метода или {@code null}, если метод не имеет тела.
+	 * @param possibleNames список имён аргументов. Используется, если {@code variables == null}.
+	 */
+	public void write(DecompilationWriter out, Context context, boolean isVarargs, int startSlot,
+	                  @Nullable @Unmodifiable List<Variable> variables,
+	                  @Nullable @Unmodifiable List<String> possibleNames) {
 
 		switch (name) {
 			case CLINIT -> {
@@ -160,17 +170,26 @@ public record MethodDescriptor(
 				}
 			}
 
-			default -> out.recordSp(returnType, context).record(name);
+			default -> out.record(returnType, context).space().record(name);
 		}
 
 		// Принимает индекс аргумента метода, возвращает имя этого аргумента
 		IntFunction<String> nameGetter = variables != null ?
-				new NameGetter(variables.subList(fromSlot, variables.size()), isStatic) :
-				new NameGenerator();
+				new NameGetter(variables, startSlot) :
+				new NameGenerator(possibleNames);
 
-		out.record('(').record(arguments, ", ",
-				(type, i) -> out.recordSp(type, context).record(nameGetter.apply(i))
-		).record(')');
+		// Принимает тип и индекс аргумента, записывает его
+		ObjIntConsumer<Type> writer = (type, i) -> {
+			if (isVarargs && i == arguments.size() - 1 && type instanceof ArrayType arrayType) {
+				out.record(arrayType.getElementType(), context).record("... ");
+			} else {
+				out.record(type, context).space();
+			}
+
+			out.record(nameGetter.apply(i));
+		};
+
+		out.record('(').record(arguments, ", ", writer).record(')');
 	}
 
 	/** Получает имя из списка переменных */
@@ -178,9 +197,9 @@ public record MethodDescriptor(
 		private final @Unmodifiable List<Variable> variables;
 		private int offset;
 
-		public NameGetter(List<Variable> variables, boolean isStatic) {
+		public NameGetter(List<Variable> variables, int startSlot) {
 			this.variables = variables;
-			this.offset = isStatic ? 0 : 1;
+			this.offset = startSlot;
 		}
 
 		@Override
@@ -198,21 +217,22 @@ public record MethodDescriptor(
 	private class NameGenerator implements IntFunction<String> {
 		private final List<String> names;
 
-		public NameGenerator() {
-			Object2IntMap<String> namesTable = new Object2IntOpenHashMap<>();
+		public NameGenerator(@Nullable @Unmodifiable List<String> possibleNames) {
+			List<String> names = possibleNames != null ?
+					possibleNames :
+					arguments.stream().map(Type::getVarName).toList();
 
-			arguments.stream().map(Type::getVarName)
-					.forEach(name -> namesTable.put(name, namesTable.getInt(name) + 1));
+			Object2IntMap<String> namesTable = new Object2IntOpenHashMap<>();
+			names.forEach(name -> namesTable.put(name, namesTable.getInt(name) + 1));
 
 			for (var entry : namesTable.object2IntEntrySet()) {
 				entry.setValue(entry.getIntValue() == 1 ? 0 : 1);
 			}
 
-			this.names = arguments.stream().map(Type::getVarName)
-					.map(name -> {
-						int n = namesTable.getInt(name);
-						return n == 0 ? name : name + namesTable.put(name, n + 1);
-					}).toList();
+			this.names = names.stream().map(name -> {
+				int n = namesTable.getInt(name);
+				return n == 0 ? name : name + namesTable.put(name, n + 1);
+			}).toList();
 		}
 
 		@Override
@@ -222,14 +242,14 @@ public record MethodDescriptor(
 	}
 
 
-	public boolean equals(ClassArrayType hostClass, String name, Type returnType) {
+	public boolean equals(IClassArrayType hostClass, String name, Type returnType) {
 		return  this.hostClass.equals(hostClass) &&
 				this.name.equals(name) &&
 				this.returnType.equals(returnType) &&
 				this.arguments.isEmpty();
 	}
 
-	public boolean equals(ClassArrayType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
+	public boolean equals(IClassArrayType hostClass, String name, Type returnType, @Unmodifiable List<Type> arguments) {
 		return  this.hostClass.equals(hostClass) &&
 				this.name.equals(name) &&
 				this.returnType.equals(returnType) &&
@@ -240,6 +260,12 @@ public record MethodDescriptor(
 		return  this.name.equals(name) &&
 				this.returnType.equals(returnType) &&
 				this.arguments.isEmpty();
+	}
+
+	public boolean equalsIgnoreClass(IncompleteMethodDescriptor other) {
+		return  name.equals(other.name()) &&
+				returnType.equals(other.returnType()) &&
+				arguments.equals(other.arguments());
 	}
 
 	@Override

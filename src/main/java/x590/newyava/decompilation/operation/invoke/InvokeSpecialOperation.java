@@ -1,25 +1,36 @@
 package x590.newyava.decompilation.operation.invoke;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import x590.newyava.DecompilingClass;
+import x590.newyava.DecompilingField;
+import x590.newyava.DecompilingMethod;
+import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
+import x590.newyava.decompilation.code.Code;
+import x590.newyava.decompilation.operation.OperationUtils;
 import x590.newyava.decompilation.operation.other.NewOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.variable.ILoadOperation;
+import x590.newyava.decompilation.scope.MethodScope;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.DecompilationException;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.modifiers.Modifiers;
 import x590.newyava.type.*;
+import x590.newyava.util.Utils;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@EqualsAndHashCode(callSuper = true, onlyExplicitlyIncluded = true)
 public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 
 	private enum InvokeType {
@@ -29,12 +40,19 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 	/** Представляет собой объект {@code super} или {@code Interface.super}. */
 	private record SuperObject(
 			@Getter VariableReference varRef,
-			@Getter ClassArrayType returnType,
+			@Getter IClassArrayType returnType,
 			boolean isInterface
 	) implements ILoadOperation {
 		@Override
 		public boolean isThisRef() {
 			return true;
+		}
+
+		@Override
+		public void addImports(ClassContext context) {
+			if (isInterface) {
+				context.addImport(returnType);
+			}
 		}
 
 		@Override
@@ -47,8 +65,10 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 		}
 	}
 
+	@EqualsAndHashCode.Include
 	private final InvokeType invokeType;
 
+	@EqualsAndHashCode.Include
 	private final Type returnType;
 
 	public static Operation valueOf(MethodContext context, MethodDescriptor descriptor) {
@@ -80,8 +100,8 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 		if (object.isThisRef()) {
 			var hostClass = descriptor.hostClass();
 
-			return  hostClass.equals(context.getThisType()) ? InvokeType.THIS :
-					hostClass.equals(context.getSuperType()) ? InvokeType.SUPER : InvokeType.SUPER_INTERFACE;
+			return  hostClass.baseEquals(context.getThisType()) ? InvokeType.THIS :
+					hostClass.baseEquals(context.getSuperType()) ? InvokeType.SUPER : InvokeType.SUPER_INTERFACE;
 
 		} else if (descriptor.isConstructor() &&
 				object instanceof NewOperation newOp &&
@@ -92,6 +112,8 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 
 		return InvokeType.PLAIN;
 	}
+
+	/* ------------------------------------------------- properties ------------------------------------------------- */
 
 	@Override
 	public Type getReturnType() {
@@ -105,7 +127,6 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 	}
 
 
-	// Enum.<init>(String, int)
 	private static final MethodDescriptor DEFAULT_ENUM_CONSTRUCTOR =
 			MethodDescriptor.constructor(ClassType.ENUM, List.of(ClassType.STRING, PrimitiveType.INT));
 
@@ -131,18 +152,70 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 
 
 	/** @return анонимный класс, если это вызов конструктора анонимного класса, иначе {@code null}. */
-	private @Nullable ClassType getAnonymousClassType() {
+	private @Nullable IClassType getAnonymousClassType() {
 		return  invokeType == InvokeType.NEW &&
-				returnType instanceof ClassType classType && classType.isAnonymous() ?
+				returnType instanceof IClassType classType && classType.isAnonymous() ?
 				classType : null;
 	}
 
-	/** @return вложенный класс, если это вызов конструктора вложенного класса, иначе {@code null}. */
-	private @Nullable ClassType getNestedClassType() {
-		return  invokeType == InvokeType.NEW &&
-		        returnType instanceof ClassType classType && classType.isNested() ?
-		        classType : null;
+
+	private @Nullable DecompilingClass anonymousClass;
+	private @Nullable DecompilingMethod nestedClassConstructor;
+
+	private boolean nestedClassConstructorInitialized;
+
+	private @Nullable DecompilingMethod getNestedClassConstructor(Context context) {
+		if (nestedClassConstructorInitialized)
+			return nestedClassConstructor;
+
+		nestedClassConstructorInitialized = true;
+		return nestedClassConstructor = context.findMethod(descriptor).orElse(null);
 	}
+
+	@Override
+	public boolean canUnite(MethodContext context, Operation prev) {
+		return hasOuterInstance(context) && Utils.isFirst(arguments, arg -> OperationUtils.isNullCheck(prev, arg))
+				|| super.canUnite(context, prev);
+	}
+
+	private boolean hasOuterInstance(Context context) {
+		var constructor = getNestedClassConstructor(context);
+		return constructor != null && constructor.hasOuterInstance();
+	}
+
+	@Override
+	public void beforeVariablesInit(Context context, @Nullable MethodScope methodScope) {
+		super.beforeVariablesInit(context, methodScope);
+
+		var foundClass = context.findClass(getAnonymousClassType());
+
+		anonymousClass = foundClass.orElse(null);
+
+		// Связываем поля с внешними переменными
+
+		Optional<Int2ObjectMap<DecompilingField>> outerVarTable = foundClass
+				.map(clazz -> clazz.findMethods(method -> method.getDescriptor().isConstructor()))
+				.filter(constructors -> constructors.size() == 1)
+				.map(constructors -> constructors.get(0).getCode())
+				.filter(Code::isValid)
+				.map(code -> code.getMethodScope().getOuterVarTable());
+
+		if (outerVarTable.isPresent()) {
+			for (var entry : outerVarTable.get().int2ObjectEntrySet()) {
+				if (arguments.get(entry.getIntKey()) instanceof ILoadOperation load) {
+					entry.getValue().bindWithOuterVariable(load.getVarRef());
+				}
+			}
+		}
+	}
+
+	@Override
+	public boolean needEmptyLinesAround() {
+		return anonymousClass != null && anonymousClass.isMultiline() || super.needEmptyLinesAround();
+	}
+
+
+	/* --------------------------------------------------- write ---------------------------------------------------- */
 
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
@@ -172,36 +245,34 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 	 * Записывает тело анонимного класса, если оно есть.
 	 * @param isEnumConstant если {@code true}, то записывает только аргументы
 	 *    и тело анонимного класса, если они есть. Иначе записывает как<br>
-	 *    {@code new <type>(args) { class body }}
+	 *    {@code new Class(args) { class body }}
 	 */
 	public void writeNew(DecompilationWriter out, MethodWriteContext context, boolean isEnumConstant) {
-		var foundClass = context.findClass(getAnonymousClassType());
+		var anonymousClass = this.anonymousClass;
 
-		if (foundClass.isPresent()) {
-			var anonymous = foundClass.get();
-
-			var superType = anonymous.getVisibleSuperType();
-			var interfaces = anonymous.getVisibleInterfaces();
-
-			if (superType != null && interfaces.size() > 0 || interfaces.size() > 1) {
-				throw new DecompilationException(
-						"Anonymous class extends %s and implements %s",
-						superType, interfaces.stream().map(Object::toString).collect(Collectors.joining(", "))
-				);
-			}
-
-			var type = superType != null ? superType :
-					!interfaces.isEmpty() ? interfaces.get(0) : ClassType.OBJECT;
-
+		if (anonymousClass != null) {
 			if (isEnumConstant) {
 				writeEnumArgs(out, context);
 
 			} else {
-				out.recordSp("new").record(type, context);
-				writeArgs(out, context, anonymous);
+				var superType = anonymousClass.getVisibleSuperType();
+				var interfaces = anonymousClass.getVisibleInterfaces();
+
+				if (superType != null && interfaces.size() > 0 || interfaces.size() > 1) {
+					throw new DecompilationException(
+							"Anonymous class extends %s and implements %s",
+							superType, interfaces.stream().map(Object::toString).collect(Collectors.joining(", "))
+					);
+				}
+
+				var type = superType != null ? superType :
+						!interfaces.isEmpty() ? interfaces.get(0) : ClassType.OBJECT;
+
+				out.record("new ").record(type, context);
+				writeArgs(out, context);
 			}
 
-			anonymous.writeBody(out.space());
+			anonymousClass.writeBody(out.space());
 			return;
 		}
 
@@ -209,19 +280,26 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 			writeEnumArgs(out, context);
 
 		} else {
-			out.record(object, context, Priority.ZERO);
+			var constructor = getNestedClassConstructor(context);
+
+			if (constructor != null && constructor.hasOuterInstance()) {
+				if (!arguments.get(0).isThisRef()) {
+					out.record(arguments.get(0), context, Priority.DEFAULT).record('.');
+				}
+
+				out.record("new ").record(((ClassType)returnType).getSimpleName());
+
+			} else {
+				out.record(object, context, Priority.ZERO);
+			}
+
 			writeArgs(out, context);
 		}
 	}
 
-	private void writeArgs(DecompilationWriter out, MethodWriteContext context) {
-		writeArgs(out, context, null);
-	}
-
 	/** Записывает аргументы.
 	 * Если это вызов конструктора enum-класса, то пропускает первые два аргумента. */
-	private void writeArgs(DecompilationWriter out, MethodWriteContext context,
-	                       @Nullable DecompilingClass nestedClass) {
+	private void writeArgs(DecompilationWriter out, MethodWriteContext context) {
 
 		if ((context.getClassModifiers() & Modifiers.ACC_ENUM) != 0 &&
 			descriptor.isConstructor() &&
@@ -231,11 +309,9 @@ public class InvokeSpecialOperation extends InvokeNonstaticOperation {
 			writeArgsSkipping2(out, context);
 
 		} else {
-			var visibleArgs = Optional.ofNullable(nestedClass)
-					.or(() -> context.findClass(getNestedClassType()))
-					.flatMap(clazz -> clazz.findMethod(descriptor))
-					.map(method -> arguments.subList(method.getArgsStart(), method.getArgsEnd()))
-					.orElse(arguments);
+			var constructor = getNestedClassConstructor(context);
+			var visibleArgs = constructor == null ? arguments :
+					arguments.subList(constructor.getArgsStart(), constructor.getArgsEnd());
 
 			out.record('(').record(visibleArgs, context, Priority.ZERO, ", ").record(')');
 		}

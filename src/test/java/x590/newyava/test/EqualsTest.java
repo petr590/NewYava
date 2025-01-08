@@ -24,7 +24,7 @@ public class EqualsTest {
 	public void testDescriptors() {
 		checkEquals(() -> new MethodDescriptor(ClassType.OBJECT, "method", ArrayType.forType(PrimitiveType.INT, 2)));
 		checkEquals(() -> new FieldDescriptor(
-				ClassType.parse(new SignatureReader("net/minecraft/advancements/AdvancementRequirements;")),
+				IClassType.parse(new SignatureReader("net/minecraft/advancements/AdvancementRequirements;")),
 				"requirements",
 				Type.parse(new SignatureReader("[[Ljava/lang/String;"))
 		));
@@ -38,7 +38,7 @@ public class EqualsTest {
 	}
 
 	@Test
-	public void test() {
+	public void testAnnotations() {
 		List<DecompilingAnnotation>
 				a1 = List.of(new DecompilingAnnotation("Lorg/jetbrains/annotations/Nullable")),
 				a2 = List.of(new DecompilingAnnotation("Lorg/jetbrains/annotations/Nullable"));

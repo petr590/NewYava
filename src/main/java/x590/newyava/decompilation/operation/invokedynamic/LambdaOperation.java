@@ -1,7 +1,10 @@
 package x590.newyava.decompilation.operation.invokedynamic;
 
+import lombok.EqualsAndHashCode;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
+import x590.newyava.context.Context;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.code.Code;
@@ -17,10 +20,12 @@ import x590.newyava.descriptor.IncompleteMethodDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
+import x590.newyava.util.Utils;
 
 import java.util.List;
 import java.util.Objects;
 
+@EqualsAndHashCode
 public class LambdaOperation implements Operation {
 	/** Дескриптор самой инструкции invokedynamic */
 	private final IncompleteMethodDescriptor indyDescriptor;
@@ -28,6 +33,8 @@ public class LambdaOperation implements Operation {
 	/** Дескриптор метода реализации лямбды */
 	private MethodDescriptor implDescriptor;
 
+	/** Аргументы, которые передаются в лямбду. Их количество
+	 * должно совпадать с количеством аргументов в {@link #indyDescriptor} */
 	private final List<Operation> indyArgs;
 
 	private Code code;
@@ -53,6 +60,11 @@ public class LambdaOperation implements Operation {
 		return InvalidCode.EMPTY;
 	}
 
+	@Override
+	public boolean canUnite(MethodContext context, Operation prev) {
+		return !code.isValid() && Utils.isFirst(indyArgs, arg -> OperationUtils.isNullCheck(prev, arg))
+				|| Operation.super.canUnite(context, prev);
+	}
 
 	@Override
 	public Type getReturnType() {
@@ -67,17 +79,16 @@ public class LambdaOperation implements Operation {
 
 	/** Связывает внутренние переменные лямбды с переменными внешнего метода. */
 	@Override
-	public void beforeVariablesInit(MethodScope methodScope) {
-		Operation.super.beforeVariablesInit(methodScope);
+	public void beforeVariablesInit(Context context, @Nullable MethodScope methodScope) {
+		Operation.super.beforeVariablesInit(context, methodScope);
 
-		if (code.isValid()) {
+		if (methodScope != null && code.isValid()) {
 			code.getMethodScope().setOuterScope(methodScope);
 
 			var varTable = code.getVarTable();
-			int slot = 0;
 
-			for (Operation arg : indyArgs) {
-				if (arg instanceof ILoadOperation load) {
+			for (int i = 0, slot = 0, size = indyArgs.size(); i < size; i++) {
+				if (indyArgs.get(i) instanceof ILoadOperation load) {
 					var ref = varTable.get(slot).get(0);
 
 					if (ref != null) {
@@ -85,7 +96,7 @@ public class LambdaOperation implements Operation {
 					}
 				}
 
-				slot += arg.getReturnType().getSize().slots();
+				slot += indyDescriptor.arguments().get(i).getSize().slots();
 			}
 		}
 	}
@@ -105,9 +116,7 @@ public class LambdaOperation implements Operation {
 
 	private void simplifyLambda() {
 		if (lambdaSimplified) return;
-
 		lambdaSimplified = true;
-
 
 		if (!code.isValid()) return;
 
@@ -134,9 +143,14 @@ public class LambdaOperation implements Operation {
 
 
 	@Override
+	public boolean needEmptyLinesAround() {
+		return code.isValid();
+	}
+
+	@Override
 	public Priority getPriority() {
 		simplifyLambda();
-		return code == null ? Priority.DEFAULT : Priority.LAMBDA;
+		return code.isValid() ? Priority.LAMBDA : Priority.DEFAULT;
 	}
 
 	@Override
@@ -170,7 +184,7 @@ public class LambdaOperation implements Operation {
 			if (operations.size() == 1) {
 				var operation = operations.get(0);
 
-				if (!operation.isScopeLike()) {
+				if (!operation.needWrapWithBrackets()) {
 					out.record(operation instanceof ReturnValueOperation ret ? ret.getValue() : operation,
 							context, Priority.ZERO);
 
@@ -197,7 +211,9 @@ public class LambdaOperation implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("LambdaOperation %08x(indyDescriptor: %s, implDescriptor: %s, indyArgs: %s, code: %s)",
-				hashCode(), indyDescriptor, implDescriptor, indyArgs, code);
+		return String.format(
+				"LambdaOperation(indyDescriptor: %s, implDescriptor: %s, indyArgs: %s, code: %s)",
+				indyDescriptor, implDescriptor, indyArgs, code
+		);
 	}
 }

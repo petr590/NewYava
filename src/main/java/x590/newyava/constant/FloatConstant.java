@@ -5,8 +5,10 @@ import it.unimi.dsi.fastutil.floats.Float2ObjectOpenHashMap;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
-import x590.newyava.context.ClassContext;
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ConstantWriteContext;
+import x590.newyava.context.Context;
+import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
@@ -44,18 +46,38 @@ public final class FloatConstant extends Constant {
 	}
 
 	@Override
-	public void addImports(ClassContext context) {}
+	protected @Nullable FieldDescriptor getConstant(Context context) {
+		return context.getConstant(value);
+	}
 
 	@Override
 	public void write(DecompilationWriter out, ConstantWriteContext context) {
-		float val = value;
-		int intVal = (int)val;
+		writeConstantOrValue(out, context, () -> {
+			float val = value;
 
-		if (context.isImplicitCastAllowed() && intVal == val) {
-			out.record(String.valueOf(intVal));
-		} else {
-			out.record(String.valueOf(val)).record('f');
-		}
+			if (Float.isNaN(val)) {
+				out.record("0.0f / 0.0f");
+				return;
+			}
+
+			if (val == Float.POSITIVE_INFINITY) {
+				out.record("1.0f / 0.0f");
+				return;
+			}
+
+			if (val == Float.NEGATIVE_INFINITY) {
+				out.record("-1.0f / 0.0f");
+				return;
+			}
+
+			int intVal = (int)val;
+
+			if (context.isImplicitCastAllowed() && intVal == val) {
+				out.record(String.valueOf(intVal));
+			} else {
+				out.record(String.valueOf(val)).record('f');
+			}
+		});
 	}
 
 	@Override

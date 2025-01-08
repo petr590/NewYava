@@ -40,9 +40,10 @@ public abstract class JumpOperation implements SpecialOperation {
 	 */
 	public void initRole(Role role) {
 		if (this.role != Role.UNKNOWN && this.role != role) {
-			throw new IllegalStateException(
-					"Reinitialized role is not matches: " + this.role + ", " + role
-			);
+			throw new IllegalStateException(String.format(
+					"Reinitialized role for %s is not matches: %s, %s",
+					this, this.role, role
+			));
 		}
 
 		this.role = role;

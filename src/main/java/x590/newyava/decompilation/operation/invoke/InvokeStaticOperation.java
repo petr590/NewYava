@@ -1,10 +1,14 @@
 package x590.newyava.decompilation.operation.invoke;
 
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
+import x590.newyava.decompilation.operation.OperationUtils;
+import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.other.CastOperation;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.variable.ILoadOperation;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
@@ -46,6 +50,13 @@ public class InvokeStaticOperation extends InvokeOperation {
 		super(context, descriptor);
 	}
 
+	private @Nullable ILoadOperation staticInstance;
+
+	@Override
+	public boolean canUnite(MethodContext context, Operation prev) {
+		staticInstance = OperationUtils.getStaticInstance(descriptor.hostClass(), prev);
+		return staticInstance != null || super.canUnite(context, prev);
+	}
 
 	@Override
 	public void addImports(ClassContext context) {
@@ -55,7 +66,10 @@ public class InvokeStaticOperation extends InvokeOperation {
 
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
-		if (!canOmitClass(context)) {
+		if (staticInstance != null) {
+			out.record(staticInstance, context, Priority.DEFAULT).record('.');
+
+		} else if (!canOmitClass(context)) {
 			out.record(descriptor.hostClass(), context).record('.');
 		}
 
@@ -69,8 +83,8 @@ public class InvokeStaticOperation extends InvokeOperation {
 
 	@Override
 	public String toString() {
-		return String.format("InvokeStaticOperation %08x(%s %s.%s(%s))",
-				hashCode(), descriptor.returnType(), descriptor.hostClass(), descriptor.name(),
+		return String.format("InvokeStaticOperation(%s %s.%s(%s))",
+				descriptor.returnType(), descriptor.hostClass(), descriptor.name(),
 				arguments.stream().map(Objects::toString).collect(Collectors.joining(" ")));
 	}
 }

@@ -309,16 +309,6 @@ public class DecompilationWriter extends Writer {
 		return record(' ');
 	}
 
-	/** Записывает строку, добавляя пробел в конце */
-	public DecompilationWriter recordSp(String str) {
-		return record(str).record(' ');
-	}
-
-	/** Записывает {@link ContextualWritable}, добавляя пробел в конце */
-	public DecompilationWriter recordSp(ContextualWritable writable, Context context) {
-		return record(writable, context).record(' ');
-	}
-
 	/** Записывает строку, добавляя пробелы в начале и в конце */
 	public DecompilationWriter wrapSpaces(String str) {
 		return record(' ').record(str).record(' ');
@@ -331,7 +321,10 @@ public class DecompilationWriter extends Writer {
 		return record('\n');
 	}
 
-	/** Записывает перенос строки если выполнено условие */
+	/**
+	 * Записывает перенос строки если выполнено условие.
+	 * @return условие.
+	 */
 	public boolean lnIf(boolean condition) {
 		if (condition) ln();
 		return condition;

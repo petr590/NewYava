@@ -21,8 +21,7 @@ import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
 import x590.newyava.decompilation.operation.invoke.InvokeStaticOperation;
 import x590.newyava.decompilation.operation.monitor.MonitorEnterOperation;
 import x590.newyava.decompilation.operation.monitor.MonitorExitOperation;
-import x590.newyava.decompilation.operation.other.FieldOperation;
-import x590.newyava.decompilation.operation.other.LdcOperation;
+import x590.newyava.decompilation.operation.other.*;
 import x590.newyava.decompilation.operation.terminal.ReturnValueOperation;
 import x590.newyava.decompilation.operation.terminal.ThrowOperation;
 import x590.newyava.decompilation.operation.variable.CatchOperation;
@@ -31,15 +30,10 @@ import x590.newyava.decompilation.scope.*;
 import x590.newyava.decompilation.variable.Variable;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
-import x590.newyava.type.ClassType;
-import x590.newyava.type.PrimitiveType;
-import x590.newyava.type.Type;
+import x590.newyava.type.*;
 import x590.newyava.util.Utils;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Pattern;
 
 @UtilityClass
@@ -65,16 +59,16 @@ public final class OperationUtils {
 	 * @throws IllegalArgumentException если размеры переданных списков не совпадают
 	 */
 	public static void inferArgTypes(@Unmodifiable List<Operation> arguments, @Unmodifiable List<Type> argTypes) {
-		int s = arguments.size();
+		int size = arguments.size();
 
-		if (s != argTypes.size()) {
+		if (size != argTypes.size()) {
 			throw new IllegalArgumentException(String.format(
 					"arguments.size() != argTypes.size(): %d != %d",
-					s, argTypes.size()
+					size, argTypes.size()
 			));
 		}
 
-		for (int i = 0; i < s; i++) {
+		for (int i = 0; i < size; i++) {
 			arguments.get(i).inferType(argTypes.get(i));
 		}
 	}
@@ -89,8 +83,7 @@ public final class OperationUtils {
 
 		if (operations.size() != 1 ||
 			descriptor.arguments().size() != 1 ||
-			!descriptor.arguments().get(0).equals(PrimitiveType.INT)) {
-
+			descriptor.arguments().get(0) != PrimitiveType.INT) {
 			return null;
 		}
 
@@ -152,16 +145,9 @@ public final class OperationUtils {
 	}
 
 
-	/**
-	 * @return {@code true}, если операция не {@code null} и является ссылкой на {@code this}
-	 */
-	public static boolean isThisRef(@Nullable Operation operation) {
-		return operation != null && operation.isThisRef();
-	}
-
 	private static final Pattern
 			SYNTHETIC_THIS_PATTERN = Pattern.compile("this\\$\\d+"),
-			SYNTHETIC_VAR_PATTERN = Pattern.compile("val\\$(.*)");
+			SYNTHETIC_VAR_PATTERN = Pattern.compile("val\\$.*");
 
 	/**
 	 * Проверяет, что операция является инициализацией синтетического поля, которое ссылается на
@@ -169,7 +155,7 @@ public final class OperationUtils {
 	 * @return {@code true} в случае успеха, иначе {@code false}.
 	 */
 	public static boolean tryMarkOuterInstance(Operation operation, MethodContext context) {
-		if (!(operation instanceof FieldOperation fieldOp) || !isThisRef(fieldOp.getInstance())) return false;
+		if (!(operation instanceof FieldOperation fieldOp) || !fieldOp.isThisField()) return false;
 		if (!(fieldOp.getValue() instanceof ILoadOperation loadOp) || loadOp.getSlotId() != 1) return false;
 
 		var descriptor = fieldOp.getDescriptor();
@@ -194,21 +180,19 @@ public final class OperationUtils {
 	 * внешнюю переменную. Если это так, то помечает это поле как экземпляр внешней переменной.
 	 * @return {@code true} в случае успеха, иначе {@code false}.
 	 */
-	public static boolean checkOuterVarInit(Operation operation, MethodContext context) {
-		if (!(operation instanceof FieldOperation fieldOp) || !isThisRef(fieldOp.getInstance())) return false;
-		if (!(fieldOp.getValue() instanceof ILoadOperation)) return false;
+	public static boolean checkOuterVarInit(
+			Operation operation, MethodContext context, Int2ObjectMap<DecompilingField> outerVarTable
+	) {
+		if (!(operation instanceof FieldOperation fieldOp) || !fieldOp.isThisField()) return false;
+		if (!(fieldOp.getValue() instanceof ILoadOperation load)) return false;
 
 		var descriptor = fieldOp.getDescriptor();
 
-		var matcher = SYNTHETIC_VAR_PATTERN.matcher(descriptor.name());
-
-		if (matcher.matches()) {
+		if (SYNTHETIC_VAR_PATTERN.matcher(descriptor.name()).matches()) {
 			var foundField = context.findField(descriptor);
 
-			String varName = matcher.group(1);
-
 			if (foundField.isPresent() && foundField.get().isSynthetic()) {
-				foundField.get().makeOuterVariable(varName);
+				outerVarTable.put(context.getDescriptor().indexBySlot(load.getSlotId() - 1), foundField.get());
 				return true;
 			}
 		}
@@ -236,32 +220,43 @@ public final class OperationUtils {
 	public static boolean isDefaultFieldInitializer(Operation operation) {
 		return operation instanceof FieldOperation fieldOp &&
 				fieldOp.isSetter() &&
-				isThisRef(fieldOp.getInstance()) &&
+				fieldOp.isThisField() &&
 				fieldOp.getValue() instanceof ILoadOperation;
-	}
-
-	/** Добавляет операцию в начало списка операций и возвращает новый список.
-	 * Не изменяет переданный список. */
-	public static @Unmodifiable List<? extends Operation> addBefore(
-			Operation object, @Unmodifiable List<? extends Operation> operations
-	) {
-		List<Operation> result = new ArrayList<>(operations.size() + 1);
-		result.add(object);
-		result.addAll(operations);
-		return Collections.unmodifiableList(result);
 	}
 
 
 	private static final String SWITCH_MAP_PREFIX = "$SwitchMap$";
 
+	private static boolean isSwitchMapField(Context context, FieldOperation fieldOp) {
+		return fieldOp.isStatic() &&
+				fieldOp.getDescriptor().name().startsWith(SWITCH_MAP_PREFIX) &&
+				fieldOp.getDescriptor().hostClass().equals(context.getThisType());
+	}
+
+	private static final Template ENUM_MAP_TEMPLATE =
+			Template.staticSetter(
+					Template.newArray(PrimitiveType.INT, Template.arrayLength(Template.invokeStatic(
+							descriptor -> descriptor.name().equals("values") && descriptor.arguments().isEmpty()
+					)))
+			).make();
+
 	/**
-	 * Если операции являются try-catch, причём try содержит инициализацию enumMap,
-	 * то данный метод инициализирует её.
+	 * Если операция является инициализацией enumMap, то создаёт её в соответствующем поле.
 	 * @return {@code true}, если enumMap инициализирован, иначе {@code false}.
 	 */
-	public static boolean tryInitEnumMap(Context context, Operation operation1, Operation operation2) {
-		if (operation1 instanceof TryScope tryScope &&
-			operation2 instanceof CatchScope catchScope &&
+	public static boolean tryCreateEnumMap(Context context, Operation operation) {
+		return ENUM_MAP_TEMPLATE.test(context, operation);
+	}
+
+	/**
+	 * Если операция является try-catch, причём try содержит инициализацию enumMap,
+	 * то данный метод инициализирует её.
+	 */
+	public static void tryInitEnumMap(Context context, Operation operation) {
+		if (operation instanceof JoiningTryCatchScope joiningScope &&
+			joiningScope.getOperations().size() == 2 &&
+			joiningScope.getOperations().get(0) instanceof TryScope tryScope &&
+			joiningScope.getOperations().get(1) instanceof CatchScope catchScope &&
 			catchScope.isEmpty() &&
 			catchScope.getCatchOperation().getExceptionTypes().equals(List.of(ClassType.NO_SUCH_FIELD_ERROR))) {
 
@@ -271,27 +266,24 @@ public final class OperationUtils {
 				operations.get(0) instanceof ArrayStoreOperation astoreOp &&
 
 				astoreOp.getArray() instanceof FieldOperation array &&
-				array.isGetter() && array.isStatic() &&
-				array.getDescriptor().name().startsWith(SWITCH_MAP_PREFIX) &&
+				array.isGetter() && isSwitchMapField(context, array) &&
 
 				astoreOp.getIndex() instanceof InvokeNonstaticOperation invokeOp &&
 				invokeOp.getObject() instanceof FieldOperation enumConstant &&
 				enumConstant.isGetter() && enumConstant.isStatic() &&
 
-				invokeOp.getDescriptor().equals(enumConstant.getDescriptor().hostClass(), "ordinal", PrimitiveType.INT) &&
-				array.getDescriptor().hostClass().equals(context.getThisType())) {
+				invokeOp.getDescriptor().equals(enumConstant.getDescriptor().hostClass(), "ordinal", PrimitiveType.INT)
+			) {
 
 				var id = LdcOperation.getIntConstant(astoreOp.getValue());
-				if (id == null) return false;
+				if (id == null) return;
 
 				var foundField = context.findField(array.getDescriptor());
-				if (foundField.isEmpty() || !foundField.get().isSynthetic()) return false;
+				if (foundField.isEmpty() || !foundField.get().isSynthetic()) return;
 
-				return foundField.get().setEnumEntry(id.getValue(), enumConstant.getDescriptor());
+				foundField.get().setEnumEntry(id.getValue(), enumConstant.getDescriptor());
 			}
 		}
-
-		return false;
 	}
 
 
@@ -334,7 +326,7 @@ public final class OperationUtils {
 
 		var scopes = scope.getScopes();
 
-		for (int i = scopes.size() - 1; i >= 0; --i) {
+		for (int i = scopes.size() - 1; i >= 0; i--) {
 			if (!scopes.get(i).removeLastContinueOfLoop(loop)) {
 				break;
 			}
@@ -379,5 +371,33 @@ public final class OperationUtils {
 		}
 
 		return null;
+	}
+
+	public static @Nullable ILoadOperation getStaticInstance(IClassArrayType hostClass, Operation prev) {
+		if (hostClass.isAnonymous() &&
+			prev instanceof PopOperation pop &&
+			pop.getValue() instanceof ILoadOperation load) {
+
+			return load;
+		}
+
+		return null;
+	}
+
+	private static final MethodDescriptor REQUIRE_NON_NULL_DESCRIPTOR = new MethodDescriptor(
+			ClassType.valueOf(Objects.class), "requireNonNull", ClassType.OBJECT, List.of(ClassType.OBJECT)
+	);
+
+	/** @return {@code true}, если первая операция является проверкой второй операции на {@code null} */
+	public static boolean isNullCheck(Operation operation, Operation nullable) {
+		return  operation instanceof PopOperation pop &&
+				pop.getValue() instanceof InvokeStaticOperation invokeStatic &&
+				invokeStatic.getDescriptor().equals(REQUIRE_NON_NULL_DESCRIPTOR) &&
+				Utils.isSingle(invokeStatic.getArguments(), arg -> arg.equals(nullable));
+	}
+
+	public static Operation castIfNull(Operation operation, ReferenceType type) {
+		return operation != ConstNullOperation.INSTANCE ? operation :
+				CastOperation.narrow(operation, Types.ANY_OBJECT_TYPE, type);
 	}
 }

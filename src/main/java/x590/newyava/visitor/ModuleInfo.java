@@ -113,7 +113,7 @@ public class ModuleInfo extends ModuleVisitor implements ContextualWritable, Imp
 
 		@Override
 		default void write(DecompilationWriter out, Context context) {
-			out.ln().indent().recordSp(literal()).record(pack());
+			out.ln().indent().record(literal()).space().record(pack());
 			writeList(out, "to", Arrays.asList(modules()), (module, i) -> out.record(module));
 		}
 

@@ -29,6 +29,6 @@ public record SwitchOperation(Operation value, Int2ObjectMap<Label> table, Label
 
 	@Override
 	public String toString() {
-		return String.format("SwitchOperation %08x(table: %s, default: %s)", hashCode(), table, defaultLabel);
+		return String.format("SwitchOperation(table: %s, default: %s)", table, defaultLabel);
 	}
 }

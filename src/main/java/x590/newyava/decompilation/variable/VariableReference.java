@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.variable;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.Nullable;
@@ -14,20 +15,23 @@ import java.util.Objects;
  * Изменяемый класс.
  */
 @Getter
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @RequiredArgsConstructor
 public class VariableReference {
 
 	/** Изначальный тип переменной. Может отличаться от итогового типа. */
 	private final Type initialType;
 
+	/** Изначальное имя, если есть. */
 	private final @Nullable String initialName;
 
+	@EqualsAndHashCode.Include
 	private final int slotId;
 
-	/** Индекс начала (индекс, соответствующий инструкциям) */
+	/** Индекс начала (включительно) (индекс, соответствующий инструкциям) */
 	private final int start;
 
-	/** Индекс конца (индекс, соответствующий инструкциям) */
+	/** Индекс конца (не включительно) (индекс, соответствующий инструкциям) */
 	private final int end;
 
 	private @Nullable Variable variable;
@@ -105,6 +109,6 @@ public class VariableReference {
 
 	@Override
 	public String toString() {
-		return String.format("VariableReference(%d - %d, %s %s)", start, end, initialType, initialName);
+		return String.format("VariableReference(#%d, %d - %d, %s %s)", slotId, start, end, initialType, initialName);
 	}
 }

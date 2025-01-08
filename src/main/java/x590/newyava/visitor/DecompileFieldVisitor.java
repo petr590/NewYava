@@ -9,6 +9,8 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.RecordComponentVisitor;
+import x590.newyava.io.SignatureReader;
+import x590.newyava.type.ReferenceType;
 import x590.newyava.util.Utils;
 import x590.newyava.annotation.DecompilingAnnotation;
 import x590.newyava.constant.Constant;
@@ -28,8 +30,7 @@ public class DecompileFieldVisitor extends FieldVisitor {
 	@Setter(AccessLevel.PACKAGE)
 	private int modifiers;
 
-	private final FieldDescriptor descriptor;
-	private final @Nullable String signature;
+	private final FieldDescriptor descriptor, visibleDescriptor;
 
 	@Setter(AccessLevel.PACKAGE)
 	private @Nullable Object constantValue;
@@ -39,11 +40,19 @@ public class DecompileFieldVisitor extends FieldVisitor {
 	@Getter(lazy = true)
 	private final RecordComponentVisitor recordComponentVisitor = new DecompileRecordComponentVisitor(annotations);
 
-	public DecompileFieldVisitor(FieldDescriptor descriptor, @Nullable String signature) {
+	public DecompileFieldVisitor(FieldDescriptor descriptor, @Nullable String signatureStr) {
 		super(Opcodes.ASM9);
 
 		this.descriptor = descriptor;
-		this.signature = signature;
+		this.visibleDescriptor = signatureStr == null ? descriptor :
+				new FieldDescriptor(
+						descriptor.hostClass(), descriptor.name(),
+						SignatureReader.parse(signatureStr, ReferenceType::parse)
+				);
+	}
+
+	public @Nullable Object getConstantValue() {
+		return constantValue;
 	}
 
 	/** @return операцию инициализации статического поля, если она есть.

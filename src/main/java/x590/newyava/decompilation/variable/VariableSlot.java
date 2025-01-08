@@ -23,6 +23,7 @@ public class VariableSlot implements VariableSlotView {
 
 	private final List<VariableReference> refs = new ArrayList<>();
 
+	@ToString.Exclude
 	private final @UnmodifiableView List<VariableReference> refsView = Collections.unmodifiableList(refs);
 
 	public boolean isEmpty() {

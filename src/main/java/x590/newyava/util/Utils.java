@@ -2,9 +2,12 @@ package x590.newyava.util;
 
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.type.PrimitiveType;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -120,6 +123,11 @@ public final class Utils {
 	}
 
 	/** @return {@code true}, если список не пуст, и последний элемент соответствует предикату. */
+	public static <T> boolean isFirst(List<T> list, Predicate<? super T> predicate) {
+		return list.size() > 0 && predicate.test(list.get(0));
+	}
+
+	/** @return {@code true}, если список не пуст, и последний элемент соответствует предикату. */
 	public static <T> boolean isLast(List<T> list, Predicate<? super T> predicate) {
 		int size = list.size();
 		return size > 0 && predicate.test(list.get(size - 1));
@@ -135,6 +143,11 @@ public final class Utils {
 		return list.get(list.size() - 1);
 	}
 
+	/** @return единственный элемент списка, если размер списка равен 1, иначе {@code null}. */
+	public static <T> @Nullable T getSingleOrNull(List<? extends T> list) {
+		return list.size() == 1 ? list.get(0) : null;
+	}
+
 	/** @return первый элемент из списка или {@code null}, если список пуст. */
 	public static <T> @Nullable T getFirstOrNull(List<? extends T> list) {
 		return list.size() == 0 ? null : list.get(0);
@@ -144,5 +157,14 @@ public final class Utils {
 	public static <T> @Nullable T getLastOrNull(List<? extends T> list) {
 		int size = list.size();
 		return size == 0 ? null : list.get(list.size() - 1);
+	}
+
+	/** Добавляет объект в начало списка и возвращает новый список.
+	 * Не изменяет переданный список. */
+	public static <T> @Unmodifiable List<T> addBefore(T object, @Unmodifiable List<? extends T> operations) {
+		List<T> result = new ArrayList<>(operations.size() + 1);
+		result.add(object);
+		result.addAll(operations);
+		return Collections.unmodifiableList(result);
 	}
 }

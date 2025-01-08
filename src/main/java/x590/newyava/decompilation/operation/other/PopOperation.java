@@ -1,5 +1,7 @@
 package x590.newyava.decompilation.operation.other;
 
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
@@ -14,6 +16,8 @@ import x590.newyava.type.Types;
 
 import java.util.List;
 
+@Getter
+@EqualsAndHashCode
 public class PopOperation implements Operation {
 
 	private final Operation value;
@@ -50,6 +54,6 @@ public class PopOperation implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("PopOperation %08x(%s)", hashCode(), value);
+		return String.format("PopOperation(%s)", value);
 	}
 }

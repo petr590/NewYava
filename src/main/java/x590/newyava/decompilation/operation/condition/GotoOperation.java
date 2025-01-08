@@ -40,6 +40,6 @@ public class GotoOperation extends JumpOperation {
 
 	@Override
 	public String toString() {
-		return String.format("GotoOperation %08x(%s)", hashCode(), label);
+		return String.format("GotoOperation(%s)", label);
 	}
 }

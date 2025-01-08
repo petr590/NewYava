@@ -15,6 +15,7 @@ import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.operation.invoke.InvokeSpecialOperation;
 import x590.newyava.decompilation.operation.other.DummyOperation;
+import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
 import x590.newyava.exception.IllegalModifiersException;
@@ -36,9 +37,12 @@ import static x590.newyava.modifiers.Modifiers.*;
 public class DecompilingField implements IField, ContextualWritable, Importable {
 	private final int modifiers;
 
-	private final FieldDescriptor descriptor;
+	private final FieldDescriptor descriptor, visibleDescriptor;
 
 	private final @Unmodifiable Set<DecompilingAnnotation> annotations;
+
+
+	private final @Nullable Object constantValue;
 
 	/** Инициализатор поля. Если равен {@link x590.newyava.decompilation.operation.other.DummyOperation#INSTANCE
 	 * DummyOperation.INSTANCE}, то поле не имеет и не может иметь инициализатор. */
@@ -49,14 +53,16 @@ public class DecompilingField implements IField, ContextualWritable, Importable 
 	/** Если {@code true}, то это поле является ссылкой на {@code this} внешнего класса. */
 	private boolean isOuterInstance;
 
-	/** Если не {@code null}, то это поле является внешней переменной */
-	private @Nullable String outerVarName;
+	/** Если не {@code null}, то это поле связано с внешней переменной. */
+	private @Nullable VariableReference outerVarRef;
 
 	public DecompilingField(DecompileFieldVisitor visitor) {
-		this.modifiers   = visitor.getModifiers();
-		this.descriptor  = visitor.getDescriptor();
-		this.annotations = visitor.getAnnotations();
-		this.initializer = visitor.getInitializer();
+		this.modifiers         = visitor.getModifiers();
+		this.descriptor        = visitor.getDescriptor();
+		this.visibleDescriptor = visitor.getVisibleDescriptor();
+		this.annotations       = visitor.getAnnotations();
+		this.constantValue     = visitor.getConstantValue();
+		this.initializer       = visitor.getInitializer();
 	}
 
 	/** Можно ли оставить поле в классе */
@@ -64,15 +70,43 @@ public class DecompilingField implements IField, ContextualWritable, Importable 
 		return !isSynthetic();
 	}
 
+
+	/**
+	 * Устанавливает инициализатор поля, если он не установлен.
+	 * @return {@code true}, если инициализатор поля был установлен данным вызовом, иначе {@code false}.
+	 * @throws IllegalStateException если поле нестатическое.
+	 */
+	public boolean addStaticInitializer(Operation value) {
+		if (!isStatic()) {
+			throw new IllegalStateException("Cannot add static initializer to non-static field");
+		}
+
+		if (initializer == null) {
+			initializer = value;
+			return true;
+		}
+
+		return false;
+	}
+
 	/**
 	 * Устанавливает инициализатор поля, если он не установлен.
 	 * @param constructor дескриптор конструктора, из которого поле инициализируется.
-	 * @return {@code true}, если инициализатор поля был установлен данным вызовом, иначе {@code false}
+	 * @return {@code true}, если инициализатор поля был установлен данным вызовом, иначе {@code false}.
+	 * @throws IllegalStateException если поле статическое.
+	 * @throws IllegalArgumentException если дескриптор конструктора не подходит к классу, в котором объявлено поле.
 	 */
-	public boolean addInitializer(MethodDescriptor constructor, Operation value) {
-		assert !isStatic();
-		assert constructor.isConstructor();
-		assert constructor.hostClass().equals(descriptor.hostClass());
+	public boolean addInstanceInitializer(Operation value, MethodDescriptor constructor) {
+		if (isStatic()) {
+			throw new IllegalStateException("Cannot add instance initializer to static field");
+		}
+
+		if (!constructor.isConstructor() || !constructor.hostClass().equals(descriptor.hostClass())) {
+			throw new IllegalArgumentException(String.format(
+					"Illegal constructor descriptor for class %s: %s",
+					descriptor.hostClass(), constructor
+			));
+		}
 
 		if (initializer == null) { // Первая инициализация
 			initializer = value;
@@ -110,23 +144,30 @@ public class DecompilingField implements IField, ContextualWritable, Importable 
 		isOuterInstance = true;
 	}
 
-	/** Помечает поле как внешнюю переменную с переданным именем. */
-	public void makeOuterVariable(String outerVarName) {
-		this.outerVarName = outerVarName;
+	/** Связывает поле с внешней переменной. */
+	public void bindWithOuterVariable(VariableReference outerVarRef) {
+		this.outerVarRef = outerVarRef;
 	}
 
-	public boolean isOuterVariable() {
-		return outerVarName != null;
+	public boolean bindedWithOuterVariable() {
+		return outerVarRef != null;
 	}
 
-	public String getOuterVarName() {
-		return Objects.requireNonNull(outerVarName);
+	public VariableReference getOuterVarRef() {
+		return Objects.requireNonNull(outerVarRef);
+	}
+
+	public void beforeVariablesInit(Context context) {
+		if (initializer != null) {
+			initializer.beforeVariablesInit(context, null);
+		}
 	}
 
 	public void inferVariableTypes() {
 		if (initializer != null) {
-			initializer.inferType(descriptor.type());
+			initializer.inferType(visibleDescriptor.type());
 			initializer.allowImplicitCast();
+			initializer.denyConstantsUsing();
 		}
 	}
 
@@ -140,15 +181,16 @@ public class DecompilingField implements IField, ContextualWritable, Importable 
 	}
 
 
-	/** Инициализирует {@link #enumMap}, если он ещё не инициализирован, и добавляет в него
+	/**
+	 * Инициализирует {@link #enumMap}, если он ещё не инициализирован, и добавляет в него
 	 * переданный дескриптор по id. Если в {@link #enumMap} уже есть дескриптор, то
 	 * проверяет совпадение класса и типа.
-	 * @return {@code true}, если дескриптор добавлен, иначе {@code false}. */
-	public boolean setEnumEntry(int id, FieldDescriptor descriptor) {
+	 */
+	public void setEnumEntry(int id, FieldDescriptor descriptor) {
 		if (enumMap == null) {
 			enumMap = new Int2ObjectOpenHashMap<>();
 			enumMap.put(id, descriptor);
-			return true;
+			return;
 		}
 
 		var existsDescriptor = enumMap.values().iterator().next();
@@ -157,17 +199,14 @@ public class DecompilingField implements IField, ContextualWritable, Importable 
 			existsDescriptor.type().equals(descriptor.type())) {
 
 			enumMap.put(id, descriptor);
-			return true;
 		}
-
-		return false;
 	}
 
 	/* ---------------------------------------------------- write --------------------------------------------------- */
 
 	@Override
 	public void addImports(ClassContext context) {
-		context.addImportsFor(descriptor).addImportsFor(annotations).addImportsFor(initializer);
+		context.addImportsFor(visibleDescriptor).addImportsFor(annotations).addImportsFor(initializer);
 	}
 
 	@Override
@@ -178,7 +217,7 @@ public class DecompilingField implements IField, ContextualWritable, Importable 
 
 		writeModifiers(out, context);
 
-		out.record(descriptor, context);
+		out.record(visibleDescriptor, context);
 
 		if (hasInitializer()) {
 			out.record(" = ").record(
@@ -186,8 +225,6 @@ public class DecompilingField implements IField, ContextualWritable, Importable 
 					Type.isArray(descriptor.type()) ? Operation::writeAsArrayInitializer : Operation::write
 			);
 		}
-
-		out.record(';');
 	}
 
 	private void writeModifiers(DecompilationWriter out, Context context) {
@@ -254,11 +291,19 @@ public class DecompilingField implements IField, ContextualWritable, Importable 
 
 	public void writeAsRecordComponent(DecompilationWriter out, Context context) {
 		DecompilingAnnotation.writeAnnotations(out, context, annotations, true);
-		out.recordSp(descriptor.type(), context).record(descriptor.name());
+		out.record(visibleDescriptor.type(), context).space().record(visibleDescriptor.name());
 	}
 
 	@Override
 	public String toString() {
 		return descriptor.toString();
+	}
+
+	public boolean canUnite(DecompilingField other) {
+		return modifiers == other.modifiers &&
+				descriptor.hostClass().equals(other.descriptor.hostClass()) &&
+				descriptor.type().equals(other.descriptor.type()) &&
+				annotations.equals(other.annotations) &&
+				!hasInitializer() && !other.hasInitializer();
 	}
 }

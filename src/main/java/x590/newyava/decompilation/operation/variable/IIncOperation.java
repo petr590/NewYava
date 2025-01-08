@@ -1,27 +1,30 @@
 package x590.newyava.decompilation.operation.variable;
 
+import lombok.EqualsAndHashCode;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.operation.Priority;
 import x590.newyava.decompilation.variable.VarUsage;
+import x590.newyava.decompilation.variable.Variable;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
+@EqualsAndHashCode
 public class IIncOperation implements Operation {
 	private final VariableReference varRef;
 
 	private final int value;
 
-	private final boolean hasReturnType, preInc;
+	private final boolean preInc, hasReturnType;
 
-	private IIncOperation(MethodContext context, int slotId, int value, boolean hasReturnType, boolean preInc) {
+	private IIncOperation(MethodContext context, int slotId, int value, boolean preInc, boolean hasReturnType) {
 		this.varRef = context.getVarRef(slotId);
 		this.value = value;
-		this.hasReturnType = hasReturnType;
 		this.preInc = preInc;
+		this.hasReturnType = hasReturnType;
 	}
 
 	public static IIncOperation voidInc(MethodContext context, int slotId, int value) {
@@ -33,13 +36,18 @@ public class IIncOperation implements Operation {
 	}
 
 	public static IIncOperation postInc(MethodContext context, int slotId, int value) {
-		return new IIncOperation(context, slotId, value, true, false);
+		return new IIncOperation(context, slotId, value, false, true);
 	}
 
 
 	@Override
 	public boolean usesAnyVariable() {
 		return true;
+	}
+
+	@Override
+	public boolean usesVariable(Variable variable) {
+		return varRef.getVariable() == variable || Operation.super.usesVariable(variable);
 	}
 
 	@Override
@@ -82,7 +90,6 @@ public class IIncOperation implements Operation {
 
 	@Override
 	public String toString() {
-		return String.format("IIncOperation %08x(%s %c= %s)",
-				hashCode(), varRef, value > 0 ? '+' : '-', Math.abs(value));
+		return String.format("IIncOperation(%s %c= %d)", varRef, value > 0 ? '+' : '-', Math.abs(value));
 	}
 }

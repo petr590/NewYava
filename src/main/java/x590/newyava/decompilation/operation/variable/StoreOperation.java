@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.variable;
 
+import lombok.EqualsAndHashCode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
@@ -8,12 +9,14 @@ import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.other.AssignOperation;
 import x590.newyava.decompilation.operation.Operation;
 import x590.newyava.decompilation.variable.VarUsage;
+import x590.newyava.decompilation.variable.Variable;
 import x590.newyava.decompilation.variable.VariableReference;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
 import java.util.List;
 
+@EqualsAndHashCode(callSuper = true)
 public class StoreOperation extends AssignOperation {
 	private final VariableReference varRef;
 
@@ -40,8 +43,18 @@ public class StoreOperation extends AssignOperation {
 	}
 
 	@Override
+	public boolean needWrapWithBrackets() {
+		return declaration;
+	}
+
+	@Override
 	public boolean usesAnyVariable() {
 		return true;
+	}
+
+	@Override
+	public boolean usesVariable(Variable variable) {
+		return varRef.getVariable() == variable || super.usesVariable(variable);
 	}
 
 	@Override
@@ -95,7 +108,7 @@ public class StoreOperation extends AssignOperation {
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
 		if (declaration) {
-			out.recordSp(varRef.getType(), context);
+			out.record(varRef.getType(), context).space();
 		}
 
 		super.write(out, context);
@@ -118,6 +131,6 @@ public class StoreOperation extends AssignOperation {
 
 	@Override
 	public String toString() {
-		return String.format("StoreOperation %08x(%s = %s)", hashCode(), varRef, value);
+		return String.format("StoreOperation(%s = %s)", varRef, value);
 	}
 }

@@ -9,7 +9,7 @@ import x590.newyava.decompilation.variable.VariableTableView;
 import x590.newyava.io.DecompilationWriter;
 
 @RequiredArgsConstructor
-public final class InvalidCode implements Code {
+public final class InvalidCode extends Code {
 	public static final InvalidCode EMPTY = new InvalidCode(null);
 
 	/** Сообщение об исключении */

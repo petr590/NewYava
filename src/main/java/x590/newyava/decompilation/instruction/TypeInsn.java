@@ -22,9 +22,9 @@ public record TypeInsn(int opcode, String typeName) implements Instruction {
 	public Operation toOperation(MethodContext context) {
 		return switch (opcode) {
 			case NEW -> new NewOperation(ClassType.valueOf(typeName));
-			case ANEWARRAY -> new NewArrayOperation(context, ArrayType.forType(ClassArrayType.valueOf(typeName)));
-			case CHECKCAST -> CastOperation.narrow(context, Types.ANY_OBJECT_TYPE, ClassArrayType.valueOf(typeName));
-			case INSTANCEOF -> new InstanceofOperation(context, ClassArrayType.valueOf(typeName));
+			case ANEWARRAY -> new NewArrayOperation(context, ArrayType.forType(IClassArrayType.valueOf(typeName)));
+			case CHECKCAST -> CastOperation.narrow(context, Types.ANY_OBJECT_TYPE, IClassArrayType.valueOf(typeName));
+			case INSTANCEOF -> new InstanceofOperation(context, IClassArrayType.valueOf(typeName));
 			default -> throw new UnknownOpcodeException(opcode);
 		};
 	}

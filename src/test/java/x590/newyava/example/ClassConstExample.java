@@ -10,8 +10,8 @@ public class ClassConstExample {
 	}
 
 	public void foo() {
-		System.out.println(Object.class);
 		System.out.println(ClassConstExample.class);
+		System.out.println(Object.class);
 		System.out.println(void.class);
 		System.out.println(byte.class);
 		System.out.println(short.class);

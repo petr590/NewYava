@@ -1,8 +1,7 @@
 package x590.newyava.decompilation.operation.condition;
 
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodWriteContext;
@@ -16,6 +15,7 @@ import x590.newyava.type.Type;
 import java.util.List;
 
 @Getter
+@EqualsAndHashCode
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class OperatorCondition implements Condition {
 
@@ -30,9 +30,18 @@ public class OperatorCondition implements Condition {
 	private final Operator operator;
 	private final Condition operand1, operand2;
 
+	@EqualsAndHashCode.Exclude
+	private @Nullable OperatorCondition opposite;
+
 	@Override
 	public Condition opposite() {
-		return new OperatorCondition(operator.opposite(), operand1.opposite(), operand2.opposite());
+		if (opposite != null)
+			return opposite;
+
+		var opposite = new OperatorCondition(operator.opposite(), operand1.opposite(), operand2.opposite());
+		opposite.opposite = this;
+
+		return this.opposite = opposite;
 	}
 
 	@Override
@@ -78,7 +87,6 @@ public class OperatorCondition implements Condition {
 
 	@Override
 	public String toString() {
-		return String.format("OperatorCondition %08x(%s, %s, %s)",
-				hashCode(), operator, operand1, operand2);
+		return String.format("OperatorCondition(%s, %s, %s)", operator, operand1, operand2);
 	}
 }

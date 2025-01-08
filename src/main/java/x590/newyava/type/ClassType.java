@@ -21,7 +21,7 @@ import java.util.*;
  * Это <b>класс</b>ика Java!
  */
 @Getter
-public final class ClassType implements ClassArrayType {
+public final class ClassType implements IClassType {
 
 	private static final Map<String, ClassType> CLASS_POOL = new HashMap<>();
 	private static final Map<String, String> OUTER_CLASS_NAMES_POOL = new HashMap<>();
@@ -37,8 +37,9 @@ public final class ClassType implements ClassArrayType {
 			THROWABLE    = valueOf(Throwable.class),
 			ANNOTATION   = valueOf(Annotation.class),
 			REPEATABLE   = valueOf(Repeatable.class),
-			NO_SUCH_FIELD_ERROR = valueOf(NoSuchFieldError.class),
+			OVERRIDE     = valueOf(Override.class),
 			ASSERTION_ERROR     = valueOf(AssertionError.class),
+			NO_SUCH_FIELD_ERROR = valueOf(NoSuchFieldError.class),
 
 			BYTE      = valueOf(Byte.class),
 			SHORT     = valueOf(Short.class),
@@ -48,7 +49,8 @@ public final class ClassType implements ClassArrayType {
 			FLOAT     = valueOf(Float.class),
 			DOUBLE    = valueOf(Double.class),
 			BOOLEAN   = valueOf(Boolean.class),
-			VOID      = valueOf(Void.class);
+			VOID      = valueOf(Void.class),
+			MATH      = valueOf(Math.class);
 
 
 	/** Полное бинарное имя класса, например {@code "java/lang/Object"} или {@code "java/util/Map$Entry"} */
@@ -177,13 +179,15 @@ public final class ClassType implements ClassArrayType {
 		return clazz == null ? null : valueOf(clazz);
 	}
 
+	/** @deprecated используйте {@link IClassType#parse(SignatureReader)} */
+	@Deprecated(since = "0.9.27", forRemoval = true)
 	public static ClassType parse(SignatureReader reader) {
 		var binName = new StringBuilder();
 
 		for (;;) {
 			char ch = reader.next();
 
-			if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '$' || ch == '/') {
+			if (Character.isJavaIdentifierPart(ch) || ch == '/') {
 				binName.append(ch);
 				continue;
 			}
@@ -196,6 +200,11 @@ public final class ClassType implements ClassArrayType {
 		}
 
 		return valueOf(binName.toString());
+	}
+
+	@Override
+	public ClassType base() {
+		return this;
 	}
 
 	@Override
@@ -321,19 +330,19 @@ public final class ClassType implements ClassArrayType {
 		}
 	}
 
-	private String getInnerSimpleName(String outerBinSimpleName) {
-		var binSimpleName = this.simpleBinName;
+	private String getInnerSimpleName(String outerSimpleBinName) {
+		var simpleBinName = this.simpleBinName;
 
-		int i = outerBinSimpleName.length() + 1;
-		int len = binSimpleName.length();
+		int i = outerSimpleBinName.length() + 1;
+		int len = simpleBinName.length();
 
 		for (; i < len; i++) {
-			if (!Character.isDigit(binSimpleName.charAt(i)))
+			if (!Character.isDigit(simpleBinName.charAt(i)))
 				break;
 		}
 
 		// Если имя состоит только из цифр, то возвращаем его
-		return binSimpleName.substring(i < len ? i : outerBinSimpleName.length() + 1);
+		return simpleBinName.substring(i < len ? i : outerSimpleBinName.length() + 1);
 	}
 
 
@@ -358,11 +367,27 @@ public final class ClassType implements ClassArrayType {
 
 
 	@Getter(lazy = true)
-	private final @Nullable String varName = computeVarName();
+	private final String varName = computeVarName();
 
 	private String computeVarName() {
+		if (isAnonymous) {
+			var interfaces = getInterfaces();
+			var superClass = getSuperClass();
+
+			return (interfaces.size() == 1 ? interfaces.get(0) :
+					superClass != null ? superClass : OBJECT).getVarName();
+		}
+
 		assert simpleName != null;
 		return Utils.safeToLowerCamelCase(simpleName);
+	}
+
+	// Метод equals оставлен без изменений, так как все объекты кешируются,
+	// и для проверки равенства надо просто сравнить ссылки.
+	// Переопределённый hashCode даёт лучшую производительность.
+	@Override
+	public int hashCode() {
+		return classBinName.hashCode();
 	}
 
 	@Override
@@ -378,7 +403,7 @@ public final class ClassType implements ClassArrayType {
 	@Override
 	public void write(DecompilationWriter out, Context context) {
 		if (context.imported(this)) {
-			out.record(simpleName);
+			out.record(isAnonymous ? "var" : simpleName);
 			return;
 		}
 

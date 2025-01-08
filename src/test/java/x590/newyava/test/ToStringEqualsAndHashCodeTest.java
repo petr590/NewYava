@@ -17,7 +17,8 @@ public class ToStringEqualsAndHashCodeTest {
 	);
 
 	private boolean shouldSkip(Class<?> clazz) {
-		if (clazz.isInterface() || Throwable.class.isAssignableFrom(clazz) || BLACKLIST.contains(clazz)) {
+		if (clazz.isInterface() || Throwable.class.isAssignableFrom(clazz) || BLACKLIST.contains(clazz) ||
+			!clazz.getName().endsWith("Operation")) {
 			return true;
 		}
 

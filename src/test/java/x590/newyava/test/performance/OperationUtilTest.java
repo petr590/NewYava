@@ -4,7 +4,7 @@ import org.openjdk.jmh.annotations.*;
 import x590.newyava.constant.IntConstant;
 import x590.newyava.decompilation.operation.other.LdcOperation;
 import x590.newyava.decompilation.operation.Operation;
-import x590.newyava.decompilation.operation.OperationUtils;
+import x590.newyava.util.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,16 +46,16 @@ public class OperationUtilTest {
 
 	@Benchmark
 	public List<? extends Operation> testAddBefore1() {
-		return OperationUtils.addBefore(new LdcOperation(IntConstant.ZERO), operations1);
+		return Utils.addBefore(new LdcOperation(IntConstant.ZERO), operations1);
 	}
 
 	@Benchmark
 	public List<? extends Operation> testAddBefore2() {
-		return OperationUtils.addBefore(new LdcOperation(IntConstant.ZERO), operations1);
+		return Utils.addBefore(new LdcOperation(IntConstant.ZERO), operations1);
 	}
 
 	@Benchmark
 	public List<? extends Operation> testAddBefore3() {
-		return OperationUtils.addBefore(new LdcOperation(IntConstant.ZERO), operations1);
+		return Utils.addBefore(new LdcOperation(IntConstant.ZERO), operations1);
 	}
 }

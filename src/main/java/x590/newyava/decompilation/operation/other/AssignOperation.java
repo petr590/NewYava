@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.other;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.NotNull;
@@ -22,6 +23,7 @@ import java.util.function.Predicate;
  * Операция сохранения значения в переменную или в поле.
  * Распознаёт сокращённые операторы, такие как {@code ++}, {@code --}, {@code +=}, {@code *=} и т.д.
  */
+@EqualsAndHashCode
 public abstract class AssignOperation implements Operation {
 
 	/** Исходное значение, не сокращённое */

@@ -224,11 +224,8 @@ public class SwitchScope extends Scope {
 			}
 		}
 
-		private static final MethodDescriptor DEFAULT_EXCEPTION_DESCRIPTOR = new MethodDescriptor(
-				ClassType.valueOf(IncompatibleClassChangeError.class),
-				MethodDescriptor.INIT,
-				PrimitiveType.VOID
-		);
+		private static final MethodDescriptor DEFAULT_EXCEPTION_DESCRIPTOR =
+				MethodDescriptor.constructor(ClassType.valueOf(IncompatibleClassChangeError.class));
 
 		private boolean isGeneratedDefaultException() {
 			return constants == null &&
@@ -277,7 +274,7 @@ public class SwitchScope extends Scope {
 			ObjIntConsumer<IntConstant> writer;
 
 			if (switchScope.enumMap == null) {
-				var constantWriteContext = new ConstantWriteContext(context, PrimitiveType.INT, false, true);
+				var constantWriteContext = new ConstantWriteContext(context, PrimitiveType.INT);
 				writer = (constant, index) -> constant.write(out, constantWriteContext);
 
 			} else {
@@ -310,7 +307,7 @@ public class SwitchScope extends Scope {
 					return;
 				}
 
-				if (operations.size() > 1 || operations.get(0).isScopeLike() || operations.get(0).isReturn()) {
+				if (operations.size() > 1 || operations.get(0).needWrapWithBrackets() || operations.get(0).isReturn()) {
 					out.record(" {");
 					super.writeBody(out, context);
 					out.decIndent()
@@ -324,7 +321,7 @@ public class SwitchScope extends Scope {
 					return;
 				}
 
-				if (operations.size() > 1 || operations.get(0).isScopeLike()) {
+				if (operations.size() > 1 || operations.get(0).needWrapWithBrackets()) {
 					super.writeBody(out, context);
 					return;
 				}

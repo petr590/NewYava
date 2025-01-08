@@ -4,8 +4,11 @@ import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.ConstantWriteContext;
+import x590.newyava.context.Context;
+import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
 import x590.newyava.type.PrimitiveType;
@@ -33,6 +36,7 @@ public final class ClassConstant extends Constant {
 	@Getter
 	private final Type typeOfClass;
 
+	@Override
 	public Type getType() {
 		return ClassType.CLASS;
 	}
@@ -40,6 +44,11 @@ public final class ClassConstant extends Constant {
 	@Override
 	public void addImports(ClassContext context) {
 		context.addImport(typeOfClass);
+	}
+
+	@Override
+	protected @Nullable FieldDescriptor getConstant(Context context) {
+		return null;
 	}
 
 	@Override

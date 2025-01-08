@@ -66,6 +66,6 @@ public class IfOperation extends JumpOperation {
 
 	@Override
 	public String toString() {
-		return String.format("IfOperation %08x(%s %s)", hashCode(), condition, label);
+		return String.format("IfOperation(%s %s)", condition, label);
 	}
 }

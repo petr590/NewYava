@@ -10,15 +10,15 @@ import java.lang.reflect.Field;
 @Getter
 public class ReflectField implements IField {
 	private final int modifiers;
-	private final FieldDescriptor descriptor;
+	private final FieldDescriptor descriptor, visibleDescriptor;
 
 	public ReflectField(Field field) {
 		this.modifiers = field.getModifiers();
 
-		this.descriptor = new FieldDescriptor(
-				ClassType.valueOf(field.getDeclaringClass()),
-				field.getName(),
-				Type.valueOf(field.getType())
-		);
+		var hostClass = ClassType.valueOf(field.getDeclaringClass());
+		var name = field.getName();
+
+		this.descriptor = new FieldDescriptor(hostClass, name, Type.valueOf(field.getType()));
+		this.visibleDescriptor = new FieldDescriptor(hostClass, name, Type.valueOf(field.getGenericType()));
 	}
 }

@@ -4,17 +4,22 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.function.FailableFunction;
 import org.apache.commons.lang3.stream.Streams;
+import org.apache.commons.lang3.time.StopWatch;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import org.objectweb.asm.ClassReader;
 import x590.newyava.io.ConsoleWriterFactory;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.io.WriterFactory;
-import x590.newyava.type.ClassArrayType;
+import x590.newyava.type.IClassArrayType;
 
 import java.io.*;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -35,9 +40,9 @@ public class Decompiler {
 		this(config, ConsoleWriterFactory.INSTANCE);
 	}
 
-	private @Nullable @Unmodifiable Map<ClassArrayType, DecompilingClass> classMap;
+	private @Nullable @Unmodifiable Map<IClassArrayType, DecompilingClass> classMap;
 
-	private final Map<ClassArrayType, Optional<ReflectClass>> reflectClassMap = new HashMap<>();
+	private final Map<IClassArrayType, Optional<ReflectClass>> reflectClassMap = new HashMap<>();
 
 	/**
 	 * Декомпилирует все классы с переданными именами.
@@ -87,27 +92,43 @@ public class Decompiler {
 	        FailableFunction<T, ? extends InputStream, ? extends IOException> resourceGetter
 	) throws IOException {
 
-		this.classMap = Streams.failableStream(stream)
+		StopWatch totalWatch = StopWatch.createStarted();
+		StopWatch watch = StopWatch.createStarted();
+
+		// Копируем в переменную, чтобы не было предупреждений, связанных с null
+		var classMap = this.classMap = Streams.failableStream(stream)
 				.map(value -> {
 					try (var in = resourceGetter.apply(value)) {
 						return new DecompilingClass(this, new ClassReader(in));
 					} catch (Throwable throwable) {
-						System.err.printf("Exception while creating class %s\n", value);
+						System.err.println("Exception while creating class " + value);
 						throw throwable;
 					}
 				}).collect(Collectors.toMap(DecompilingClass::getThisType, clazz -> clazz));
 
+		watch.stop();
+		System.out.println("Reading: " + watch);
+
+
 		Collection<DecompilingClass> classes = classMap.values();
 
-		classes.forEach(tryCatch(clazz -> clazz.initNested(classMap), "initNested"));
+		executeStage(classes, clazz -> clazz.initNested(classMap), "initNested");
 
-		classes.forEach(tryCatch(DecompilingClass::decompile, "decompile"));
-		classes.forEach(tryCatch(DecompilingClass::afterDecompilation, "afterDecompilation"));
-		classes.forEach(tryCatch(DecompilingClass::processVariables, "processVariables"));
+		ExecutorService service = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+		executeStageParallel(classes, DecompilingClass::decompile, "decompile", service);
+		service.shutdown();
 
-		classes.forEach(tryCatch(DecompilingClass::addImports, "addImports"));
-		classes.forEach(tryCatch(DecompilingClass::computeImports, "computeImports"));
+//		executeStage(classes, DecompilingClass::decompile, "decompile");
 
+		executeStage(classes, DecompilingClass::afterDecompilation, "afterDecompilation");
+		executeStage(classes, DecompilingClass::processVariables, "processVariables");
+
+		executeStage(classes, DecompilingClass::addImports, "addImports");
+		executeStage(classes, DecompilingClass::computeImports, "computeImports");
+
+
+		watch.reset();
+		watch.start();
 
 		try (var writer = new DecompilationWriter(writerFactory, config)) {
 			Streams.failableStream(classes.stream())
@@ -125,20 +146,64 @@ public class Decompiler {
 						}
 					});
 		}
+
+		watch.stop();
+		totalWatch.stop();
+
+		System.out.println("Writing: " + watch);
+		System.out.println("Total: " + totalWatch);
 	}
 
-	private Consumer<DecompilingClass> tryCatch(Consumer<DecompilingClass> method, String stage) {
-		return decompilingClass -> {
+	private void executeStage(Collection<DecompilingClass> classes, Consumer<DecompilingClass> method, String stage) {
+		var watch = StopWatch.createStarted();
+
+		classes.forEach(decompilingClass -> {
 			try {
 				method.accept(decompilingClass);
 			} catch (Throwable throwable) {
 				System.err.printf(
-						"Exception on stage %s while processing class %s\n",
+						"Exception on stage `%s` while processing class %s\n",
 						stage, decompilingClass
 				);
 				throw throwable;
 			}
-		};
+		});
+
+		watch.stop();
+		System.out.printf("Time for stage %20s: %s\n", stage, watch);
+	}
+
+	private void executeStageParallel(Collection<DecompilingClass> classes, Consumer<DecompilingClass> method,
+	                                  String stage, ExecutorService service) {
+
+		var watch = StopWatch.createStarted();
+
+		List<Future<?>> futures = new ArrayList<>();
+
+		for (var decompilingClass : classes) {
+			futures.add(service.submit(() -> {
+				try {
+					method.accept(decompilingClass);
+				} catch (Throwable throwable) {
+					System.err.printf(
+							"Exception on stage `%s` while processing class %s\n",
+							stage, decompilingClass
+					);
+					throw throwable;
+				}
+			}));
+		}
+
+		for (Future<?> future : futures) {
+			try {
+				future.get();
+			} catch (InterruptedException | ExecutionException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+
+		watch.stop();
+		System.out.printf("Time for stage %20s: %s\n", stage, watch);
 	}
 
 
@@ -171,7 +236,7 @@ public class Decompiler {
 	}
 
 
-	public Optional<DecompilingClass> findClass(@Nullable ClassArrayType type) {
+	public Optional<DecompilingClass> findClass(@Nullable IClassArrayType type) {
 		if (classMap == null) {
 			throw new UnsupportedOperationException("Class map has not been initialized yet");
 		}
@@ -179,19 +244,18 @@ public class Decompiler {
 		return Optional.ofNullable(classMap.get(type));
 	}
 
-	public Optional<? extends IClass> findIClass(@Nullable ClassArrayType type) {
+	public Optional<? extends IClass> findIClass(@Nullable IClassArrayType type) {
 		return findClass(type).<IClass>map(c -> c).or(() -> findReflectClass(type));
 	}
 
-	private Optional<ReflectClass> findReflectClass(@Nullable ClassArrayType classArrayType) {
-		if (classArrayType == null)
+	private Optional<ReflectClass> findReflectClass(@Nullable IClassArrayType type) {
+		if (type == null)
 			return Optional.empty();
 
-		return reflectClassMap.computeIfAbsent(classArrayType, type -> {
+		return reflectClassMap.computeIfAbsent(type, classArrayType -> {
 			try {
-				return Optional.of(new ReflectClass(Class.forName(type.getCanonicalBinName())));
+				return Optional.of(new ReflectClass(Class.forName(classArrayType.getCanonicalBinName())));
 			} catch (ClassNotFoundException ex) {
-				Log.warn("Cannot find class %s", type);
 				return Optional.empty();
 			}
 		});

@@ -3,7 +3,12 @@ package x590.newyava.type;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.exception.InvalidTypeException;
+import x590.newyava.io.SignatureReader;
 
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.TypeVariable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -79,6 +84,60 @@ public interface ReferenceType extends Type {
 	}
 
 	static ReferenceType valueOf(String typeName) {
-		return ClassArrayType.valueOf(typeName);
+		return IClassArrayType.valueOf(typeName);
+	}
+
+	static ReferenceType valueOf(java.lang.reflect.Type type) {
+		return switch (type) {
+			case Class<?> clazz -> IClassArrayType.valueOf(clazz);
+
+			case ParameterizedType parameterized -> ParametrizedClassType.valueOf(
+					ClassType.valueOf((Class<?>) parameterized.getRawType()),
+					Arrays.stream(parameterized.getActualTypeArguments()).map(ReferenceType::valueOf).toList()
+			);
+
+			case TypeVariable<?> typeVar -> GenericType.valueOf(typeVar.getName(), typeVar.getBounds()[0]);
+
+			case java.lang.reflect.WildcardType wildcard -> {
+				var upper = wildcard.getUpperBounds();
+				var lower = wildcard.getLowerBounds();
+
+				if (upper.length > 1 || lower.length > 1) {
+					throw new IllegalArgumentException(String.format(
+							"Wildcard type %s has too many bounds: upper = %s, lower = %s",
+							wildcard, Arrays.toString(upper), Arrays.toString(lower)
+					));
+				}
+
+				boolean hasUpper = upper.length != 1 || upper[0] != Object.class;
+				boolean hasLower = lower.length != 0;
+
+				if (hasUpper && hasLower) {
+					throw new IllegalArgumentException("Wildcard type " + wildcard + " has both upper and lower bounds");
+				}
+
+				yield   hasUpper ? WildcardType.extendsFrom(valueOf(upper[0])) :
+						hasLower ? WildcardType.superOf(valueOf(lower[0])) :
+						Types.ANY_WILDCARD_TYPE;
+			}
+
+			case GenericArrayType genericArray -> ArrayType.forType(valueOf(genericArray.getGenericComponentType()));
+
+			default -> throw new IllegalArgumentException(String.format(
+					"Unknown type %s (class %s)", type, type.getClass()
+			));
+		};
+	}
+
+	static ReferenceType parse(SignatureReader reader) {
+		return switch (reader.next()) {
+			case 'L' -> IClassType.parse(reader.dec());
+			case 'T' -> GenericType.parse(reader);
+			case '[' -> ArrayType.parse(reader.dec());
+			case '+' -> WildcardType.extendsFrom(parse(reader));
+			case '-' -> WildcardType.superOf(parse(reader));
+			case '*' -> Types.ANY_WILDCARD_TYPE;
+			default -> throw new InvalidTypeException(reader.dec());
+		};
 	}
 }

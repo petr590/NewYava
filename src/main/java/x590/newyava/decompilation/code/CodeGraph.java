@@ -45,7 +45,7 @@ import java.util.function.Function;
  * Хранит код и проводит его декомпиляцию.
  */
 @RequiredArgsConstructor
-public class CodeGraph implements Code {
+public final class CodeGraph extends Code {
 
 	private final DecompileMethodVisitor visitor;
 
@@ -140,8 +140,22 @@ public class CodeGraph implements Code {
 	}
 
 
-	public void inferVariableTypesAndNames() {
+	/** @param possibleNames список имён аргументов. */
+	public void inferVariableTypesAndNames(@Nullable @Unmodifiable List<String> possibleNames) {
 		var methodScope = getMethodScope();
+
+		if (possibleNames != null) {
+			var descriptor = methodScope.getMethodContext().getDescriptor();
+			var variables = methodScope.getVariables();
+
+			int i = 0;
+			int slot = methodScope.getMethodContext().isStatic() ? 0 : 1;
+
+			for (String name : possibleNames) {
+				Objects.requireNonNull(variables.get(slot)).addPossibleName(name);
+				slot += descriptor.arguments().get(i).getSize().slots();
+			}
+		}
 
 		// Запускаем два раза для правильного вычисления типа констант
 		methodScope.inferType(PrimitiveType.VOID);
@@ -276,7 +290,7 @@ public class CodeGraph implements Code {
 				catch1 = catch2;
 			}
 
-			// Инициализируем конечные индексы последнего catch
+			// Инициализируем конечный индекс последнего catch
 			var lastCatchEnd = chunks.get(tryBlock.secondInt()).getConditionalChunk();
 			if (lastCatchEnd != null && lastCatchEnd.getId() > catch1.getIntKey()) {
 				catch1.getValue().setEndId(lastCatchEnd.getId());
@@ -305,14 +319,23 @@ public class CodeGraph implements Code {
 			}
 
 
-			var tryScope = new TryScope(chunks.subList(tryBlock.firstInt(), tryEnd));
-			scopes.add(tryScope);
+			int lastCatchEndId = catchMap.int2ObjectEntrySet().stream()
+					.mapToInt(catchEntry -> catchEntry.getValue().getEndId())
+					.max().orElse(tryEnd);
+
+			var joiningScope = new JoiningTryCatchScope(chunks.subList(tryBlock.firstInt(), lastCatchEndId));
+			scopes.add(joiningScope);
+
+			scopes.add(new TryScope(
+					chunks.subList(tryBlock.firstInt(), tryEnd),
+					joiningScope
+			));
 
 			for (var catchEntry : catchMap.int2ObjectEntrySet()) {
 				scopes.add(new CatchScope(
 						chunks.subList(catchEntry.getIntKey(), catchEntry.getValue().getEndId()),
 						catchEntry.getValue(),
-						tryScope
+						joiningScope
 				));
 			}
 		}
@@ -349,11 +372,13 @@ public class CodeGraph implements Code {
 
 		List<Scope> scopes = new ArrayList<>();
 
-		// Добавляем try-catch
+		// Добавляем try-catch и synchronized
 		addTryCatchSynchronizedScopes(scopes, tryCatchMap, chunks);
+//		System.out.println(chunks); // DEBUG
+//		System.out.println(scopes); // DEBUG
 
 		// Ищем циклы и операторы break/continue, связанные с ними
-		addScopes(scopes, chunks, findLoops(chunks), LoopScope::new);
+		addScopes(scopes, chunks, findLoops(chunks), LoopScope::create);
 
 		// Ищем switch и соответствующие break
 		addSwitchScopes(scopes, chunks, chunkMap);
@@ -361,9 +386,9 @@ public class CodeGraph implements Code {
 		// Все условия, которые не являются заголовком цикла/break/continue, становятся if-ами
 		Int2IntMap ifChunkIds = findIfs(chunks);
 		addScopes(scopes, chunks, ifChunkIds,
-				(startId, ifChunks) -> {
-					var condition = chunks.get(startId - 1).requireCondition().opposite();
-					return IfScope.create(condition, ifChunks);
+				(allChunks, startId, endId) -> {
+					var condition = allChunks.get(startId - 1).requireCondition().opposite();
+					return IfScope.create(condition, allChunks.subList(startId, endId));
 				}
 		);
 
@@ -389,7 +414,7 @@ public class CodeGraph implements Code {
 			breakpoints.add(labels.getInt(label));
 		}
 
-		breakpoints.remove(0); // На индексе 0 всегда начинается первый чанк
+		breakpoints.remove(0); // На индексе 0 всегда начинается первый чанк, тут не нужен брекпоинт
 
 		Chunk current = new Chunk(0, 0, varTable.listView());
 
@@ -422,19 +447,34 @@ public class CodeGraph implements Code {
 
 	@FunctionalInterface
 	private interface ScopeCreator {
-		EmptyableScopeOperation create(int startId, @Unmodifiable List<Chunk> chunks);
+		/**
+		 * Создаёт новый scope или пустую операцию.
+		 * @param chunks список всех чанков. Индекс в этом списке соответствует id чанка.
+		 * @param startId id начала scope.
+		 * @param endId id конца scope.
+		 * @return созданный scope или пустую операцию.
+		 */
+		EmptyableScopeOperation create(@Unmodifiable List<Chunk> chunks, int startId, int endId);
 	}
 
+
+	/**
+	 * Добавляет новые scope-ы в {@code scopes}. Каждый scope
+	 * соответствует паре индексов из {@code chunkIds}.
+	 * @param scopeCreator функция для создания scope-ов. Принимает
+	 *                     список чанков, которые принадлежат ему.
+	 */
 	private void addScopes(List<Scope> scopes, @Unmodifiable List<Chunk> chunks, Int2IntMap chunkIds,
 	                       Function<@Unmodifiable List<Chunk>, EmptyableScopeOperation> scopeCreator) {
 
-		addScopes(scopes, chunks, chunkIds, (startId, scopeChunks) -> scopeCreator.apply(scopeChunks));
+		addScopes(scopes, chunks, chunkIds,
+				(allChunks, startId, endId) -> scopeCreator.apply(allChunks.subList(startId, endId)));
 	}
 
 
 	/**
 	 * Добавляет новые scope-ы в {@code scopes}. Каждый scope соответствует паре индексов
-	 * из {@code chunkIds}. Для их создания используется функция {@code scopeCreator}
+	 * из {@code chunkIds}. Для их создания используется {@code scopeCreator}
 	 */
 	private void addScopes(List<Scope> scopes, @Unmodifiable List<Chunk> chunks,
 	                       Int2IntMap chunkIds, ScopeCreator scopeCreator) {
@@ -443,13 +483,15 @@ public class CodeGraph implements Code {
 			int startId = entry.getIntKey(),
 				endId = entry.getIntValue();
 
-			var scopeOperation = scopeCreator.create(startId, chunks.subList(startId, endId));
+			var scopeOperation = scopeCreator.create(chunks, startId, endId);
 
 			if (scopeOperation instanceof Scope scope) {
 				scopes.add(scope);
 			} else {
 				chunks.get(startId).getOperations().add(0, scopeOperation);
 			}
+
+//			System.out.println(scopes); // DEBUG
 		}
 	}
 
@@ -480,7 +522,7 @@ public class CodeGraph implements Code {
 			for (var operation : chunk.getOperations())
 				operation.resolveLabelNames(current, generator);
 
-			current = current.endIfReached(id);
+			current = current.endIfReached(id, chunks);
 		}
 
 		return methodScope;
@@ -736,7 +778,7 @@ public class CodeGraph implements Code {
 
 	public void beforeVariablesInit() {
 		var methodScope = getMethodScope();
-		methodScope.beforeVariablesInit(methodScope);
+		methodScope.beforeVariablesInit(methodScope.getMethodContext(), methodScope);
 		methodScope.checkCyclicReference();
 	}
 

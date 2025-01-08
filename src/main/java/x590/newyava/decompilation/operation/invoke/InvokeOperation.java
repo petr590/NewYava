@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.invoke;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 import org.jetbrains.annotations.Nullable;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+@EqualsAndHashCode
 public abstract class InvokeOperation implements Operation {
 
 	@Getter
@@ -28,6 +30,7 @@ public abstract class InvokeOperation implements Operation {
 
 	protected final List<Operation> arguments;
 
+	@EqualsAndHashCode.Exclude
 	private final @UnmodifiableView List<Operation> argumentsView;
 
 	public InvokeOperation(MethodContext context, MethodDescriptor descriptor) {

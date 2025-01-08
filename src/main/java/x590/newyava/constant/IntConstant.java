@@ -6,8 +6,10 @@ import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import x590.newyava.context.ClassContext;
+import org.jetbrains.annotations.Nullable;
 import x590.newyava.context.ConstantWriteContext;
+import x590.newyava.context.Context;
+import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
@@ -46,7 +48,15 @@ public final class IntConstant extends Constant implements Comparable<IntConstan
 	}
 
 	@Override
-	public void addImports(ClassContext context) {}
+	public FieldDescriptor getConstant(Context context) {
+		var descriptor = context.getConstant(value);
+
+		if (descriptor == null && (byte)value == value)  descriptor = context.getConstant((byte)value);
+		if (descriptor == null && (short)value == value) descriptor = context.getConstant((short)value);
+		if (descriptor == null && (char)value == value)  descriptor = context.getConstant((char)value);
+
+		return descriptor;
+	}
 
 	@Override
 	public void write(DecompilationWriter out, ConstantWriteContext context) {
@@ -58,24 +68,42 @@ public final class IntConstant extends Constant implements Comparable<IntConstan
 		}
 
 		if (type == PrimitiveType.CHAR) {
-			out.record(JavaEscapeUtils.wrapChar((char)value));
+			writeConstantOrValue(
+					out, context, context.getConstant((char)value),
+					() -> out.record('\'').record(JavaEscapeUtils.escapeChar((char)value)).record('\'')
+			);
 			return;
 		}
 
 		if (type != null && !context.isImplicitByteShortCastAllowed()) {
 			if (check(type, PrimitiveType.BYTE)) {
-				out.record("(byte)");
-			} else if (check(type, PrimitiveType.SHORT)) {
-				out.record("(short)");
+				writeConstantOrValue(
+						out, context, context.getConstant((byte)value),
+						() -> out.record("(byte)").record(Integer.toString(value))
+				);
+				return;
+			}
+
+			if (check(type, PrimitiveType.SHORT)) {
+				writeConstantOrValue(
+						out, context, context.getConstant((short)value),
+						() -> out.record("(short)").record(Integer.toString(value))
+				);
+				return;
 			}
 		}
 
-		out.record(Integer.toString(value));
+		var constant =
+				check(type, PrimitiveType.BYTE) ? context.getConstant((byte)value) :
+				check(type, PrimitiveType.SHORT) ? context.getConstant((short)value) : context.getConstant(value);
+
+		writeConstantOrValue(out, context, constant, () -> out.record(Integer.toString(value)));
 	}
 
-	private boolean check(Type given, Type assumed) {
-		return Type.assignDownQuiet(given, assumed) == given;
+	private boolean check(@Nullable Type given, Type assumed) {
+		return given != null && Type.assignDownQuiet(given, assumed) == given;
 	}
+
 
 	@Override
 	public void writeIntAsChar(DecompilationWriter out, ConstantWriteContext context) {

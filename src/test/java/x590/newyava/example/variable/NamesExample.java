@@ -14,6 +14,13 @@ public class NamesExample {
 		Main.run(this, Config.builder().ignoreVariableTable(true).build());
 	}
 
+	public static final native synchronized void main(String[] args);
+
+	private native void setF(int f);
+
+	private native void gg(int a, int b, int c);
+
+
 	private String getString() {
 		return "";
 	}
@@ -44,14 +51,19 @@ public class NamesExample {
 		String name2 = "gg";
 		user.setName(name2);
 		setUserName(name2);
-
 		Vec3 vec3_1 = user.speed();
 		Vec3 vec3_2 = user.speed();
 	}
 
 	public void setUserName(String name) {}
 
-	private void test(URL url, HTMLDocument htmlDocument, Character character) {}
+	private void longVarNames(long x, long y, long z) {
+		long min = Math.min(x, y);
+	}
+
+	private native void longVarNamesWithoutMethodBody(long x, long y, long z);
+
+	public void test(URL url, HTMLDocument htmlDocument, Character character) {}
 
 	// OMG
 	public void test(Abstract abs, Assert assrt, Boolean bool, Break brk, Byte b, Case cs, Catch ctch,
@@ -61,7 +73,8 @@ public class NamesExample {
 	                 Interface interf, Long l, Native nat, New mew, Null nll, Package pack,
 	                 Private priv, Protected prot, Public pub, Return ret, Short s, Static stat,
 	                 Strictfp strict, Super sup, Switch swt, This ths, Throw thr, Throws thrs,
-	                 Transient trans, True tr1, Try tr2, Void v, Volatile vol, While whl) {}
+	                 Transient trans, True tr1, Try tr2, Void v, Volatile vol, While whl,
+	                 Var var, Record record, Sealed sealed, Yield yield) {}
 
 	private interface Abstract {}
 	private interface Assert {}
@@ -114,4 +127,9 @@ public class NamesExample {
 	private interface Void {}
 	private interface Volatile {}
 	private interface While {}
+
+	private interface Var {}
+	private interface Record {}
+	private interface Sealed {}
+	private interface Yield {}
 }

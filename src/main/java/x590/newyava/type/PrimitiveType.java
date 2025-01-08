@@ -8,6 +8,10 @@ import x590.newyava.io.DecompilationWriter;
 
 import static x590.newyava.type.IntMultiType.*;
 
+/**
+ * Примитивные типы.
+ * Все экземпляры этого класса кешируются, поэтому можно сравнивать типы напрямую.
+ */
 public sealed interface PrimitiveType extends Type
 	permits PrimitiveType.NonIntType, IntMultiType {
 
@@ -71,8 +75,7 @@ public sealed interface PrimitiveType extends Type
 			INTEGRAL = IntMultiType.valueOf(ALL_FLAGS),
 
 			BYTE_OR_BOOLEAN = IntMultiType.valueOf(BYTE_FLAG | BOOLEAN_FLAG),
-			INT_OR_BOOLEAN = IntMultiType.valueOf(INT_FLAG | BOOLEAN_FLAG),
-			BYTE_OR_SHORT = IntMultiType.valueOf(BYTE_FLAG | SHORT_FLAG);
+			INT_OR_BOOLEAN = IntMultiType.valueOf(INT_FLAG | BOOLEAN_FLAG);
 
 	NonIntType
 			LONG = NonIntType.LONG,

@@ -1,7 +1,6 @@
 package x590.newyava.decompilation.code;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.*;
 import x590.newyava.context.ClassContext;
 import x590.newyava.context.Context;
 import x590.newyava.decompilation.scope.MethodScope;
@@ -10,7 +9,7 @@ import x590.newyava.io.DecompilationWriter;
 
 @Data
 @AllArgsConstructor
-public class CodeProxy implements Code {
+public class CodeProxy extends Code {
 	private Code code;
 
 	@Override
@@ -41,5 +40,10 @@ public class CodeProxy implements Code {
 	@Override
 	public void write(DecompilationWriter out, Context context) {
 		code.write(out, context);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		return obj instanceof Code other && code.equals(other);
 	}
 }

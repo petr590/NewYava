@@ -17,6 +17,6 @@ record Parameter (String name, @Nullable Type type, AnnotationValue value) imple
 
 	@Override
 	public void write(DecompilationWriter out, Context context) {
-		out.record(name).record(" = ").record(value, new ConstantWriteContext(context, type, true, true));
+		out.record(name).record(" = ").record(value, new ConstantWriteContext(context, type, true, true, true));
 	}
 }

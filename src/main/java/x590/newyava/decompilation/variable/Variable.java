@@ -11,7 +11,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 /**
- * Переменная. Содержит тип и имя. Изменяемый класс.
+ * Переменная. Содержит слот, тип и имя. Изменяемый класс.
  */
 @Getter
 public final class Variable {
@@ -60,8 +60,8 @@ public final class Variable {
 		this.name = name;
 	}
 
-	/** Добавляет потенциальное имя переменной.
-	 * Если имя неизменяемо или {@code name == null}, то ничего не делает. */
+	/** Добавляет потенциальное имя переменной. Если имя переменной неизменяемо
+	 * или переданное значение равно {@code null}, то ничего не делает. */
 	public void addPossibleName(@Nullable String name) {
 		if (possibleNames != null && name != null)
 			possibleNames.add(name);
@@ -82,32 +82,44 @@ public final class Variable {
 	}
 
 
+	/** @return совпадающие концы строк */
 	public static String getMatchingEnding(String str1, String str2) {
-		int p1 = str1.length() - 1,
-			p2 = str2.length() - 1;
+		int i1 = str1.length() - 1,
+			i2 = str2.length() - 1;
 
-		int capacity = Math.min(p1, p2) + 1;
+		int capacity = Math.min(i1, i2) + 1;
 		if (capacity == 0)
 			return "";
 
-		var builder = new StringBuilder(capacity);
+		var name = new StringBuilder(capacity);
+		var part = new StringBuilder();
 
-		for (; p1 >= 0 && p2 >= 0; p1--, p2--) {
-			char c1 = str1.charAt(p1),
-				 c2 = str2.charAt(p2);
+		for (; i1 >= 0 && i2 >= 0; i1--, i2--) {
+			char c1 = str1.charAt(i1),
+				 c2 = str2.charAt(i2);
 
-			if (c1 == Character.toUpperCase(c2)) {
-				builder.append(c1);
+			if (Character.toLowerCase(c1) != Character.toLowerCase(c2)) {
+				break;
+			}
 
-			} else if (Character.toUpperCase(c1) == c2) {
-				builder.append(c2);
+			if (Character.isUpperCase(c1)) {
+				name.append(part).append(c1);
+				part.setLength(0);
+
+			} else if (Character.isUpperCase(c2)) {
+				name.append(part).append(c2);
+				part.setLength(0);
 
 			} else {
-				break;
+				part.append(c1);
 			}
 		}
 
-		return Utils.toLowerCamelCase(builder.reverse().toString());
+		if (i1 == -1 || i2 == -1) {
+			name.append(part);
+		}
+
+		return Utils.toLowerCamelCase(name.reverse().toString());
 	}
 
 

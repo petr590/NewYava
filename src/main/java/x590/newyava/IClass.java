@@ -3,8 +3,8 @@ package x590.newyava;
 import org.jetbrains.annotations.Unmodifiable;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.descriptor.MethodDescriptor;
-import x590.newyava.type.ClassArrayType;
-import x590.newyava.type.ClassType;
+import x590.newyava.type.IClassArrayType;
+import x590.newyava.type.IClassType;
 
 import java.util.List;
 import java.util.Optional;
@@ -12,11 +12,11 @@ import java.util.Optional;
 public interface IClass {
 	int getModifiers();
 
-	ClassArrayType getThisType();
+	IClassArrayType getThisType();
 
-	ClassType getSuperType();
+	IClassType getSuperType();
 
-	@Unmodifiable List<ClassType> getInterfaces();
+	@Unmodifiable List<IClassType> getInterfaces();
 
 	Optional<? extends IField> findField(FieldDescriptor descriptor);
 

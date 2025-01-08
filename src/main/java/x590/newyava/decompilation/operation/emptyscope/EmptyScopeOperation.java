@@ -45,7 +45,7 @@ public non-sealed class EmptyScopeOperation implements EmptyableScopeOperation {
 
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
-		out.recordSp(literal);
+		out.record(literal).space();
 
 		if (value != null) {
 			out.record('(').record(value, context, Priority.ZERO).record(')').space();

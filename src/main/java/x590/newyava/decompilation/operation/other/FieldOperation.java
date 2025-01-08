@@ -1,5 +1,6 @@
 package x590.newyava.decompilation.operation.other;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -9,6 +10,9 @@ import x590.newyava.context.ClassContext;
 import x590.newyava.context.MethodContext;
 import x590.newyava.context.MethodWriteContext;
 import x590.newyava.decompilation.operation.Operation;
+import x590.newyava.decompilation.operation.OperationUtils;
+import x590.newyava.decompilation.operation.Priority;
+import x590.newyava.decompilation.operation.variable.ILoadOperation;
 import x590.newyava.descriptor.FieldDescriptor;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.ClassType;
@@ -23,6 +27,7 @@ import java.util.Optional;
  * Операция записи/чтения поля из объекта/класса
  */
 @Getter
+@EqualsAndHashCode(callSuper = true)
 public class FieldOperation extends AssignOperation {
 
 	/** @return операцию чтения статического поля.
@@ -64,9 +69,16 @@ public class FieldOperation extends AssignOperation {
 	}
 
 
+	/** Дескриптор поля */
 	private final FieldDescriptor descriptor;
 
+	/** Экземпляр класса или {@code null}, если поле статическое */
 	private final @Nullable Operation instance;
+
+	/** Экземпляр класса, через который происходит обращение к статическому полю */
+	@EqualsAndHashCode.Exclude
+	private @Nullable ILoadOperation staticInstance;
+
 
 	private FieldOperation(MethodContext context, FieldDescriptor descriptor,
 	                       @Nullable Operation value, @Nullable Operation instance) {
@@ -94,11 +106,28 @@ public class FieldOperation extends AssignOperation {
 		return instance == null;
 	}
 
+
+	/** @return {@code true}, если экземпляр класса является ссылкой на {@code this}. */
+	public boolean isThisField() {
+		return instance != null && instance.isThisRef();
+	}
+
+	@Override
+	public boolean canUnite(MethodContext context, Operation prev) {
+		if (isStatic()) {
+			staticInstance = OperationUtils.getStaticInstance(descriptor.hostClass(), prev);
+		}
+
+		return staticInstance != null || super.canUnite(context, prev);
+	}
+
+
+	/** Поле, которое инициализирует данная операция */
 	private @Nullable DecompilingField field;
 
 	@Override
-	public boolean initInstanceField(MethodContext context) {
-		if (instance != null && instance.isThisRef() &&
+	public boolean initializeField(MethodContext context) {
+		if ((instance == null || instance.isThisRef()) &&
 			value != null && !value.usesAnyVariable() &&
 			descriptor.hostClass().equals(context.getDescriptor().hostClass())) {
 
@@ -106,7 +135,9 @@ public class FieldOperation extends AssignOperation {
 
 			if (foundField.isPresent()) {
 				this.field = foundField.get();
-				return field.addInitializer(context.getDescriptor(), value);
+				return field.isStatic() ?
+						field.addStaticInitializer(value) :
+						field.addInstanceInitializer(value, context.getDescriptor());
 			}
 		}
 
@@ -114,7 +145,7 @@ public class FieldOperation extends AssignOperation {
 	}
 
 	@Override
-	public boolean isInstanceFieldInitialized() {
+	public boolean isFieldInitialized() {
 		return field != null && field.hasInitializer();
 	}
 
@@ -174,6 +205,11 @@ public class FieldOperation extends AssignOperation {
 
 	@Override
 	protected void writeTarget(DecompilationWriter out, MethodWriteContext context) {
+		if (staticInstance != null) {
+			out.record(staticInstance, context, Priority.DEFAULT).record('.').record(descriptor.name());
+			return;
+		}
+
 		var instance = this.instance;
 		var descriptor = this.descriptor;
 
@@ -188,8 +224,8 @@ public class FieldOperation extends AssignOperation {
 					return;
 				}
 
-				if (field.isOuterVariable()) {
-					out.record(field.getOuterVarName());
+				if (field.bindedWithOuterVariable()) {
+					out.record(field.getOuterVarRef().getName());
 					return;
 				}
 			}
@@ -220,10 +256,10 @@ public class FieldOperation extends AssignOperation {
 
 	@Override
 	public String toString() {
-		var target = instance != null ? instance : descriptor.hostClass();
+		Object target = instance != null ? instance : descriptor.hostClass();
 
 		return value == null ?
-				String.format("FieldOperation %08x(%s.%s)", hashCode(), target, descriptor.name()) :
-				String.format("FieldOperation %08x(%s.%s = %s)", hashCode(), target, descriptor.name(), value);
+				String.format("FieldOperation(%s.%s)", target, descriptor.name()) :
+				String.format("FieldOperation(%s.%s = %s)", target, descriptor.name(), value);
 	}
 }

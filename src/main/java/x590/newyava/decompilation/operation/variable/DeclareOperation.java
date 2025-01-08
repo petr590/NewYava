@@ -8,6 +8,8 @@ import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.PrimitiveType;
 import x590.newyava.type.Type;
 
+import java.util.Objects;
+
 public class DeclareOperation implements Operation {
 	private final Variable variable;
 
@@ -28,6 +30,7 @@ public class DeclareOperation implements Operation {
 
 	@Override
 	public void write(DecompilationWriter out, MethodWriteContext context) {
-		out.recordSp(variable.getType(), context).record(variable.getName());
+		out.record(variable.getType(), context).space()
+			.record(Objects.requireNonNull(variable.getName()));
 	}
 }

@@ -37,6 +37,16 @@ public interface Type extends ContextualWritable, Importable {
 		return getVarName();
 	}
 
+	/** @return тип без generic-параметров. */
+	default Type base() {
+		return this;
+	}
+
+	/** @return {@code true}, если типы равны без учёта generic-параметров. */
+	default boolean baseEquals(Type other) {
+		return base().equals(other.base());
+	}
+
 
 	/** @return суперпозицию типов, описывающую все типы, в которые может быть
 	 * преобразован данный тип */
@@ -173,9 +183,7 @@ public interface Type extends ContextualWritable, Importable {
 			case 'D' -> PrimitiveType.DOUBLE;
 			case 'Z' -> PrimitiveType.BOOLEAN;
 			case 'V' -> throw new InvalidTypeException("Void is not allowed here");
-			case 'L' -> ClassType.parse(reader);
-			case '[' -> ArrayType.parse(reader.dec());
-			default -> throw new InvalidTypeException(reader.dec());
+			default -> ReferenceType.parse(reader.dec());
 		};
 	}
 
@@ -214,13 +222,18 @@ public interface Type extends ContextualWritable, Importable {
 		if (clazz.isPrimitive())
 			return PrimitiveType.valueOf(clazz);
 
-		if (clazz.isArray())
-			return ArrayType.valueOf(clazz);
+		return IClassArrayType.valueOf(clazz);
+	}
 
-		return ClassType.valueOf(clazz);
+	static Type valueOf(java.lang.reflect.Type type) {
+		return type instanceof Class<?> clazz ? valueOf(clazz) : ReferenceType.valueOf(type);
 	}
 
 	static boolean isArray(Type type) {
 		return type instanceof ArrayType;
+	}
+
+	static boolean isGeneric(Type type) {
+		return type instanceof GenericType;
 	}
 }

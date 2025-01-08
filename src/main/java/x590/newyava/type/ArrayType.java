@@ -18,7 +18,7 @@ import java.util.Objects;
  * Массив какого-либо другого типа.
  */
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public final class ArrayType implements ClassArrayType {
+public final class ArrayType implements IClassArrayType {
 
 	private static final Map<Type, ArrayType> ARRAYS_POOL = new HashMap<>();
 
@@ -61,10 +61,7 @@ public final class ArrayType implements ClassArrayType {
 	}
 
 	public static ArrayType valueOf(String binName) {
-		var reader = new SignatureReader(binName);
-		var result = parse(reader);
-		reader.checkEndForType();
-		return result;
+		return SignatureReader.parse(binName, ArrayType::parse);
 	}
 
 	public static ArrayType parse(SignatureReader reader) {
@@ -155,6 +152,12 @@ public final class ArrayType implements ClassArrayType {
 		return varName = nestLevel > 1 ?
 				type.getArrVarName() + nestLevel + "dArray" :
 				type.getArrVarName() + "Array";
+	}
+
+	@Override
+	public ArrayType base() {
+		return type instanceof IClassArrayType classArrayType ?
+				forType0(classArrayType.base(), nestLevel) : this;
 	}
 
 	@Override

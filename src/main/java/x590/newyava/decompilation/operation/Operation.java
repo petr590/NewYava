@@ -12,9 +12,11 @@ import x590.newyava.decompilation.scope.LabelNameGenerator;
 import x590.newyava.decompilation.scope.MethodScope;
 import x590.newyava.decompilation.scope.Scope;
 import x590.newyava.decompilation.variable.VarUsage;
+import x590.newyava.decompilation.variable.Variable;
 import x590.newyava.io.DecompilationWriter;
 import x590.newyava.type.Type;
 
+import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
@@ -33,8 +35,11 @@ public interface Operation extends Importable {
 	 * Должен вызываться из метода {@link #inferType(Type)} */
 	default void allowImplicitCast() {}
 
-	/** Запрещает опускать явное приведение констант к {@code byte} или {@code short}. */
+	/** Запрещает опускать явное приведение литералов к {@code byte} или {@code short}. */
 	default void denyByteShortImplicitCast() {}
+
+	/** Запрещает использовать константы. */
+	default void denyConstantsUsing() {}
 
 	/** Вызывается при инициализации {@link Scope} */
 	default void resolveLabelNames(Scope currentScope, LabelNameGenerator generator) {}
@@ -61,6 +66,11 @@ public interface Operation extends Importable {
 		return false;
 	}
 
+	/** @return {@code true}, если вокруг операции нужны фигурные скобки. */
+	default boolean needWrapWithBrackets() {
+		return isScopeLike();
+	}
+
 	/** @return {@code true}, если операция терминальная ({@code return} или {@code throw}) */
 	default boolean isTerminal() {
 		return false;
@@ -79,10 +89,17 @@ public interface Operation extends Importable {
 
 	/* ---------------------------------------- Variables recursive methods ----------------------------------------- */
 
+
 	/** @return {@code true} если операция или одна из вложенных операций использует
 	 * какие-либо локальные переменные (читает/записывает) */
 	default boolean usesAnyVariable() {
 		return getNestedOperations().stream().anyMatch(Operation::usesAnyVariable);
+	}
+
+	/** @return {@code true} если операция или одна из вложенных операций использует
+	 * указанную переменную (читает/записывает) */
+	default boolean usesVariable(Variable variable) {
+		return getNestedOperations().stream().anyMatch(operation -> operation.usesVariable(variable));
 	}
 
 
@@ -90,8 +107,8 @@ public interface Operation extends Importable {
 	 * DecompilingMethod.initVariables(Context)}.
 	 * @apiNote возможно объединение с методом {@link Scope#afterDecompilation(MethodContext)} */
 	@MustBeInvokedByOverriders
-	default void beforeVariablesInit(MethodScope methodScope) {
-		getNestedOperations().forEach(operation -> operation.beforeVariablesInit(methodScope));
+	default void beforeVariablesInit(Context context, @Nullable MethodScope methodScope) {
+		getNestedOperations().forEach(operation -> operation.beforeVariablesInit(context, methodScope));
 	}
 
 
@@ -146,21 +163,18 @@ public interface Operation extends Importable {
 
 	/* ----------------------------------------- Another recursive methods ------------------------------------------ */
 
-	/**
-	 * Для {@link x590.newyava.decompilation.operation.other.FieldOperation FieldOperation}
-	 * добавляет инициализатор к нестатическому полю, если это возможно.
-	 * @return {@code true} в случае успеха, иначе {@code false}.
-	 */
-	default boolean initInstanceField(MethodContext context) {
-		return false;
+	/** Если данный метод возвращает {@code true}, то предыдущая операция удаляется.
+	 * Метод также может изменять состояние операции, поэтому он не должен вызываться,
+	 * если другой метод уже вернул {@code true}.
+	 * Иными словами, по принципу "кто первый встал, того и тапки" */
+	@MustBeInvokedByOverriders
+	default boolean canUnite(MethodContext context, Operation prev) {
+		return getNestedOperations().stream().anyMatch(operation -> operation.canUnite(context, prev));
 	}
 
-	/**
-	 * @return для {@link x590.newyava.decompilation.operation.other.FieldOperation FieldOperation}
-	 * возвращает {@code true}, если нестатическое поле инициализировано.
-	 */
-	default boolean isInstanceFieldInitialized() {
-		return false;
+	/** @return {@code true}, если операции необходимо пространство вокруг */
+	default boolean needEmptyLinesAround() {
+		return isScopeLike() || getNestedOperations().stream().anyMatch(Operation::needEmptyLinesAround);
 	}
 
 	/**
@@ -172,7 +186,27 @@ public interface Operation extends Importable {
 
 	/** @return все вложенные операции для рекурсивного вызова любого метода у всех операций */
 	default @UnmodifiableView List<? extends Operation> getNestedOperations() {
-		return List.of();
+		return Collections.emptyList();
+	}
+
+
+	/* ---------------------------------------------- Another methods ----------------------------------------------- */
+
+	/**
+	 * Для {@link x590.newyava.decompilation.operation.other.FieldOperation FieldOperation}
+	 * добавляет инициализатор к полю, если это возможно.
+	 * @return {@code true} в случае успеха, иначе {@code false}.
+	 */
+	default boolean initializeField(MethodContext context) {
+		return false;
+	}
+
+	/**
+	 * @return для {@link x590.newyava.decompilation.operation.other.FieldOperation FieldOperation}
+	 * возвращает {@code true}, если поле инициализировано.
+	 */
+	default boolean isFieldInitialized() {
+		return false;
 	}
 
 
